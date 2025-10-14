@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require("cors");
 const cron = require("node-cron");
 const cache = require("./src/cache/dataCache");
 const { scrapTabla } = require("./src/scrapers/tabla");
@@ -7,6 +8,8 @@ const { scrapGoleadores } = require("./src/scrapers/goleadores");
 const { scrapEquipos } = require("./src/scrapers/equipos");
 
 const app = express();
+
+app.use(cors());
 
 async function updateAllData() {
   console.log("🔄 Actualizando datos de Liga MX...");
