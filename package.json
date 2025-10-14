@@ -1,0 +1,14 @@
+{
+  "name": "ligamx-api",
+  "version": "1.0.0",
+  "description": "API scraping de la tabla de posiciones de la Liga MX",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "cheerio": "^1.0.0-rc.12",
+    "express": "^4.19.2"
+  }
+}
