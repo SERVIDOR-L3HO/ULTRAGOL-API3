@@ -35,7 +35,7 @@ app.get("/tabla", async (req, res) => {
   }
 });
 
-// Puerto dinámico (Render lo asigna automáticamente)
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Servidor activo en puerto ${PORT}`));
+// Puerto dinámico (Replit usa 5000)
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Servidor activo en puerto ${PORT}`));
       
