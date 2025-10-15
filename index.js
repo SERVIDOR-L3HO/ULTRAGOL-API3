@@ -6,6 +6,7 @@ const { scrapTabla } = require("./src/scrapers/tabla");
 const { scrapNoticias } = require("./src/scrapers/noticias");
 const { scrapGoleadores } = require("./src/scrapers/goleadores");
 const { scrapEquipos } = require("./src/scrapers/equipos");
+const { scrapLogos } = require("./src/scrapers/logos");
 
 const app = express();
 
@@ -15,17 +16,19 @@ async function updateAllData() {
   console.log("🔄 Actualizando datos de Liga MX...");
   
   try {
-    const [tabla, noticias, goleadores, equipos] = await Promise.all([
+    const [tabla, noticias, goleadores, equipos, logos] = await Promise.all([
       scrapTabla().catch(err => { console.error("Error en tabla:", err.message); return null; }),
       scrapNoticias().catch(err => { console.error("Error en noticias:", err.message); return null; }),
       scrapGoleadores().catch(err => { console.error("Error en goleadores:", err.message); return null; }),
-      scrapEquipos().catch(err => { console.error("Error en equipos:", err.message); return null; })
+      scrapEquipos().catch(err => { console.error("Error en equipos:", err.message); return null; }),
+      scrapLogos().catch(err => { console.error("Error en logos:", err.message); return null; })
     ]);
     
     if (tabla) cache.set("tabla", tabla);
     if (noticias) cache.set("noticias", noticias);
     if (goleadores) cache.set("goleadores", goleadores);
     if (equipos) cache.set("equipos", equipos);
+    if (logos) cache.set("logos", logos);
     
     console.log("✅ Datos actualizados exitosamente");
   } catch (error) {
@@ -150,19 +153,41 @@ app.get("/equipos", async (req, res) => {
   }
 });
 
+app.get("/logos", async (req, res) => {
+  try {
+    let data = cache.get("logos");
+    
+    if (!data) {
+      console.log("🎨 Obteniendo logos (caché vacío)...");
+      data = await scrapLogos();
+      cache.set("logos", data);
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /logos:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los logos",
+      detalles: error.message 
+    });
+  }
+});
+
 app.get("/todo", async (req, res) => {
   try {
     const tabla = cache.get("tabla") || await scrapTabla().catch(() => null);
     const noticias = cache.get("noticias") || await scrapNoticias().catch(() => null);
     const goleadores = cache.get("goleadores") || await scrapGoleadores().catch(() => null);
     const equipos = cache.get("equipos") || await scrapEquipos().catch(() => null);
+    const logos = cache.get("logos") || await scrapLogos().catch(() => null);
     
     res.json({
       actualizado: new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" }),
       tabla: tabla,
       noticias: noticias,
       goleadores: goleadores,
-      equipos: equipos
+      equipos: equipos,
+      logos: logos
     });
   } catch (error) {
     console.error("Error en /todo:", error.message);
