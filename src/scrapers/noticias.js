@@ -8,13 +8,22 @@ async function scrapNoticias() {
     const $ = cheerio.load(html);
     
     const noticias = [];
+    const fuente = "Mediotiempo";
     
     $("article.article-item, .nota, .noticia, article").slice(0, 15).each((i, article) => {
       const titulo = $(article).find("h2, h3, .title, .titular").first().text().trim();
       const descripcion = $(article).find("p, .description, .summary").first().text().trim();
       const enlace = $(article).find("a").first().attr("href");
-      const imagen = $(article).find("img").first().attr("src") || 
-                     $(article).find("img").first().attr("data-src");
+      
+      let imagen = $(article).find("img").first().attr("src") || 
+                   $(article).find("img").first().attr("data-src") ||
+                   $(article).find("img").first().attr("data-lazy-src");
+      
+      if (imagen && !imagen.startsWith("http")) {
+        imagen = imagen.startsWith("//") ? `https:${imagen}` : `https://www.mediotiempo.com${imagen}`;
+      }
+      
+      const textoCompleto = $(article).find("p").map((i, el) => $(el).text().trim()).get().join(" ").trim();
       
       if (titulo && enlace) {
         const urlCompleta = enlace.startsWith("http") ? enlace : `https://www.mediotiempo.com${enlace}`;
@@ -22,9 +31,12 @@ async function scrapNoticias() {
         noticias.push({
           titulo: titulo,
           descripcion: descripcion || "Sin descripción disponible",
+          texto: textoCompleto || descripcion || "Sin contenido disponible",
           url: urlCompleta,
-          imagen: imagen || null,
-          fecha: new Date().toLocaleDateString("es-MX")
+          imagen: imagen || "https://via.placeholder.com/600x400?text=Sin+Imagen",
+          fuente: fuente,
+          fecha: new Date().toLocaleDateString("es-MX"),
+          hora: new Date().toLocaleTimeString("es-MX", { hour: '2-digit', minute: '2-digit' })
         });
       }
     });
@@ -34,6 +46,12 @@ async function scrapNoticias() {
         const titulo = $(item).find("h2, h3, h4").first().text().trim();
         const descripcion = $(item).find("p").first().text().trim();
         const enlace = $(item).find("a").first().attr("href");
+        let imagen = $(item).find("img").first().attr("src") || 
+                     $(item).find("img").first().attr("data-src");
+        
+        if (imagen && !imagen.startsWith("http")) {
+          imagen = imagen.startsWith("//") ? `https:${imagen}` : `https://www.mediotiempo.com${imagen}`;
+        }
         
         if (titulo && enlace) {
           const urlCompleta = enlace.startsWith("http") ? enlace : `https://www.mediotiempo.com${enlace}`;
@@ -41,9 +59,12 @@ async function scrapNoticias() {
           noticias.push({
             titulo: titulo,
             descripcion: descripcion || "Sin descripción disponible",
+            texto: descripcion || "Sin contenido disponible",
             url: urlCompleta,
-            imagen: null,
-            fecha: new Date().toLocaleDateString("es-MX")
+            imagen: imagen || "https://via.placeholder.com/600x400?text=Sin+Imagen",
+            fuente: fuente,
+            fecha: new Date().toLocaleDateString("es-MX"),
+            hora: new Date().toLocaleTimeString("es-MX", { hour: '2-digit', minute: '2-digit' })
           });
         }
       });
@@ -52,6 +73,7 @@ async function scrapNoticias() {
     return {
       actualizado: new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" }),
       total: noticias.length,
+      fuente: fuente,
       noticias: noticias
     };
   } catch (error) {
