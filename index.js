@@ -171,7 +171,7 @@ app.get("/todo", async (req, res) => {
 
 updateAllData();
 
-cron.schedule("*/30 * * * *", () => {
+cron.schedule("0 */2 * * *", () => {
   console.log("⏰ Actualización programada iniciada");
   updateAllData();
 });
