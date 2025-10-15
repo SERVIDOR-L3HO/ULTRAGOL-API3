@@ -38,7 +38,7 @@ app.get("/", (req, res) => {
     nombre: "Liga MX API Profesional",
     version: "2.0.0",
     descripcion: "API con scraping en tiempo real de la Liga MX",
-    actualizacion: "Datos actualizados automáticamente cada 30 minutos",
+    actualizacion: "Datos actualizados automáticamente cada 2 horas",
     endpoints: {
       tabla: {
         url: "/tabla",
@@ -46,7 +46,7 @@ app.get("/", (req, res) => {
       },
       noticias: {
         url: "/noticias",
-        descripcion: "Últimas noticias de la Liga MX"
+        descripcion: "Últimas noticias de la Liga MX con imágenes, fuente y texto completo"
       },
       goleadores: {
         url: "/goleadores",
@@ -62,7 +62,7 @@ app.get("/", (req, res) => {
       }
     },
     estado: "✅ Activo",
-    proxima_actualizacion: "30 minutos"
+    proxima_actualizacion: "2 horas"
   });
 });
 
@@ -179,6 +179,6 @@ cron.schedule("0 */2 * * *", () => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Liga MX API Profesional activa en puerto ${PORT}`);
-  console.log(`📡 Actualizaciones automáticas cada 30 minutos`);
+  console.log(`📡 Actualizaciones automáticas cada 2 horas`);
   console.log(`🔗 Endpoints: /tabla, /noticias, /goleadores, /equipos, /todo`);
 });
