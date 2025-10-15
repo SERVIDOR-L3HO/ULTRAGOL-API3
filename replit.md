@@ -1,15 +1,16 @@
 # Liga MX API Profesional
 
 ## 📋 Descripción General
-API profesional de scraping en tiempo real para la Liga MX. Proporciona datos actualizados de tabla de posiciones, goleadores, noticias y equipos con actualización automática cada 30 minutos.
+API profesional de scraping en tiempo real para la Liga MX. Proporciona datos actualizados de tabla de posiciones, goleadores, noticias, equipos y logos con actualización automática cada 30 minutos.
 
 ## 🎯 Estado Actual
 - ✅ API completamente funcional
-- ✅ 5 endpoints operativos (/tabla, /noticias, /goleadores, /equipos, /todo)
+- ✅ 6 endpoints operativos (/tabla, /noticias, /goleadores, /equipos, /logos, /todo)
 - ✅ Sistema de caché implementado (30 min)
 - ✅ Actualización automática con node-cron
 - ✅ Técnicas anti-detección integradas
 - ✅ Datos reales de fuentes confiables
+- ✅ Endpoint de noticias mejorado con imágenes, fuente y texto completo
 
 ## 🏗️ Arquitectura del Proyecto
 
@@ -37,6 +38,19 @@ API profesional de scraping en tiempo real para la Liga MX. Proporciona datos ac
 
 ## 🔄 Cambios Recientes
 
+### 2025-10-15: Mejoras y Nuevo Endpoint v2.1
+- ✅ Endpoint de noticias mejorado:
+  - Imagen completa de cada noticia
+  - Fuente identificada (Mediotiempo)
+  - Texto completo del artículo
+  - Fecha y hora con formato mexicano
+- ✅ Nuevo endpoint /logos:
+  - Logos de todos los equipos de Liga MX
+  - 4 tamaños disponibles (pequeño, mediano, grande, normal)
+  - URLs de alta calidad desde ESPN CDN
+  - Ordenados alfabéticamente
+- ✅ Endpoint /todo actualizado con logos
+
 ### 2025-10-14: Implementación API Profesional v2.0
 - ✅ Reestructuración completa del proyecto
 - ✅ Sistema modular con separación de responsabilidades
@@ -63,10 +77,11 @@ API profesional de scraping en tiempo real para la Liga MX. Proporciona datos ac
 |----------|-------------|--------|-------|
 | `/` | Info de la API | N/A | Documentación |
 | `/tabla` | Tabla de posiciones | ESPN | 18 equipos con estadísticas |
-| `/noticias` | Noticias actuales | Mediotiempo | 15 noticias recientes |
+| `/noticias` | Noticias con imagen y texto | Mediotiempo | 15 noticias con imagen, fuente y texto |
 | `/goleadores` | Top goleadores | ESPN | 20 goleadores |
 | `/equipos` | Lista de equipos | ESPN | 18 equipos |
-| `/todo` | Todos los datos | Múltiple | Consolidado |
+| `/logos` | Logos de equipos | ESPN CDN | 18 equipos con logos en 4 tamaños |
+| `/todo` | Todos los datos | Múltiple | Consolidado (incluye logos) |
 
 ## 🎛️ Configuración
 
@@ -141,5 +156,5 @@ Los logs del servidor muestran:
 
 ---
 
-**Última actualización**: 2025-10-14
-**Versión**: 2.0.0
+**Última actualización**: 2025-10-15
+**Versión**: 2.1.0
