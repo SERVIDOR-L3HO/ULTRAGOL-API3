@@ -38,10 +38,16 @@ async function scrapCalendarioBundesliga() {
     
     const calendario = [];
     let fechaActual = "";
+    let jornada = 1;
     
     $(".ScheduleTables").children().each((index, element) => {
       if ($(element).hasClass("Table__Title")) {
         fechaActual = $(element).text().trim();
+        
+        const jornadaMatch = fechaActual.match(/Matchweek (\d+)/i);
+        if (jornadaMatch) {
+          jornada = parseInt(jornadaMatch[1]);
+        }
       } else if ($(element).hasClass("ResponsiveTable") || $(element).hasClass("Table")) {
         $(element).find("tbody tr").each((i, row) => {
           const equipoLocal = $(row).find("td").eq(0).find(".Table__Team a").last().text().trim();
@@ -53,6 +59,7 @@ async function scrapCalendarioBundesliga() {
             const contador = calcularContador(fechaPartido);
             
             calendario.push({
+              jornada: jornada,
               equipoLocal,
               equipoVisitante,
               fecha: fechaActual || "Zu bestätigen",
@@ -68,7 +75,7 @@ async function scrapCalendarioBundesliga() {
     return {
       actualizado: new Date().toLocaleString("de-DE", { timeZone: "Europe/Berlin" }),
       total: calendario.length,
-      calendario: calendario.slice(0, 10)
+      calendario: calendario
     };
   } catch (error) {
     console.error("Error scraping Bundesliga fixtures:", error.message);

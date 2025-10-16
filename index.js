@@ -133,6 +133,12 @@ app.get("/", (req, res) => {
         }
       }
     },
+    endpoints_especiales: {
+      todas_las_ligas: {
+        calendario: "/calendario/todas-las-ligas",
+        descripcion: "Calendario completo de todas las jornadas de todas las ligas con información detallada"
+      }
+    },
     estado: "✅ Activo",
     proxima_actualizacion: "30 minutos"
   });
@@ -604,6 +610,85 @@ app.get("/ligue1/calendario", async (req, res) => {
   } catch (error) {
     console.error("Error en /ligue1/calendario:", error.message);
     res.status(500).json({ error: "Impossible d'obtenir les prochains matchs de Ligue 1", detalles: error.message });
+  }
+});
+
+app.get("/calendario/todas-las-ligas", async (req, res) => {
+  try {
+    console.log("🌍 Obteniendo calendarios de todas las ligas...");
+    
+    const [ligaMx, premierLeague, laLiga, serieA, bundesliga, ligue1] = await Promise.all([
+      (cache.get("calendario") || scrapCalendario().catch(err => { console.error("Error Liga MX:", err.message); return null; })),
+      (cache.get("premier_calendario") || scrapCalendarioPremier().catch(err => { console.error("Error Premier:", err.message); return null; })),
+      (cache.get("laliga_calendario") || scrapCalendarioLaLiga().catch(err => { console.error("Error La Liga:", err.message); return null; })),
+      (cache.get("seriea_calendario") || scrapCalendarioSerieA().catch(err => { console.error("Error Serie A:", err.message); return null; })),
+      (cache.get("bundesliga_calendario") || scrapCalendarioBundesliga().catch(err => { console.error("Error Bundesliga:", err.message); return null; })),
+      (cache.get("ligue1_calendario") || scrapCalendarioLigue1().catch(err => { console.error("Error Ligue 1:", err.message); return null; }))
+    ]);
+
+    const todasLasLigas = {
+      actualizado: new Date().toISOString(),
+      totalLigas: 6,
+      ligas: [
+        {
+          nombre: "Liga MX",
+          pais: "México",
+          codigo: "ligamx",
+          totalPartidos: ligaMx?.total || 0,
+          calendario: ligaMx?.calendario || []
+        },
+        {
+          nombre: "Premier League",
+          pais: "Inglaterra",
+          codigo: "premier",
+          totalPartidos: premierLeague?.total || 0,
+          calendario: premierLeague?.calendario || []
+        },
+        {
+          nombre: "La Liga",
+          pais: "España",
+          codigo: "laliga",
+          totalPartidos: laLiga?.total || 0,
+          calendario: laLiga?.calendario || []
+        },
+        {
+          nombre: "Serie A",
+          pais: "Italia",
+          codigo: "seriea",
+          totalPartidos: serieA?.total || 0,
+          calendario: serieA?.calendario || []
+        },
+        {
+          nombre: "Bundesliga",
+          pais: "Alemania",
+          codigo: "bundesliga",
+          totalPartidos: bundesliga?.total || 0,
+          calendario: bundesliga?.calendario || []
+        },
+        {
+          nombre: "Ligue 1",
+          pais: "Francia",
+          codigo: "ligue1",
+          totalPartidos: ligue1?.total || 0,
+          calendario: ligue1?.calendario || []
+        }
+      ],
+      totalPartidos: 
+        (ligaMx?.total || 0) + 
+        (premierLeague?.total || 0) + 
+        (laLiga?.total || 0) + 
+        (serieA?.total || 0) + 
+        (bundesliga?.total || 0) + 
+        (ligue1?.total || 0)
+    };
+
+    res.json(todasLasLigas);
+  } catch (error) {
+    console.error("Error en /calendario/todas-las-ligas:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los calendarios",
+      detalles: error.message 
+    });
   }
 });
 

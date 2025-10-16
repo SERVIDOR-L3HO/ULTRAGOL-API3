@@ -38,10 +38,16 @@ async function scrapCalendarioLigue1() {
     
     const calendario = [];
     let fechaActual = "";
+    let jornada = 1;
     
     $(".ScheduleTables").children().each((index, element) => {
       if ($(element).hasClass("Table__Title")) {
         fechaActual = $(element).text().trim();
+        
+        const jornadaMatch = fechaActual.match(/Matchweek (\d+)/i);
+        if (jornadaMatch) {
+          jornada = parseInt(jornadaMatch[1]);
+        }
       } else if ($(element).hasClass("ResponsiveTable") || $(element).hasClass("Table")) {
         $(element).find("tbody tr").each((i, row) => {
           const equipoLocal = $(row).find("td").eq(0).find(".Table__Team a").last().text().trim();
@@ -53,6 +59,7 @@ async function scrapCalendarioLigue1() {
             const contador = calcularContador(fechaPartido);
             
             calendario.push({
+              jornada: jornada,
               equipoLocal,
               equipoVisitante,
               fecha: fechaActual || "À confirmer",
@@ -68,7 +75,7 @@ async function scrapCalendarioLigue1() {
     return {
       actualizado: new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" }),
       total: calendario.length,
-      calendario: calendario.slice(0, 10)
+      calendario: calendario
     };
   } catch (error) {
     console.error("Error scraping Ligue 1 fixtures:", error.message);
