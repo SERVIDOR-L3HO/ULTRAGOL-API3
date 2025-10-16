@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "python-3.11"]
+modules = ["nodejs-20"]
 [agent]
 expertMode = true
 integrations = ["youtube:1.0.0"]
@@ -41,6 +41,10 @@ externalPort = 4200
 [[ports]]
 localPort = 40509
 externalPort = 3001
+
+[[ports]]
+localPort = 41215
+externalPort = 5000
 
 [[ports]]
 localPort = 44111
