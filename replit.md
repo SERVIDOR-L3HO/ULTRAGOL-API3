@@ -15,7 +15,7 @@ The project is built on Node.js 20 with Express 4.21, designed for high performa
 *   **Anti-detection Mechanisms:** To prevent blocking, the API employs User-Agent rotation (Chrome, Firefox, Safari, Edge), realistic HTTP headers, random delays (1-3 seconds), exponential backoff for retries (up to 3 attempts), and rate limit handling (429 status codes).
 *   **Modular Scraper Architecture:** Scrapers are organized by league and data type (e.g., `src/scrapers/premier/tabla.js`), promoting reusability and maintainability.
 *   **Data Sources:** Data is aggregated from reliable sources like ESPN, BBC Sport, Mediotiempo, and FlashScore, including ESPN's hidden APIs for international league tables and top scorers.
-*   **Endpoint Design:** The API offers 28 operational endpoints across 6 leagues, including detailed calendar endpoints with matchday information and live countdowns for all supported leagues.
+*   **Endpoint Design:** The API offers 29 operational endpoints across 6 leagues, including detailed calendar endpoints with matchday information and live countdowns for all supported leagues. Includes a unified `/calendario/todas-las-ligas` endpoint that aggregates complete fixture data from all leagues with professional metadata.
 *   **Video Integration (Liga MX):** A dedicated endpoint scrapes YouTube for Liga MX highlight videos, providing comprehensive metadata without relying on the YouTube API quota.
 *   **Logo Integration (Liga MX):** Provides high-quality team logos in multiple sizes from ESPN's CDN.
 
@@ -26,6 +26,7 @@ The project is built on Node.js 20 with Express 4.21, designed for high performa
 *   **League Data:** Comprehensive standings, top scorers, and news for all supported leagues.
 *   **Liga MX Specifics:** Includes team lists, logos (4 sizes), and YouTube video highlights (up to 50 recent videos with metadata).
 *   **Calendar with Matchdays:** Provides detailed fixture lists, including matchday numbers, team names, dates, times, and a live countdown to each match for all leagues.
+*   **Unified Calendar Endpoint:** `/calendario/todas-las-ligas` provides a professional aggregated view of all fixtures across all 6 leagues with complete information (jornada, teams, dates, times, countdowns) and structured metadata (updated timestamp, total leagues, total matches per league).
 
 ## External Dependencies
 *   **Node.js 20:** JavaScript runtime environment.
