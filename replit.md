@@ -6,12 +6,13 @@ API profesional de scraping en tiempo real para múltiples ligas de fútbol. Pro
 ## 🎯 Estado Actual
 - ✅ API multi-liga completamente funcional
 - ✅ 6 ligas soportadas: Liga MX, Premier League, La Liga, Serie A, Bundesliga, Ligue 1
-- ✅ 22 endpoints operativos (7 para Liga MX + 15 para ligas internacionales)
+- ✅ 28 endpoints operativos (8 para Liga MX + 20 para ligas internacionales)
 - ✅ Sistema de caché dinámico implementado (30 min)
 - ✅ Actualización automática con node-cron
 - ✅ Técnicas anti-detección integradas
 - ✅ Datos reales de fuentes confiables (ESPN, BBC Sport, FlashScore)
 - ✅ Scrapers especializados por liga y tipo de dato
+- ✅ Endpoint de próximos partidos con contador de tiempo en todas las ligas
 
 ## 🏗️ Arquitectura del Proyecto
 
@@ -27,26 +28,32 @@ API profesional de scraping en tiempo real para múltiples ligas de fútbol. Pro
 │   │   ├── equipos.js          # Liga MX - Equipos (ESPN)
 │   │   ├── logos.js            # Liga MX - Logos (ESPN CDN)
 │   │   ├── videos.js           # Liga MX - Videos (YouTube)
+│   │   ├── partidos.js         # Liga MX - Próximos partidos con contador (ESPN)
 │   │   ├── premier/            # Premier League
 │   │   │   ├── tabla.js        # Tabla (ESPN Hidden API)
 │   │   │   ├── noticias.js     # Noticias (ESPN)
-│   │   │   └── goleadores.js   # Goleadores (ESPN Hidden API)
+│   │   │   ├── goleadores.js   # Goleadores (ESPN Hidden API)
+│   │   │   └── partidos.js     # Próximos partidos con contador (ESPN)
 │   │   ├── laliga/             # La Liga
 │   │   │   ├── tabla.js        # Tabla (ESPN Hidden API)
 │   │   │   ├── noticias.js     # Noticias (FlashScore)
-│   │   │   └── goleadores.js   # Goleadores (ESPN Hidden API)
+│   │   │   ├── goleadores.js   # Goleadores (ESPN Hidden API)
+│   │   │   └── partidos.js     # Próximos partidos con contador (ESPN)
 │   │   ├── seriea/             # Serie A
 │   │   │   ├── tabla.js        # Tabla (ESPN Hidden API)
 │   │   │   ├── noticias.js     # Noticias (ESPN)
-│   │   │   └── goleadores.js   # Goleadores (ESPN Hidden API)
+│   │   │   ├── goleadores.js   # Goleadores (ESPN Hidden API)
+│   │   │   └── partidos.js     # Próximos partidos con contador (ESPN)
 │   │   ├── bundesliga/         # Bundesliga
 │   │   │   ├── tabla.js        # Tabla (ESPN Hidden API)
 │   │   │   ├── noticias.js     # Noticias (ESPN)
-│   │   │   └── goleadores.js   # Goleadores (ESPN Hidden API)
+│   │   │   ├── goleadores.js   # Goleadores (ESPN Hidden API)
+│   │   │   └── partidos.js     # Próximos partidos con contador (ESPN)
 │   │   └── ligue1/             # Ligue 1
 │   │       ├── tabla.js        # Tabla (ESPN Hidden API)
 │   │       ├── noticias.js     # Noticias (ESPN)
-│   │       └── goleadores.js   # Goleadores (ESPN Hidden API)
+│   │       ├── goleadores.js   # Goleadores (ESPN Hidden API)
+│   │       └── partidos.js     # Próximos partidos con contador (ESPN)
 │   └── utils/scraper.js        # Utilidades anti-detección
 ├── package.json
 └── README.md
@@ -61,6 +68,27 @@ API profesional de scraping en tiempo real para múltiples ligas de fútbol. Pro
 - **googleapis** - Cliente de Google APIs (YouTube)
 
 ## 🔄 Cambios Recientes
+
+### 2025-10-16: Endpoint de Próximos Partidos v3.1
+- ✅ **Nuevos endpoints de próximos partidos para todas las ligas**:
+  - `/partidos` - Liga MX
+  - `/premier/partidos` - Premier League
+  - `/laliga/partidos` - La Liga
+  - `/seriea/partidos` - Serie A
+  - `/bundesliga/partidos` - Bundesliga
+  - `/ligue1/partidos` - Ligue 1
+- ✅ **Contador de tiempo en vivo**:
+  - Muestra días, horas, minutos y segundos hasta cada partido
+  - Actualización dinámica del tiempo restante
+  - Funciona correctamente para partidos del día actual
+- ✅ **Información completa de cada partido**:
+  - Equipos local y visitante
+  - Fecha del partido
+  - Hora del partido
+  - Fecha completa formateada
+  - Contador de tiempo con mensaje descriptivo
+- ✅ **Sistema de caché integrado** (30 min) para todos los endpoints
+- ⚠️ **Limitación conocida**: ESPN no proporciona fechas futuras en formato parseable en HTML, algunos partidos futuros aparecen con fecha "Por confirmar" o "TBC"
 
 ### 2025-10-16: Expansión Multi-Liga v3.0
 - ✅ **5 nuevas ligas internacionales agregadas**:
@@ -133,7 +161,7 @@ API profesional de scraping en tiempo real para múltiples ligas de fútbol. Pro
 
 ## 🚀 Endpoints Disponibles
 
-### Liga MX (7 endpoints)
+### Liga MX (8 endpoints)
 | Endpoint | Descripción | Fuente | Datos |
 |----------|-------------|--------|-------|
 | `/` | Info de la API | N/A | Documentación completa |
@@ -143,26 +171,32 @@ API profesional de scraping en tiempo real para múltiples ligas de fútbol. Pro
 | `/equipos` | Lista de equipos | ESPN | 18 equipos |
 | `/logos` | Logos de equipos | ESPN CDN | 18 equipos con logos en 4 tamaños |
 | `/videos` | Videos de YouTube | YouTube | Mejores momentos, resúmenes y repeticiones |
+| `/partidos` | Próximos partidos | ESPN | Partidos con contador de tiempo |
 | `/todo` | Todos los datos | Múltiple | Consolidado (incluye logos y videos) |
 
-### Ligas Internacionales (15 endpoints)
+### Ligas Internacionales (20 endpoints)
 | Endpoint | Descripción | Fuente | Datos |
 |----------|-------------|--------|-------|
 | `/premier/tabla` | Premier League tabla | ESPN API | 20 equipos con estadísticas |
 | `/premier/noticias` | Premier League noticias | ESPN | Noticias recientes |
 | `/premier/goleadores` | Premier League goleadores | ESPN API | Top 20 goleadores |
+| `/premier/partidos` | Premier League partidos | ESPN | Partidos con contador de tiempo |
 | `/laliga/tabla` | La Liga tabla | ESPN API | 20 equipos con estadísticas |
 | `/laliga/noticias` | La Liga noticias | FlashScore | Noticias recientes |
 | `/laliga/goleadores` | La Liga goleadores | ESPN API | Top 20 goleadores |
+| `/laliga/partidos` | La Liga partidos | ESPN | Partidos con contador de tiempo |
 | `/seriea/tabla` | Serie A tabla | ESPN API | 20 equipos con estadísticas |
 | `/seriea/noticias` | Serie A noticias | ESPN | Noticias recientes |
 | `/seriea/goleadores` | Serie A goleadores | ESPN API | Top 20 goleadores |
+| `/seriea/partidos` | Serie A partidos | ESPN | Partidos con contador de tiempo |
 | `/bundesliga/tabla` | Bundesliga tabla | ESPN API | 18 equipos con estadísticas |
 | `/bundesliga/noticias` | Bundesliga noticias | ESPN | Noticias recientes |
 | `/bundesliga/goleadores` | Bundesliga goleadores | ESPN API | Top 20 goleadores |
+| `/bundesliga/partidos` | Bundesliga partidos | ESPN | Partidos con contador de tiempo |
 | `/ligue1/tabla` | Ligue 1 tabla | ESPN API | 18 equipos con estadísticas |
 | `/ligue1/noticias` | Ligue 1 noticias | ESPN | Noticias recientes |
 | `/ligue1/goleadores` | Ligue 1 goleadores | ESPN API | Top 20 goleadores |
+| `/ligue1/partidos` | Ligue 1 partidos | ESPN | Partidos con contador de tiempo |
 
 ## 🎛️ Configuración
 
@@ -260,4 +294,4 @@ Los logs del servidor muestran:
 ---
 
 **Última actualización**: 2025-10-16
-**Versión**: 3.0.0
+**Versión**: 3.1.0
