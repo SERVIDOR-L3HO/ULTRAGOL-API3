@@ -12,7 +12,7 @@ function calcularContador(fechaPartido) {
       horas: 0,
       minutos: 0,
       segundos: 0,
-      mensaje: "Match en cours ou terminé"
+      mensaje: "Match in progress or finished"
     };
   }
 
@@ -26,22 +26,28 @@ function calcularContador(fechaPartido) {
     horas,
     minutos,
     segundos,
-    mensaje: `${dias}j ${horas}h ${minutos}m ${segundos}s`
+    mensaje: `${dias}d ${horas}h ${minutos}m ${segundos}s`
   };
 }
 
-async function scrapPartidosLigue1() {
+async function scrapCalendarioPremier() {
   try {
-    const url = "https://www.espn.com/soccer/schedule/_/league/fra.1";
+    const url = "https://www.espn.com/soccer/schedule/_/league/eng.1";
     const html = await fetchWithRetry(url);
     const $ = cheerio.load(html);
     
-    const partidos = [];
+    const calendario = [];
     let fechaActual = "";
+    let jornada = 1;
     
     $(".ScheduleTables").children().each((index, element) => {
       if ($(element).hasClass("Table__Title")) {
         fechaActual = $(element).text().trim();
+        
+        const jornadaMatch = fechaActual.match(/Matchweek (\d+)/i);
+        if (jornadaMatch) {
+          jornada = parseInt(jornadaMatch[1]);
+        }
       } else if ($(element).hasClass("ResponsiveTable") || $(element).hasClass("Table")) {
         $(element).find("tbody tr").each((i, row) => {
           const equipoLocal = $(row).find("td").eq(0).find(".Table__Team a").last().text().trim();
@@ -49,15 +55,16 @@ async function scrapPartidosLigue1() {
           const horaTexto = $(row).find("td").eq(2).text().trim();
           
           if (equipoLocal && equipoVisitante && horaTexto) {
-            let fechaPartido = parseFechaHora(fechaActual, horaTexto, "Europe/Paris");
+            let fechaPartido = parseFechaHora(fechaActual, horaTexto, "Europe/London");
             const contador = calcularContador(fechaPartido);
             
-            partidos.push({
+            calendario.push({
+              jornada: jornada,
               equipoLocal,
               equipoVisitante,
-              fecha: fechaActual || "À confirmer",
+              fecha: fechaActual || "TBC",
               hora: horaTexto,
-              fechaCompleta: fechaPartido.toLocaleString("fr-FR", { timeZone: "Europe/Paris" }),
+              fechaCompleta: fechaPartido.toLocaleString("en-GB", { timeZone: "Europe/London" }),
               contador: contador
             });
           }
@@ -66,12 +73,12 @@ async function scrapPartidosLigue1() {
     });
 
     return {
-      actualizado: new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" }),
-      total: partidos.length,
-      partidos: partidos.slice(0, 10)
+      actualizado: new Date().toLocaleString("en-GB", { timeZone: "Europe/London" }),
+      total: calendario.length,
+      calendario: calendario
     };
   } catch (error) {
-    console.error("Error scraping Ligue 1 fixtures:", error.message);
+    console.error("Error scraping Premier League fixtures:", error.message);
     throw error;
   }
 }
@@ -121,4 +128,4 @@ function convertirHora12a24(hora12) {
   return `${horas.toString().padStart(2, '0')}:${minutos}`;
 }
 
-module.exports = { scrapPartidosLigue1 };
+module.exports = { scrapCalendarioPremier };

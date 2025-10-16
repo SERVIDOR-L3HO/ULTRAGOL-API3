@@ -12,7 +12,7 @@ function calcularContador(fechaPartido) {
       horas: 0,
       minutos: 0,
       segundos: 0,
-      mensaje: "Partido en curso o finalizado"
+      mensaje: "Match en cours ou terminé"
     };
   }
 
@@ -26,17 +26,17 @@ function calcularContador(fechaPartido) {
     horas,
     minutos,
     segundos,
-    mensaje: `${dias}d ${horas}h ${minutos}m ${segundos}s`
+    mensaje: `${dias}j ${horas}h ${minutos}m ${segundos}s`
   };
 }
 
-async function scrapPartidosLaLiga() {
+async function scrapCalendarioLigue1() {
   try {
-    const url = "https://www.espn.com/soccer/schedule/_/league/esp.1";
+    const url = "https://www.espn.com/soccer/schedule/_/league/fra.1";
     const html = await fetchWithRetry(url);
     const $ = cheerio.load(html);
     
-    const partidos = [];
+    const calendario = [];
     let fechaActual = "";
     
     $(".ScheduleTables").children().each((index, element) => {
@@ -49,15 +49,15 @@ async function scrapPartidosLaLiga() {
           const horaTexto = $(row).find("td").eq(2).text().trim();
           
           if (equipoLocal && equipoVisitante && horaTexto) {
-            let fechaPartido = parseFechaHora(fechaActual, horaTexto, "Europe/Madrid");
+            let fechaPartido = parseFechaHora(fechaActual, horaTexto, "Europe/Paris");
             const contador = calcularContador(fechaPartido);
             
-            partidos.push({
+            calendario.push({
               equipoLocal,
               equipoVisitante,
-              fecha: fechaActual || "Por confirmar",
+              fecha: fechaActual || "À confirmer",
               hora: horaTexto,
-              fechaCompleta: fechaPartido.toLocaleString("es-ES", { timeZone: "Europe/Madrid" }),
+              fechaCompleta: fechaPartido.toLocaleString("fr-FR", { timeZone: "Europe/Paris" }),
               contador: contador
             });
           }
@@ -66,12 +66,12 @@ async function scrapPartidosLaLiga() {
     });
 
     return {
-      actualizado: new Date().toLocaleString("es-ES", { timeZone: "Europe/Madrid" }),
-      total: partidos.length,
-      partidos: partidos.slice(0, 10)
+      actualizado: new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" }),
+      total: calendario.length,
+      calendario: calendario.slice(0, 10)
     };
   } catch (error) {
-    console.error("Error scraping La Liga fixtures:", error.message);
+    console.error("Error scraping Ligue 1 fixtures:", error.message);
     throw error;
   }
 }
@@ -121,4 +121,4 @@ function convertirHora12a24(hora12) {
   return `${horas.toString().padStart(2, '0')}:${minutos}`;
 }
 
-module.exports = { scrapPartidosLaLiga };
+module.exports = { scrapCalendarioLigue1 };

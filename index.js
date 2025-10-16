@@ -8,32 +8,32 @@ const { scrapGoleadores } = require("./src/scrapers/goleadores");
 const { scrapEquipos } = require("./src/scrapers/equipos");
 const { scrapLogos } = require("./src/scrapers/logos");
 const { scrapVideos } = require("./src/scrapers/videos");
-const { scrapPartidos } = require("./src/scrapers/partidos");
+const { scrapCalendario } = require("./src/scrapers/calendario");
 
 const { scrapTablaPremier } = require("./src/scrapers/premier/tabla");
 const { scrapNoticiasPremier } = require("./src/scrapers/premier/noticias");
 const { scrapGoleadoresPremier } = require("./src/scrapers/premier/goleadores");
-const { scrapPartidosPremier } = require("./src/scrapers/premier/partidos");
+const { scrapCalendarioPremier } = require("./src/scrapers/premier/calendario");
 
 const { scrapTablaLaLiga } = require("./src/scrapers/laliga/tabla");
 const { scrapNoticiasLaLiga } = require("./src/scrapers/laliga/noticias");
 const { scrapGoleadoresLaLiga } = require("./src/scrapers/laliga/goleadores");
-const { scrapPartidosLaLiga } = require("./src/scrapers/laliga/partidos");
+const { scrapCalendarioLaLiga } = require("./src/scrapers/laliga/calendario");
 
 const { scrapTablaSerieA } = require("./src/scrapers/seriea/tabla");
 const { scrapNoticiasSerieA } = require("./src/scrapers/seriea/noticias");
 const { scrapGoleadoresSerieA } = require("./src/scrapers/seriea/goleadores");
-const { scrapPartidosSerieA } = require("./src/scrapers/seriea/partidos");
+const { scrapCalendarioSerieA } = require("./src/scrapers/seriea/calendario");
 
 const { scrapTablaBundesliga } = require("./src/scrapers/bundesliga/tabla");
 const { scrapNoticiasBundesliga } = require("./src/scrapers/bundesliga/noticias");
 const { scrapGoleadoresBundesliga } = require("./src/scrapers/bundesliga/goleadores");
-const { scrapPartidosBundesliga } = require("./src/scrapers/bundesliga/partidos");
+const { scrapCalendarioBundesliga } = require("./src/scrapers/bundesliga/calendario");
 
 const { scrapTablaLigue1 } = require("./src/scrapers/ligue1/tabla");
 const { scrapNoticiasLigue1 } = require("./src/scrapers/ligue1/noticias");
 const { scrapGoleadoresLigue1 } = require("./src/scrapers/ligue1/goleadores");
-const { scrapPartidosLigue1 } = require("./src/scrapers/ligue1/partidos");
+const { scrapCalendarioLigue1 } = require("./src/scrapers/ligue1/calendario");
 
 const app = express();
 
@@ -43,14 +43,14 @@ async function updateAllData() {
   console.log("🔄 Actualizando datos de Liga MX...");
   
   try {
-    const [tabla, noticias, goleadores, equipos, logos, videos, partidos] = await Promise.all([
+    const [tabla, noticias, goleadores, equipos, logos, videos, calendario] = await Promise.all([
       scrapTabla().catch(err => { console.error("Error en tabla:", err.message); return null; }),
       scrapNoticias().catch(err => { console.error("Error en noticias:", err.message); return null; }),
       scrapGoleadores().catch(err => { console.error("Error en goleadores:", err.message); return null; }),
       scrapEquipos().catch(err => { console.error("Error en equipos:", err.message); return null; }),
       scrapLogos().catch(err => { console.error("Error en logos:", err.message); return null; }),
       scrapVideos().catch(err => { console.error("Error en videos:", err.message); return null; }),
-      scrapPartidos().catch(err => { console.error("Error en partidos:", err.message); return null; })
+      scrapCalendario().catch(err => { console.error("Error en calendario:", err.message); return null; })
     ]);
     
     if (tabla) cache.set("tabla", tabla);
@@ -59,7 +59,7 @@ async function updateAllData() {
     if (equipos) cache.set("equipos", equipos);
     if (logos) cache.set("logos", logos);
     if (videos) cache.set("videos", videos);
-    if (partidos) cache.set("partidos", partidos);
+    if (calendario) cache.set("calendario", calendario);
     
     console.log("✅ Datos actualizados exitosamente");
   } catch (error) {
@@ -83,7 +83,7 @@ app.get("/", (req, res) => {
           equipos: "/equipos",
           logos: "/logos",
           videos: "/videos",
-          partidos: "/partidos",
+          calendario: "/calendario",
           todo: "/todo"
         }
       },
@@ -93,7 +93,7 @@ app.get("/", (req, res) => {
           tabla: "/premier/tabla",
           noticias: "/premier/noticias",
           goleadores: "/premier/goleadores",
-          partidos: "/premier/partidos"
+          calendario: "/premier/calendario"
         }
       },
       laLiga: {
@@ -102,7 +102,7 @@ app.get("/", (req, res) => {
           tabla: "/laliga/tabla",
           noticias: "/laliga/noticias",
           goleadores: "/laliga/goleadores",
-          partidos: "/laliga/partidos"
+          calendario: "/laliga/calendario"
         }
       },
       serieA: {
@@ -111,7 +111,7 @@ app.get("/", (req, res) => {
           tabla: "/seriea/tabla",
           noticias: "/seriea/noticias",
           goleadores: "/seriea/goleadores",
-          partidos: "/seriea/partidos"
+          calendario: "/seriea/calendario"
         }
       },
       bundesliga: {
@@ -120,7 +120,7 @@ app.get("/", (req, res) => {
           tabla: "/bundesliga/tabla",
           noticias: "/bundesliga/noticias",
           goleadores: "/bundesliga/goleadores",
-          partidos: "/bundesliga/partidos"
+          calendario: "/bundesliga/calendario"
         }
       },
       ligue1: {
@@ -129,7 +129,7 @@ app.get("/", (req, res) => {
           tabla: "/ligue1/tabla",
           noticias: "/ligue1/noticias",
           goleadores: "/ligue1/goleadores",
-          partidos: "/ligue1/partidos"
+          calendario: "/ligue1/calendario"
         }
       }
     },
@@ -258,21 +258,21 @@ app.get("/videos", async (req, res) => {
   }
 });
 
-app.get("/partidos", async (req, res) => {
+app.get("/calendario", async (req, res) => {
   try {
-    let data = cache.get("partidos");
+    let data = cache.get("calendario");
     
     if (!data) {
-      console.log("📅 Obteniendo próximos partidos (caché vacío)...");
-      data = await scrapPartidos();
-      cache.set("partidos", data);
+      console.log("📅 Obteniendo calendario (caché vacío)...");
+      data = await scrapCalendario();
+      cache.set("calendario", data);
     }
     
     res.json(data);
   } catch (error) {
-    console.error("Error en /partidos:", error.message);
+    console.error("Error en /calendario:", error.message);
     res.status(500).json({ 
-      error: "No se pudieron obtener los próximos partidos",
+      error: "No se pudieron obtener los calendario",
       detalles: error.message 
     });
   }
@@ -286,7 +286,7 @@ app.get("/todo", async (req, res) => {
     const equipos = cache.get("equipos") || await scrapEquipos().catch(() => null);
     const logos = cache.get("logos") || await scrapLogos().catch(() => null);
     const videos = cache.get("videos") || await scrapVideos().catch(() => null);
-    const partidos = cache.get("partidos") || await scrapPartidos().catch(() => null);
+    const calendario = cache.get("calendario") || await scrapCalendario().catch(() => null);
     
     res.json({
       actualizado: new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" }),
@@ -296,7 +296,7 @@ app.get("/todo", async (req, res) => {
       equipos: equipos,
       logos: logos,
       videos: videos,
-      partidos: partidos
+      calendario: calendario
     });
   } catch (error) {
     console.error("Error en /todo:", error.message);
@@ -352,17 +352,17 @@ app.get("/premier/goleadores", async (req, res) => {
   }
 });
 
-app.get("/premier/partidos", async (req, res) => {
+app.get("/premier/calendario", async (req, res) => {
   try {
-    let data = cache.get("premier_partidos");
+    let data = cache.get("premier_calendario");
     if (!data) {
-      console.log("📅 Obteniendo próximos partidos Premier League...");
-      data = await scrapPartidosPremier();
-      cache.set("premier_partidos", data);
+      console.log("📅 Obteniendo calendario Premier League...");
+      data = await scrapCalendarioPremier();
+      cache.set("premier_calendario", data);
     }
     res.json(data);
   } catch (error) {
-    console.error("Error en /premier/partidos:", error.message);
+    console.error("Error en /premier/calendario:", error.message);
     res.status(500).json({ error: "Could not fetch Premier League fixtures", detalles: error.message });
   }
 });
@@ -412,18 +412,18 @@ app.get("/laliga/goleadores", async (req, res) => {
   }
 });
 
-app.get("/laliga/partidos", async (req, res) => {
+app.get("/laliga/calendario", async (req, res) => {
   try {
-    let data = cache.get("laliga_partidos");
+    let data = cache.get("laliga_calendario");
     if (!data) {
-      console.log("📅 Obteniendo próximos partidos La Liga...");
-      data = await scrapPartidosLaLiga();
-      cache.set("laliga_partidos", data);
+      console.log("📅 Obteniendo calendario La Liga...");
+      data = await scrapCalendarioLaLiga();
+      cache.set("laliga_calendario", data);
     }
     res.json(data);
   } catch (error) {
-    console.error("Error en /laliga/partidos:", error.message);
-    res.status(500).json({ error: "No se pudieron obtener los próximos partidos de La Liga", detalles: error.message });
+    console.error("Error en /laliga/calendario:", error.message);
+    res.status(500).json({ error: "No se pudieron obtener los calendario de La Liga", detalles: error.message });
   }
 });
 
@@ -472,17 +472,17 @@ app.get("/seriea/goleadores", async (req, res) => {
   }
 });
 
-app.get("/seriea/partidos", async (req, res) => {
+app.get("/seriea/calendario", async (req, res) => {
   try {
-    let data = cache.get("seriea_partidos");
+    let data = cache.get("seriea_calendario");
     if (!data) {
-      console.log("📅 Obteniendo próximos partidos Serie A...");
-      data = await scrapPartidosSerieA();
-      cache.set("seriea_partidos", data);
+      console.log("📅 Obteniendo calendario Serie A...");
+      data = await scrapCalendarioSerieA();
+      cache.set("seriea_calendario", data);
     }
     res.json(data);
   } catch (error) {
-    console.error("Error en /seriea/partidos:", error.message);
+    console.error("Error en /seriea/calendario:", error.message);
     res.status(500).json({ error: "Impossibile ottenere le prossime partite di Serie A", detalles: error.message });
   }
 });
@@ -532,17 +532,17 @@ app.get("/bundesliga/goleadores", async (req, res) => {
   }
 });
 
-app.get("/bundesliga/partidos", async (req, res) => {
+app.get("/bundesliga/calendario", async (req, res) => {
   try {
-    let data = cache.get("bundesliga_partidos");
+    let data = cache.get("bundesliga_calendario");
     if (!data) {
-      console.log("📅 Obteniendo próximos partidos Bundesliga...");
-      data = await scrapPartidosBundesliga();
-      cache.set("bundesliga_partidos", data);
+      console.log("📅 Obteniendo calendario Bundesliga...");
+      data = await scrapCalendarioBundesliga();
+      cache.set("bundesliga_calendario", data);
     }
     res.json(data);
   } catch (error) {
-    console.error("Error en /bundesliga/partidos:", error.message);
+    console.error("Error en /bundesliga/calendario:", error.message);
     res.status(500).json({ error: "Bundesliga-Spielplan konnte nicht abgerufen werden", detalles: error.message });
   }
 });
@@ -592,17 +592,17 @@ app.get("/ligue1/goleadores", async (req, res) => {
   }
 });
 
-app.get("/ligue1/partidos", async (req, res) => {
+app.get("/ligue1/calendario", async (req, res) => {
   try {
-    let data = cache.get("ligue1_partidos");
+    let data = cache.get("ligue1_calendario");
     if (!data) {
-      console.log("📅 Obteniendo próximos partidos Ligue 1...");
-      data = await scrapPartidosLigue1();
-      cache.set("ligue1_partidos", data);
+      console.log("📅 Obteniendo calendario Ligue 1...");
+      data = await scrapCalendarioLigue1();
+      cache.set("ligue1_calendario", data);
     }
     res.json(data);
   } catch (error) {
-    console.error("Error en /ligue1/partidos:", error.message);
+    console.error("Error en /ligue1/calendario:", error.message);
     res.status(500).json({ error: "Impossible d'obtenir les prochains matchs de Ligue 1", detalles: error.message });
   }
 });

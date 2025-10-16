@@ -12,7 +12,7 @@ function calcularContador(fechaPartido) {
       horas: 0,
       minutos: 0,
       segundos: 0,
-      mensaje: "Spiel läuft oder beendet"
+      mensaje: "Partita in corso o terminata"
     };
   }
 
@@ -26,17 +26,17 @@ function calcularContador(fechaPartido) {
     horas,
     minutos,
     segundos,
-    mensaje: `${dias}T ${horas}h ${minutos}m ${segundos}s`
+    mensaje: `${dias}g ${horas}h ${minutos}m ${segundos}s`
   };
 }
 
-async function scrapPartidosBundesliga() {
+async function scrapCalendarioSerieA() {
   try {
-    const url = "https://www.espn.com/soccer/schedule/_/league/ger.1";
+    const url = "https://www.espn.com/soccer/schedule/_/league/ita.1";
     const html = await fetchWithRetry(url);
     const $ = cheerio.load(html);
     
-    const partidos = [];
+    const calendario = [];
     let fechaActual = "";
     
     $(".ScheduleTables").children().each((index, element) => {
@@ -49,15 +49,15 @@ async function scrapPartidosBundesliga() {
           const horaTexto = $(row).find("td").eq(2).text().trim();
           
           if (equipoLocal && equipoVisitante && horaTexto) {
-            let fechaPartido = parseFechaHora(fechaActual, horaTexto, "Europe/Berlin");
+            let fechaPartido = parseFechaHora(fechaActual, horaTexto, "Europe/Rome");
             const contador = calcularContador(fechaPartido);
             
-            partidos.push({
+            calendario.push({
               equipoLocal,
               equipoVisitante,
-              fecha: fechaActual || "Zu bestätigen",
+              fecha: fechaActual || "Da confermare",
               hora: horaTexto,
-              fechaCompleta: fechaPartido.toLocaleString("de-DE", { timeZone: "Europe/Berlin" }),
+              fechaCompleta: fechaPartido.toLocaleString("it-IT", { timeZone: "Europe/Rome" }),
               contador: contador
             });
           }
@@ -66,12 +66,12 @@ async function scrapPartidosBundesliga() {
     });
 
     return {
-      actualizado: new Date().toLocaleString("de-DE", { timeZone: "Europe/Berlin" }),
-      total: partidos.length,
-      partidos: partidos.slice(0, 10)
+      actualizado: new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome" }),
+      total: calendario.length,
+      calendario: calendario.slice(0, 10)
     };
   } catch (error) {
-    console.error("Error scraping Bundesliga fixtures:", error.message);
+    console.error("Error scraping Serie A fixtures:", error.message);
     throw error;
   }
 }
@@ -121,4 +121,4 @@ function convertirHora12a24(hora12) {
   return `${horas.toString().padStart(2, '0')}:${minutos}`;
 }
 
-module.exports = { scrapPartidosBundesliga };
+module.exports = { scrapCalendarioSerieA };

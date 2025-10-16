@@ -1,5 +1,5 @@
 const cheerio = require("cheerio");
-const { fetchWithRetry } = require("../../utils/scraper");
+const { fetchWithRetry } = require("../utils/scraper");
 
 function calcularContador(fechaPartido) {
   const ahora = new Date();
@@ -12,7 +12,7 @@ function calcularContador(fechaPartido) {
       horas: 0,
       minutos: 0,
       segundos: 0,
-      mensaje: "Partita in corso o terminata"
+      mensaje: "Partido en curso o finalizado"
     };
   }
 
@@ -26,22 +26,28 @@ function calcularContador(fechaPartido) {
     horas,
     minutos,
     segundos,
-    mensaje: `${dias}g ${horas}h ${minutos}m ${segundos}s`
+    mensaje: `${dias}d ${horas}h ${minutos}m ${segundos}s`
   };
 }
 
-async function scrapPartidosSerieA() {
+async function scrapCalendario() {
   try {
-    const url = "https://www.espn.com/soccer/schedule/_/league/ita.1";
+    const url = "https://www.espn.com.mx/futbol/calendario/_/liga/mex.1";
     const html = await fetchWithRetry(url);
     const $ = cheerio.load(html);
     
-    const partidos = [];
+    const calendario = [];
     let fechaActual = "";
+    let jornada = 1;
     
     $(".ScheduleTables").children().each((index, element) => {
       if ($(element).hasClass("Table__Title")) {
         fechaActual = $(element).text().trim();
+        
+        const jornadaMatch = fechaActual.match(/Jornada (\d+)/i);
+        if (jornadaMatch) {
+          jornada = parseInt(jornadaMatch[1]);
+        }
       } else if ($(element).hasClass("ResponsiveTable") || $(element).hasClass("Table")) {
         $(element).find("tbody tr").each((i, row) => {
           const equipoLocal = $(row).find("td").eq(0).find(".Table__Team a").last().text().trim();
@@ -49,15 +55,16 @@ async function scrapPartidosSerieA() {
           const horaTexto = $(row).find("td").eq(2).text().trim();
           
           if (equipoLocal && equipoVisitante && horaTexto) {
-            let fechaPartido = parseFechaHora(fechaActual, horaTexto, "Europe/Rome");
+            let fechaPartido = parseFechaHora(fechaActual, horaTexto, "America/Mexico_City");
             const contador = calcularContador(fechaPartido);
             
-            partidos.push({
+            calendario.push({
+              jornada: jornada,
               equipoLocal,
               equipoVisitante,
-              fecha: fechaActual || "Da confermare",
+              fecha: fechaActual || "Por confirmar",
               hora: horaTexto,
-              fechaCompleta: fechaPartido.toLocaleString("it-IT", { timeZone: "Europe/Rome" }),
+              fechaCompleta: fechaPartido.toLocaleString("es-MX", { timeZone: "America/Mexico_City" }),
               contador: contador
             });
           }
@@ -66,12 +73,12 @@ async function scrapPartidosSerieA() {
     });
 
     return {
-      actualizado: new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome" }),
-      total: partidos.length,
-      partidos: partidos.slice(0, 10)
+      actualizado: new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" }),
+      total: calendario.length,
+      calendario: calendario
     };
   } catch (error) {
-    console.error("Error scraping Serie A fixtures:", error.message);
+    console.error("Error scraping calendario:", error.message);
     throw error;
   }
 }
@@ -121,4 +128,4 @@ function convertirHora12a24(hora12) {
   return `${horas.toString().padStart(2, '0')}:${minutos}`;
 }
 
-module.exports = { scrapPartidosSerieA };
+module.exports = { scrapCalendario };
