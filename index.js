@@ -7,6 +7,7 @@ const { scrapNoticias } = require("./src/scrapers/noticias");
 const { scrapGoleadores } = require("./src/scrapers/goleadores");
 const { scrapEquipos } = require("./src/scrapers/equipos");
 const { scrapLogos } = require("./src/scrapers/logos");
+const { scrapVideos } = require("./src/scrapers/videos");
 
 const app = express();
 
@@ -16,12 +17,13 @@ async function updateAllData() {
   console.log("🔄 Actualizando datos de Liga MX...");
   
   try {
-    const [tabla, noticias, goleadores, equipos, logos] = await Promise.all([
+    const [tabla, noticias, goleadores, equipos, logos, videos] = await Promise.all([
       scrapTabla().catch(err => { console.error("Error en tabla:", err.message); return null; }),
       scrapNoticias().catch(err => { console.error("Error en noticias:", err.message); return null; }),
       scrapGoleadores().catch(err => { console.error("Error en goleadores:", err.message); return null; }),
       scrapEquipos().catch(err => { console.error("Error en equipos:", err.message); return null; }),
-      scrapLogos().catch(err => { console.error("Error en logos:", err.message); return null; })
+      scrapLogos().catch(err => { console.error("Error en logos:", err.message); return null; }),
+      scrapVideos().catch(err => { console.error("Error en videos:", err.message); return null; })
     ]);
     
     if (tabla) cache.set("tabla", tabla);
@@ -29,6 +31,7 @@ async function updateAllData() {
     if (goleadores) cache.set("goleadores", goleadores);
     if (equipos) cache.set("equipos", equipos);
     if (logos) cache.set("logos", logos);
+    if (videos) cache.set("videos", videos);
     
     console.log("✅ Datos actualizados exitosamente");
   } catch (error) {
@@ -62,6 +65,10 @@ app.get("/", (req, res) => {
       logos: {
         url: "/logos",
         descripcion: "Logos y escudos de todos los equipos de la Liga MX"
+      },
+      videos: {
+        url: "/videos",
+        descripcion: "Videos de YouTube: mejores momentos, resúmenes y repeticiones de la Liga MX"
       },
       todo: {
         url: "/todo",
@@ -173,6 +180,26 @@ app.get("/logos", async (req, res) => {
   }
 });
 
+app.get("/videos", async (req, res) => {
+  try {
+    let data = cache.get("videos");
+    
+    if (!data) {
+      console.log("🎬 Obteniendo videos de YouTube (caché vacío)...");
+      data = await scrapVideos();
+      cache.set("videos", data);
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /videos:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los videos",
+      detalles: error.message 
+    });
+  }
+});
+
 app.get("/todo", async (req, res) => {
   try {
     const tabla = cache.get("tabla") || await scrapTabla().catch(() => null);
@@ -180,6 +207,7 @@ app.get("/todo", async (req, res) => {
     const goleadores = cache.get("goleadores") || await scrapGoleadores().catch(() => null);
     const equipos = cache.get("equipos") || await scrapEquipos().catch(() => null);
     const logos = cache.get("logos") || await scrapLogos().catch(() => null);
+    const videos = cache.get("videos") || await scrapVideos().catch(() => null);
     
     res.json({
       actualizado: new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" }),
@@ -187,7 +215,8 @@ app.get("/todo", async (req, res) => {
       noticias: noticias,
       goleadores: goleadores,
       equipos: equipos,
-      logos: logos
+      logos: logos,
+      videos: videos
     });
   } catch (error) {
     console.error("Error en /todo:", error.message);
@@ -209,5 +238,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Liga MX API Profesional activa en puerto ${PORT}`);
   console.log(`📡 Actualizaciones automáticas cada 30 minutos`);
-  console.log(`🔗 Endpoints: /tabla, /noticias, /goleadores, /equipos, /logos, /todo`);
+  console.log(`🔗 Endpoints: /tabla, /noticias, /goleadores, /equipos, /logos, /videos, /todo`);
 });
