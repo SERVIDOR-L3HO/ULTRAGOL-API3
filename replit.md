@@ -1,17 +1,17 @@
-# Liga MX API Profesional
+# Multi-League Football API
 
 ## 📋 Descripción General
-API profesional de scraping en tiempo real para la Liga MX. Proporciona datos actualizados de tabla de posiciones, goleadores, noticias, equipos, logos y videos de YouTube con actualización automática cada 30 minutos.
+API profesional de scraping en tiempo real para múltiples ligas de fútbol. Proporciona datos actualizados de tabla de posiciones, goleadores y noticias para Liga MX, Premier League, La Liga, Serie A, Bundesliga y Ligue 1. Incluye además equipos, logos y videos de YouTube para Liga MX, con actualización automática cada 30 minutos.
 
 ## 🎯 Estado Actual
-- ✅ API completamente funcional
-- ✅ 7 endpoints operativos (/tabla, /noticias, /goleadores, /equipos, /logos, /videos, /todo)
-- ✅ Sistema de caché implementado (30 min)
+- ✅ API multi-liga completamente funcional
+- ✅ 6 ligas soportadas: Liga MX, Premier League, La Liga, Serie A, Bundesliga, Ligue 1
+- ✅ 22 endpoints operativos (7 para Liga MX + 15 para ligas internacionales)
+- ✅ Sistema de caché dinámico implementado (30 min)
 - ✅ Actualización automática con node-cron
 - ✅ Técnicas anti-detección integradas
-- ✅ Datos reales de fuentes confiables
-- ✅ Endpoint de noticias mejorado con imágenes, fuente y texto completo
-- ✅ Endpoint de videos de YouTube con mejores momentos, resúmenes y repeticiones
+- ✅ Datos reales de fuentes confiables (ESPN, BBC Sport, FlashScore)
+- ✅ Scrapers especializados por liga y tipo de dato
 
 ## 🏗️ Arquitectura del Proyecto
 
@@ -19,14 +19,34 @@ API profesional de scraping en tiempo real para la Liga MX. Proporciona datos ac
 ```
 ├── index.js                    # Servidor Express principal
 ├── src/
-│   ├── cache/dataCache.js      # Sistema de caché en memoria
+│   ├── cache/dataCache.js      # Sistema de caché dinámico en memoria
 │   ├── scrapers/               # Módulos de scraping
-│   │   ├── tabla.js            # Scraping tabla de posiciones (ESPN)
-│   │   ├── noticias.js         # Scraping noticias (Mediotiempo)
-│   │   ├── goleadores.js       # Scraping goleadores (ESPN)
-│   │   ├── equipos.js          # Scraping equipos (ESPN)
-│   │   ├── logos.js            # Scraping logos (ESPN CDN)
-│   │   └── videos.js           # Scraping videos (YouTube)
+│   │   ├── tabla.js            # Liga MX - Tabla de posiciones (ESPN)
+│   │   ├── noticias.js         # Liga MX - Noticias (Mediotiempo)
+│   │   ├── goleadores.js       # Liga MX - Goleadores (ESPN)
+│   │   ├── equipos.js          # Liga MX - Equipos (ESPN)
+│   │   ├── logos.js            # Liga MX - Logos (ESPN CDN)
+│   │   ├── videos.js           # Liga MX - Videos (YouTube)
+│   │   ├── premier/            # Premier League
+│   │   │   ├── tabla.js        # Tabla (ESPN Hidden API)
+│   │   │   ├── noticias.js     # Noticias (ESPN)
+│   │   │   └── goleadores.js   # Goleadores (ESPN Hidden API)
+│   │   ├── laliga/             # La Liga
+│   │   │   ├── tabla.js        # Tabla (ESPN Hidden API)
+│   │   │   ├── noticias.js     # Noticias (FlashScore)
+│   │   │   └── goleadores.js   # Goleadores (ESPN Hidden API)
+│   │   ├── seriea/             # Serie A
+│   │   │   ├── tabla.js        # Tabla (ESPN Hidden API)
+│   │   │   ├── noticias.js     # Noticias (ESPN)
+│   │   │   └── goleadores.js   # Goleadores (ESPN Hidden API)
+│   │   ├── bundesliga/         # Bundesliga
+│   │   │   ├── tabla.js        # Tabla (ESPN Hidden API)
+│   │   │   ├── noticias.js     # Noticias (ESPN)
+│   │   │   └── goleadores.js   # Goleadores (ESPN Hidden API)
+│   │   └── ligue1/             # Ligue 1
+│   │       ├── tabla.js        # Tabla (ESPN Hidden API)
+│   │       ├── noticias.js     # Noticias (ESPN)
+│   │       └── goleadores.js   # Goleadores (ESPN Hidden API)
 │   └── utils/scraper.js        # Utilidades anti-detección
 ├── package.json
 └── README.md
@@ -41,6 +61,30 @@ API profesional de scraping en tiempo real para la Liga MX. Proporciona datos ac
 - **googleapis** - Cliente de Google APIs (YouTube)
 
 ## 🔄 Cambios Recientes
+
+### 2025-10-16: Expansión Multi-Liga v3.0
+- ✅ **5 nuevas ligas internacionales agregadas**:
+  - Premier League (Inglaterra)
+  - La Liga (España)
+  - Serie A (Italia)
+  - Bundesliga (Alemania)
+  - Ligue 1 (Francia)
+- ✅ **15 nuevos endpoints** (3 por liga):
+  - `/[liga]/tabla` - Tabla de posiciones
+  - `/[liga]/noticias` - Noticias
+  - `/[liga]/goleadores` - Top goleadores
+- ✅ **Sistema de caché mejorado**:
+  - Soporte para claves dinámicas
+  - Manejo seguro de nuevas ligas sin inicialización previa
+  - Fix crítico en dataCache.js para evitar errores con claves undefined
+- ✅ **Nuevas fuentes de datos**:
+  - ESPN Hidden API para tablas y goleadores internacionales
+  - BBC Sport para noticias de Premier League
+  - FlashScore para noticias de La Liga
+- ✅ **Arquitectura modular escalable**:
+  - Estructura por carpetas por liga
+  - Scrapers especializados por tipo de dato
+  - Código reutilizable y mantenible
 
 ### 2025-10-16: Nuevo Endpoint de Videos v2.2
 - ✅ Nuevo endpoint /videos:
@@ -89,16 +133,36 @@ API profesional de scraping en tiempo real para la Liga MX. Proporciona datos ac
 
 ## 🚀 Endpoints Disponibles
 
+### Liga MX (7 endpoints)
 | Endpoint | Descripción | Fuente | Datos |
 |----------|-------------|--------|-------|
-| `/` | Info de la API | N/A | Documentación |
+| `/` | Info de la API | N/A | Documentación completa |
 | `/tabla` | Tabla de posiciones | ESPN | 18 equipos con estadísticas |
 | `/noticias` | Noticias con imagen y texto | Mediotiempo | 15 noticias con imagen, fuente y texto |
 | `/goleadores` | Top goleadores | ESPN | 20 goleadores |
 | `/equipos` | Lista de equipos | ESPN | 18 equipos |
 | `/logos` | Logos de equipos | ESPN CDN | 18 equipos con logos en 4 tamaños |
-| `/videos` | Videos de YouTube | YouTube | Mejores momentos, resúmenes y repeticiones (hasta 50 videos) |
+| `/videos` | Videos de YouTube | YouTube | Mejores momentos, resúmenes y repeticiones |
 | `/todo` | Todos los datos | Múltiple | Consolidado (incluye logos y videos) |
+
+### Ligas Internacionales (15 endpoints)
+| Endpoint | Descripción | Fuente | Datos |
+|----------|-------------|--------|-------|
+| `/premier/tabla` | Premier League tabla | ESPN API | 20 equipos con estadísticas |
+| `/premier/noticias` | Premier League noticias | ESPN | Noticias recientes |
+| `/premier/goleadores` | Premier League goleadores | ESPN API | Top 20 goleadores |
+| `/laliga/tabla` | La Liga tabla | ESPN API | 20 equipos con estadísticas |
+| `/laliga/noticias` | La Liga noticias | FlashScore | Noticias recientes |
+| `/laliga/goleadores` | La Liga goleadores | ESPN API | Top 20 goleadores |
+| `/seriea/tabla` | Serie A tabla | ESPN API | 20 equipos con estadísticas |
+| `/seriea/noticias` | Serie A noticias | ESPN | Noticias recientes |
+| `/seriea/goleadores` | Serie A goleadores | ESPN API | Top 20 goleadores |
+| `/bundesliga/tabla` | Bundesliga tabla | ESPN API | 18 equipos con estadísticas |
+| `/bundesliga/noticias` | Bundesliga noticias | ESPN | Noticias recientes |
+| `/bundesliga/goleadores` | Bundesliga goleadores | ESPN API | Top 20 goleadores |
+| `/ligue1/tabla` | Ligue 1 tabla | ESPN API | 18 equipos con estadísticas |
+| `/ligue1/noticias` | Ligue 1 noticias | ESPN | Noticias recientes |
+| `/ligue1/goleadores` | Ligue 1 goleadores | ESPN API | Top 20 goleadores |
 
 ## 🎛️ Configuración
 
@@ -108,8 +172,10 @@ API profesional de scraping en tiempo real para la Liga MX. Proporciona datos ac
 
 ### Sistema de Caché
 - Duración: 30 minutos
-- Actualización automática: Cada 30 min (cron: `*/30 * * * *`)
+- Actualización automática: Cada 30 min (cron: `*/30 * * * *`) - solo Liga MX
 - Almacenamiento: Memoria (no persistente)
+- Soporte dinámico: Crea entradas automáticamente para nuevas ligas
+- Manejo seguro: Valida existencia de claves antes de acceder
 
 ### Anti-Detección
 El sistema implementa múltiples técnicas para evitar bloqueos:
@@ -133,30 +199,44 @@ npm start
 
 ## 📊 Fuentes de Datos
 
-### ESPN Deportes (Tabla, Goleadores, Equipos)
-- URL: `https://www.espn.com.mx/futbol/`
-- Estructura: HTML con tablas
-- Actualización: En cada request del usuario (con caché)
+### Liga MX
+- **ESPN Deportes** (Tabla, Goleadores, Equipos)
+  - URL: `https://www.espn.com.mx/futbol/`
+  - Estructura: HTML con tablas
+- **Mediotiempo** (Noticias)
+  - URL: `https://www.mediotiempo.com/futbol/liga-mx`
+  - Estructura: HTML con artículos
+- **YouTube** (Videos)
+  - URL: `https://www.youtube.com/results`
+  - Estructura: Web scraping de ytInitialData JSON
 
-### Mediotiempo (Noticias)
-- URL: `https://www.mediotiempo.com/futbol/liga-mx`
-- Estructura: HTML con artículos
-- Actualización: En cada request del usuario (con caché)
+### Ligas Internacionales
+- **ESPN Hidden API** (Tablas y Goleadores)
+  - Endpoints: `/apis/site/v2/sports/soccer/[league]/standings`
+  - Ligas: Premier League (ENG.1), La Liga (ESP.1), Serie A (ITA.1), Bundesliga (GER.1), Ligue 1 (FRA.1)
+  - Formato: JSON estructurado
+- **ESPN** (Noticias - Serie A, Bundesliga, Ligue 1)
+  - URL: `https://www.espn.com/soccer/[league]`
+  - Estructura: HTML con artículos
+- **BBC Sport** (Noticias - Premier League)
+  - URL: `https://www.bbc.com/sport/football/premier-league`
+  - Estructura: HTML con artículos
+- **FlashScore** (Noticias - La Liga)
+  - URL: FlashScore La Liga
+  - Estructura: HTML con artículos
 
-### YouTube (Videos)
-- URL: `https://www.youtube.com/results`
-- Estructura: Web scraping de ytInitialData JSON
-- Categorías: Mejores momentos, resúmenes, repeticiones, highlights
-- Actualización: En cada request del usuario (con caché)
+Actualización: En cada request del usuario (con caché de 30 min)
 
 ## 🎯 Próximas Mejoras Potenciales
-- [ ] Agregar endpoint de calendario/partidos
+- [ ] Extender actualización automática (cron) para todas las ligas
+- [ ] Agregar health checks para detectar cambios en selectores
+- [ ] Agregar endpoint de calendario/partidos para todas las ligas
 - [ ] Implementar WebSockets para datos en tiempo real
 - [ ] Agregar caché persistente (Redis)
 - [ ] Implementar rotación de proxies
-- [ ] Agregar más fuentes de noticias
 - [ ] Estadísticas históricas por temporada
 - [ ] API de jugadores individuales
+- [ ] Agregar más ligas (MLS, Eredivisie, Liga Portugal, etc.)
 
 ## 🐛 Debugging
 
@@ -180,4 +260,4 @@ Los logs del servidor muestran:
 ---
 
 **Última actualización**: 2025-10-16
-**Versión**: 2.2.0
+**Versión**: 3.0.0
