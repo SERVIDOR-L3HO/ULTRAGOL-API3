@@ -1,16 +1,17 @@
 # Liga MX API Profesional
 
 ## 📋 Descripción General
-API profesional de scraping en tiempo real para la Liga MX. Proporciona datos actualizados de tabla de posiciones, goleadores, noticias, equipos y logos con actualización automática cada 30 minutos.
+API profesional de scraping en tiempo real para la Liga MX. Proporciona datos actualizados de tabla de posiciones, goleadores, noticias, equipos, logos y videos de YouTube con actualización automática cada 30 minutos.
 
 ## 🎯 Estado Actual
 - ✅ API completamente funcional
-- ✅ 6 endpoints operativos (/tabla, /noticias, /goleadores, /equipos, /logos, /todo)
+- ✅ 7 endpoints operativos (/tabla, /noticias, /goleadores, /equipos, /logos, /videos, /todo)
 - ✅ Sistema de caché implementado (30 min)
 - ✅ Actualización automática con node-cron
 - ✅ Técnicas anti-detección integradas
 - ✅ Datos reales de fuentes confiables
 - ✅ Endpoint de noticias mejorado con imágenes, fuente y texto completo
+- ✅ Endpoint de videos de YouTube con mejores momentos, resúmenes y repeticiones
 
 ## 🏗️ Arquitectura del Proyecto
 
@@ -23,7 +24,9 @@ API profesional de scraping en tiempo real para la Liga MX. Proporciona datos ac
 │   │   ├── tabla.js            # Scraping tabla de posiciones (ESPN)
 │   │   ├── noticias.js         # Scraping noticias (Mediotiempo)
 │   │   ├── goleadores.js       # Scraping goleadores (ESPN)
-│   │   └── equipos.js          # Scraping equipos (ESPN)
+│   │   ├── equipos.js          # Scraping equipos (ESPN)
+│   │   ├── logos.js            # Scraping logos (ESPN CDN)
+│   │   └── videos.js           # Scraping videos (YouTube)
 │   └── utils/scraper.js        # Utilidades anti-detección
 ├── package.json
 └── README.md
@@ -31,12 +34,25 @@ API profesional de scraping en tiempo real para la Liga MX. Proporciona datos ac
 
 ### Tecnologías Utilizadas
 - **Node.js 20** - Runtime
-- **Express 4.19** - Framework web
-- **Axios 1.7** - Cliente HTTP
-- **Cheerio 1.0** - Parser HTML
-- **node-cron** - Tareas programadas
+- **Express 4.21** - Framework web
+- **Axios 1.12** - Cliente HTTP
+- **Cheerio 1.1** - Parser HTML
+- **node-cron 4.2** - Tareas programadas
+- **googleapis** - Cliente de Google APIs (YouTube)
 
 ## 🔄 Cambios Recientes
+
+### 2025-10-16: Nuevo Endpoint de Videos v2.2
+- ✅ Nuevo endpoint /videos:
+  - Videos de YouTube de la Liga MX
+  - Búsqueda de mejores momentos, resúmenes, repeticiones y highlights
+  - Scraping web para evitar límites de cuota de API
+  - Organización por categorías
+  - Metadatos completos: título, descripción, canal, thumbnail, duración, vistas, fecha
+  - URLs directas y URLs para embeber
+  - Hasta 50 videos recientes
+  - Integración con sistema de caché (30 min)
+- ✅ Endpoint /todo actualizado con videos
 
 ### 2025-10-15: Mejoras y Nuevo Endpoint v2.1
 - ✅ Endpoint de noticias mejorado:
@@ -81,7 +97,8 @@ API profesional de scraping en tiempo real para la Liga MX. Proporciona datos ac
 | `/goleadores` | Top goleadores | ESPN | 20 goleadores |
 | `/equipos` | Lista de equipos | ESPN | 18 equipos |
 | `/logos` | Logos de equipos | ESPN CDN | 18 equipos con logos en 4 tamaños |
-| `/todo` | Todos los datos | Múltiple | Consolidado (incluye logos) |
+| `/videos` | Videos de YouTube | YouTube | Mejores momentos, resúmenes y repeticiones (hasta 50 videos) |
+| `/todo` | Todos los datos | Múltiple | Consolidado (incluye logos y videos) |
 
 ## 🎛️ Configuración
 
@@ -126,6 +143,12 @@ npm start
 - Estructura: HTML con artículos
 - Actualización: En cada request del usuario (con caché)
 
+### YouTube (Videos)
+- URL: `https://www.youtube.com/results`
+- Estructura: Web scraping de ytInitialData JSON
+- Categorías: Mejores momentos, resúmenes, repeticiones, highlights
+- Actualización: En cada request del usuario (con caché)
+
 ## 🎯 Próximas Mejoras Potenciales
 - [ ] Agregar endpoint de calendario/partidos
 - [ ] Implementar WebSockets para datos en tiempo real
@@ -156,5 +179,5 @@ Los logs del servidor muestran:
 
 ---
 
-**Última actualización**: 2025-10-15
-**Versión**: 2.1.0
+**Última actualización**: 2025-10-16
+**Versión**: 2.2.0
