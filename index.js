@@ -9,6 +9,26 @@ const { scrapEquipos } = require("./src/scrapers/equipos");
 const { scrapLogos } = require("./src/scrapers/logos");
 const { scrapVideos } = require("./src/scrapers/videos");
 
+const { scrapTablaPremier } = require("./src/scrapers/premier/tabla");
+const { scrapNoticiasPremier } = require("./src/scrapers/premier/noticias");
+const { scrapGoleadoresPremier } = require("./src/scrapers/premier/goleadores");
+
+const { scrapTablaLaLiga } = require("./src/scrapers/laliga/tabla");
+const { scrapNoticiasLaLiga } = require("./src/scrapers/laliga/noticias");
+const { scrapGoleadoresLaLiga } = require("./src/scrapers/laliga/goleadores");
+
+const { scrapTablaSerieA } = require("./src/scrapers/seriea/tabla");
+const { scrapNoticiasSerieA } = require("./src/scrapers/seriea/noticias");
+const { scrapGoleadoresSerieA } = require("./src/scrapers/seriea/goleadores");
+
+const { scrapTablaBundesliga } = require("./src/scrapers/bundesliga/tabla");
+const { scrapNoticiasBundesliga } = require("./src/scrapers/bundesliga/noticias");
+const { scrapGoleadoresBundesliga } = require("./src/scrapers/bundesliga/goleadores");
+
+const { scrapTablaLigue1 } = require("./src/scrapers/ligue1/tabla");
+const { scrapNoticiasLigue1 } = require("./src/scrapers/ligue1/noticias");
+const { scrapGoleadoresLigue1 } = require("./src/scrapers/ligue1/goleadores");
+
 const app = express();
 
 app.use(cors());
@@ -41,38 +61,62 @@ async function updateAllData() {
 
 app.get("/", (req, res) => {
   res.json({
-    nombre: "Liga MX API Profesional",
-    version: "2.1.0",
-    descripcion: "API con scraping en tiempo real de la Liga MX",
+    nombre: "Multi-League Football API",
+    version: "3.0.0",
+    descripcion: "API con scraping en tiempo real de múltiples ligas de fútbol",
     actualizacion: "Datos actualizados automáticamente cada 30 minutos",
-    endpoints: {
-      tabla: {
-        url: "/tabla",
-        descripcion: "Tabla de posiciones completa con estadísticas"
+    ligas_disponibles: {
+      ligaMx: {
+        nombre: "Liga MX",
+        endpoints: {
+          tabla: "/tabla",
+          noticias: "/noticias",
+          goleadores: "/goleadores",
+          equipos: "/equipos",
+          logos: "/logos",
+          videos: "/videos",
+          todo: "/todo"
+        }
       },
-      noticias: {
-        url: "/noticias",
-        descripcion: "Últimas noticias de la Liga MX con imágenes, fuente y texto completo"
+      premierLeague: {
+        nombre: "Premier League",
+        endpoints: {
+          tabla: "/premier/tabla",
+          noticias: "/premier/noticias",
+          goleadores: "/premier/goleadores"
+        }
       },
-      goleadores: {
-        url: "/goleadores",
-        descripcion: "Top goleadores del torneo"
+      laLiga: {
+        nombre: "La Liga",
+        endpoints: {
+          tabla: "/laliga/tabla",
+          noticias: "/laliga/noticias",
+          goleadores: "/laliga/goleadores"
+        }
       },
-      equipos: {
-        url: "/equipos",
-        descripcion: "Listado completo de equipos"
+      serieA: {
+        nombre: "Serie A",
+        endpoints: {
+          tabla: "/seriea/tabla",
+          noticias: "/seriea/noticias",
+          goleadores: "/seriea/goleadores"
+        }
       },
-      logos: {
-        url: "/logos",
-        descripcion: "Logos y escudos de todos los equipos de la Liga MX"
+      bundesliga: {
+        nombre: "Bundesliga",
+        endpoints: {
+          tabla: "/bundesliga/tabla",
+          noticias: "/bundesliga/noticias",
+          goleadores: "/bundesliga/goleadores"
+        }
       },
-      videos: {
-        url: "/videos",
-        descripcion: "Videos de YouTube: mejores momentos, resúmenes y repeticiones de la Liga MX"
-      },
-      todo: {
-        url: "/todo",
-        descripcion: "Todos los datos en un solo endpoint"
+      ligue1: {
+        nombre: "Ligue 1",
+        endpoints: {
+          tabla: "/ligue1/tabla",
+          noticias: "/ligue1/noticias",
+          goleadores: "/ligue1/goleadores"
+        }
       }
     },
     estado: "✅ Activo",
@@ -227,6 +271,231 @@ app.get("/todo", async (req, res) => {
   }
 });
 
+app.get("/premier/tabla", async (req, res) => {
+  try {
+    let data = cache.get("premier_tabla");
+    if (!data) {
+      console.log("📊 Obteniendo tabla Premier League...");
+      data = await scrapTablaPremier();
+      cache.set("premier_tabla", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /premier/tabla:", error.message);
+    res.status(500).json({ error: "Could not fetch Premier League standings", detalles: error.message });
+  }
+});
+
+app.get("/premier/noticias", async (req, res) => {
+  try {
+    let data = cache.get("premier_noticias");
+    if (!data) {
+      console.log("📰 Obteniendo noticias Premier League...");
+      data = await scrapNoticiasPremier();
+      cache.set("premier_noticias", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /premier/noticias:", error.message);
+    res.status(500).json({ error: "Could not fetch Premier League news", detalles: error.message });
+  }
+});
+
+app.get("/premier/goleadores", async (req, res) => {
+  try {
+    let data = cache.get("premier_goleadores");
+    if (!data) {
+      console.log("⚽ Obteniendo goleadores Premier League...");
+      data = await scrapGoleadoresPremier();
+      cache.set("premier_goleadores", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /premier/goleadores:", error.message);
+    res.status(500).json({ error: "Could not fetch Premier League top scorers", detalles: error.message });
+  }
+});
+
+app.get("/laliga/tabla", async (req, res) => {
+  try {
+    let data = cache.get("laliga_tabla");
+    if (!data) {
+      console.log("📊 Obteniendo tabla La Liga...");
+      data = await scrapTablaLaLiga();
+      cache.set("laliga_tabla", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /laliga/tabla:", error.message);
+    res.status(500).json({ error: "No se pudo obtener la tabla de La Liga", detalles: error.message });
+  }
+});
+
+app.get("/laliga/noticias", async (req, res) => {
+  try {
+    let data = cache.get("laliga_noticias");
+    if (!data) {
+      console.log("📰 Obteniendo noticias La Liga...");
+      data = await scrapNoticiasLaLiga();
+      cache.set("laliga_noticias", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /laliga/noticias:", error.message);
+    res.status(500).json({ error: "No se pudieron obtener las noticias de La Liga", detalles: error.message });
+  }
+});
+
+app.get("/laliga/goleadores", async (req, res) => {
+  try {
+    let data = cache.get("laliga_goleadores");
+    if (!data) {
+      console.log("⚽ Obteniendo goleadores La Liga...");
+      data = await scrapGoleadoresLaLiga();
+      cache.set("laliga_goleadores", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /laliga/goleadores:", error.message);
+    res.status(500).json({ error: "No se pudieron obtener los goleadores de La Liga", detalles: error.message });
+  }
+});
+
+app.get("/seriea/tabla", async (req, res) => {
+  try {
+    let data = cache.get("seriea_tabla");
+    if (!data) {
+      console.log("📊 Obteniendo tabla Serie A...");
+      data = await scrapTablaSerieA();
+      cache.set("seriea_tabla", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /seriea/tabla:", error.message);
+    res.status(500).json({ error: "Impossibile ottenere la classifica di Serie A", detalles: error.message });
+  }
+});
+
+app.get("/seriea/noticias", async (req, res) => {
+  try {
+    let data = cache.get("seriea_noticias");
+    if (!data) {
+      console.log("📰 Obteniendo noticias Serie A...");
+      data = await scrapNoticiasSerieA();
+      cache.set("seriea_noticias", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /seriea/noticias:", error.message);
+    res.status(500).json({ error: "Impossibile ottenere le notizie di Serie A", detalles: error.message });
+  }
+});
+
+app.get("/seriea/goleadores", async (req, res) => {
+  try {
+    let data = cache.get("seriea_goleadores");
+    if (!data) {
+      console.log("⚽ Obteniendo goleadores Serie A...");
+      data = await scrapGoleadoresSerieA();
+      cache.set("seriea_goleadores", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /seriea/goleadores:", error.message);
+    res.status(500).json({ error: "Impossibile ottenere i capocannonieri di Serie A", detalles: error.message });
+  }
+});
+
+app.get("/bundesliga/tabla", async (req, res) => {
+  try {
+    let data = cache.get("bundesliga_tabla");
+    if (!data) {
+      console.log("📊 Obteniendo tabla Bundesliga...");
+      data = await scrapTablaBundesliga();
+      cache.set("bundesliga_tabla", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /bundesliga/tabla:", error.message);
+    res.status(500).json({ error: "Bundesliga-Tabelle konnte nicht abgerufen werden", detalles: error.message });
+  }
+});
+
+app.get("/bundesliga/noticias", async (req, res) => {
+  try {
+    let data = cache.get("bundesliga_noticias");
+    if (!data) {
+      console.log("📰 Obteniendo noticias Bundesliga...");
+      data = await scrapNoticiasBundesliga();
+      cache.set("bundesliga_noticias", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /bundesliga/noticias:", error.message);
+    res.status(500).json({ error: "Bundesliga-Nachrichten konnten nicht abgerufen werden", detalles: error.message });
+  }
+});
+
+app.get("/bundesliga/goleadores", async (req, res) => {
+  try {
+    let data = cache.get("bundesliga_goleadores");
+    if (!data) {
+      console.log("⚽ Obteniendo goleadores Bundesliga...");
+      data = await scrapGoleadoresBundesliga();
+      cache.set("bundesliga_goleadores", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /bundesliga/goleadores:", error.message);
+    res.status(500).json({ error: "Bundesliga-Torschützenliste konnte nicht abgerufen werden", detalles: error.message });
+  }
+});
+
+app.get("/ligue1/tabla", async (req, res) => {
+  try {
+    let data = cache.get("ligue1_tabla");
+    if (!data) {
+      console.log("📊 Obteniendo tabla Ligue 1...");
+      data = await scrapTablaLigue1();
+      cache.set("ligue1_tabla", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /ligue1/tabla:", error.message);
+    res.status(500).json({ error: "Impossible d'obtenir le classement de Ligue 1", detalles: error.message });
+  }
+});
+
+app.get("/ligue1/noticias", async (req, res) => {
+  try {
+    let data = cache.get("ligue1_noticias");
+    if (!data) {
+      console.log("📰 Obteniendo noticias Ligue 1...");
+      data = await scrapNoticiasLigue1();
+      cache.set("ligue1_noticias", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /ligue1/noticias:", error.message);
+    res.status(500).json({ error: "Impossible d'obtenir les actualités de Ligue 1", detalles: error.message });
+  }
+});
+
+app.get("/ligue1/goleadores", async (req, res) => {
+  try {
+    let data = cache.get("ligue1_goleadores");
+    if (!data) {
+      console.log("⚽ Obteniendo goleadores Ligue 1...");
+      data = await scrapGoleadoresLigue1();
+      cache.set("ligue1_goleadores", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /ligue1/goleadores:", error.message);
+    res.status(500).json({ error: "Impossible d'obtenir les meilleurs buteurs de Ligue 1", detalles: error.message });
+  }
+});
+
 updateAllData();
 
 cron.schedule("*/30 * * * *", () => {
@@ -236,7 +505,8 @@ cron.schedule("*/30 * * * *", () => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Liga MX API Profesional activa en puerto ${PORT}`);
+  console.log(`🚀 Multi-League Football API activa en puerto ${PORT}`);
   console.log(`📡 Actualizaciones automáticas cada 30 minutos`);
-  console.log(`🔗 Endpoints: /tabla, /noticias, /goleadores, /equipos, /logos, /videos, /todo`);
+  console.log(`⚽ Ligas disponibles: Liga MX, Premier League, La Liga, Serie A, Bundesliga, Ligue 1`);
+  console.log(`🔗 Accede a "/" para ver todos los endpoints disponibles`);
 });

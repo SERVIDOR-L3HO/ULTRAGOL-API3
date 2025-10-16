@@ -47,28 +47,29 @@ async function fetchWithRetry(url, maxRetries = 3) {
         validateStatus: (status) => status < 500
       });
 
-      if (response.status === 200) {
+      if (response && response.status === 200) {
         return response.data;
       }
 
-      if (response.status === 429) {
+      if (response && response.status === 429) {
         const backoffDelay = Math.min(30000, (2 ** attempt) * 1000);
         await new Promise(resolve => setTimeout(resolve, backoffDelay));
         continue;
       }
 
       if (attempt === maxRetries) {
-        throw new Error(`Failed after ${maxRetries} attempts. Status: ${response.status}`);
+        throw new Error(`Failed after ${maxRetries} attempts. Status: ${response ? response.status : 'unknown'}`);
       }
 
     } catch (error) {
       if (attempt === maxRetries) {
-        throw error;
+        throw new Error(`Request failed: ${error.message}`);
       }
       const backoffDelay = Math.min(30000, (2 ** attempt) * 1000);
       await new Promise(resolve => setTimeout(resolve, backoffDelay));
     }
   }
+  throw new Error(`Failed to fetch ${url} after ${maxRetries} attempts`);
 }
 
 module.exports = {

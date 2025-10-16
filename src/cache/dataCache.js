@@ -18,7 +18,7 @@ class DataCache {
 
   get(key) {
     const cached = this.cache[key];
-    if (!cached.data || !cached.timestamp) {
+    if (!cached || !cached.data || !cached.timestamp) {
       return null;
     }
 
@@ -32,7 +32,7 @@ class DataCache {
 
   isExpired(key) {
     const cached = this.cache[key];
-    if (!cached.timestamp) return true;
+    if (!cached || !cached.timestamp) return true;
     
     const now = Date.now();
     return (now - cached.timestamp) > this.CACHE_DURATION;
