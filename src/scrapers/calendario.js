@@ -50,23 +50,70 @@ async function scrapCalendario() {
         }
       } else if ($(element).hasClass("ResponsiveTable") || $(element).hasClass("Table")) {
         $(element).find("tbody tr").each((i, row) => {
-          const equipoLocal = $(row).find("td").eq(0).find(".Table__Team a").last().text().trim();
-          const equipoVisitante = $(row).find("td").eq(1).find(".Table__Team a").last().text().trim();
-          const horaTexto = $(row).find("td").eq(2).text().trim();
+          const tds = $(row).find("td");
+          
+          const equipoLocal = tds.eq(0).find(".Table__Team a").last().text().trim();
+          const escudoLocal = tds.eq(0).find("img").attr("data-default-src") || tds.eq(0).find("img").attr("src");
+          const enlaceLocal = tds.eq(0).find("a").last().attr("href");
+          
+          const equipoVisitante = tds.eq(1).find(".Table__Team a").last().text().trim();
+          const escudoVisitante = tds.eq(1).find("img").attr("data-default-src") || tds.eq(1).find("img").attr("src");
+          const enlaceVisitante = tds.eq(1).find("a").last().attr("href");
+          const enlacePartido = tds.eq(1).find("a").first().attr("href");
+          
+          const horaTexto = tds.eq(2).text().trim();
+          const enlaceHora = tds.eq(2).find("a").attr("href");
+          
+          const canalesTV = tds.eq(3).text().trim();
+          
+          const estadio = tds.eq(4).text().trim();
+          
+          const odds = tds.eq(6).text().trim();
+          let oddsLocal = null;
+          let oddsVisitante = null;
+          if (odds) {
+            const oddsMatch = odds.match(/([A-Z]+):\s*([\+\-]\d+).*?([A-Z]+):\s*([\+\-]\d+)/);
+            if (oddsMatch) {
+              oddsLocal = { equipo: oddsMatch[1], valor: oddsMatch[2] };
+              oddsVisitante = { equipo: oddsMatch[3], valor: oddsMatch[4] };
+            }
+          }
           
           if (equipoLocal && equipoVisitante && horaTexto) {
             let fechaPartido = parseFechaHora(fechaActual, horaTexto, "America/Mexico_City");
             const contador = calcularContador(fechaPartido);
             
-            calendario.push({
+            const partido = {
               jornada: jornada,
-              equipoLocal,
-              equipoVisitante,
+              equipoLocal: {
+                nombre: equipoLocal,
+                escudo: escudoLocal || null,
+                enlace: enlaceLocal ? `https://www.espn.com.mx${enlaceLocal}` : null
+              },
+              equipoVisitante: {
+                nombre: equipoVisitante,
+                escudo: escudoVisitante || null,
+                enlace: enlaceVisitante ? `https://www.espn.com.mx${enlaceVisitante}` : null
+              },
               fecha: fechaActual || "Por confirmar",
               hora: horaTexto,
-              fechaCompleta: fechaPartido.toLocaleString("es-MX", { timeZone: "America/Mexico_City" }),
-              contador: contador
-            });
+              fechaCompleta: fechaPartido.toLocaleString("es-MX", { 
+                timeZone: "America/Mexico_City",
+                dateStyle: "full",
+                timeStyle: "short"
+              }),
+              fechaISO: fechaPartido.toISOString(),
+              contador: contador,
+              estadio: estadio || "Por confirmar",
+              canalesTV: canalesTV || "No disponible",
+              apuestas: {
+                local: oddsLocal,
+                visitante: oddsVisitante
+              },
+              enlacePartido: enlacePartido ? `https://www.espn.com.mx${enlacePartido}` : null
+            };
+            
+            calendario.push(partido);
           }
         });
       }
@@ -75,6 +122,9 @@ async function scrapCalendario() {
     return {
       actualizado: new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" }),
       total: calendario.length,
+      jornadasTotales: 17,
+      liga: "Liga MX",
+      pais: "México",
       calendario: calendario
     };
   } catch (error) {
