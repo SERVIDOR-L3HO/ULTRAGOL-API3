@@ -35,6 +35,8 @@ const { scrapNoticiasLigue1 } = require("./src/scrapers/ligue1/noticias");
 const { scrapGoleadoresLigue1 } = require("./src/scrapers/ligue1/goleadores");
 const { scrapCalendarioLigue1 } = require("./src/scrapers/ligue1/calendario");
 
+const { scrapTransmisiones } = require("./src/scrapers/transmisiones");
+
 const app = express();
 
 app.use(cors());
@@ -137,6 +139,10 @@ app.get("/", (req, res) => {
       todas_las_ligas: {
         calendario: "/calendario/todas-las-ligas",
         descripcion: "Calendario completo de todas las jornadas de todas las ligas con información detallada"
+      },
+      transmisiones: {
+        endpoint: "/transmisiones",
+        descripcion: "Transmisiones deportivas en vivo con fechas, horarios y canales disponibles"
       }
     },
     estado: "✅ Activo",
@@ -687,6 +693,26 @@ app.get("/calendario/todas-las-ligas", async (req, res) => {
     console.error("Error en /calendario/todas-las-ligas:", error.message);
     res.status(500).json({ 
       error: "No se pudieron obtener los calendarios",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/transmisiones", async (req, res) => {
+  try {
+    let data = cache.get("transmisiones");
+    
+    if (!data) {
+      console.log("📺 Obteniendo transmisiones deportivas (caché vacío)...");
+      data = await scrapTransmisiones();
+      cache.set("transmisiones", data);
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /transmisiones:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las transmisiones deportivas",
       detalles: error.message 
     });
   }
