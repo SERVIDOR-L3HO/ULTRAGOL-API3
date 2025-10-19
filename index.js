@@ -74,7 +74,7 @@ app.get("/", (req, res) => {
     nombre: "Multi-League Football API",
     version: "3.1.0",
     descripcion: "API con scraping en tiempo real de múltiples ligas de fútbol",
-    actualizacion: "Datos actualizados automáticamente cada 30 minutos",
+    actualizacion: "Datos actualizados automáticamente cada 20 minutos",
     ligas_disponibles: {
       ligaMx: {
         nombre: "Liga MX",
@@ -146,7 +146,7 @@ app.get("/", (req, res) => {
       }
     },
     estado: "✅ Activo",
-    proxima_actualizacion: "30 minutos"
+    proxima_actualizacion: "20 minutos"
   });
 });
 
@@ -720,7 +720,7 @@ app.get("/transmisiones", async (req, res) => {
 
 updateAllData();
 
-cron.schedule("*/30 * * * *", () => {
+cron.schedule("*/20 * * * *", () => {
   console.log("⏰ Actualización programada iniciada");
   updateAllData();
 });
@@ -728,7 +728,7 @@ cron.schedule("*/30 * * * *", () => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Multi-League Football API activa en puerto ${PORT}`);
-  console.log(`📡 Actualizaciones automáticas cada 30 minutos`);
+  console.log(`📡 Actualizaciones automáticas cada 20 minutos`);
   console.log(`⚽ Ligas disponibles: Liga MX, Premier League, La Liga, Serie A, Bundesliga, Ligue 1`);
   console.log(`🔗 Accede a "/" para ver todos los endpoints disponibles`);
 });
