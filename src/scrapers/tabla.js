@@ -4,8 +4,8 @@ const soccerwaySource = require("./sources/ligamx/soccerway");
 const flashscoreSource = require("./sources/ligamx/flashscore");
 
 const sources = [
-  espnSource,
   soccerwaySource,
+  espnSource,
   flashscoreSource
 ];
 

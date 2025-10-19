@@ -4,8 +4,8 @@ const soccerwaySource = require("../sources/laliga/soccerway");
 const flashscoreSource = require("../sources/laliga/flashscore");
 
 const sources = [
-  espnSource,
   soccerwaySource,
+  espnSource,
   flashscoreSource
 ];
 
