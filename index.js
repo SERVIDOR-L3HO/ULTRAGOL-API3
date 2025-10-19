@@ -14,26 +14,31 @@ const { scrapTablaPremier } = require("./src/scrapers/premier/tabla");
 const { scrapNoticiasPremier } = require("./src/scrapers/premier/noticias");
 const { scrapGoleadoresPremier } = require("./src/scrapers/premier/goleadores");
 const { scrapCalendarioPremier } = require("./src/scrapers/premier/calendario");
+const { scrapMejoresMomentosPremier } = require("./src/scrapers/premier/mejoresMomentos");
 
 const { scrapTablaLaLiga } = require("./src/scrapers/laliga/tabla");
 const { scrapNoticiasLaLiga } = require("./src/scrapers/laliga/noticias");
 const { scrapGoleadoresLaLiga } = require("./src/scrapers/laliga/goleadores");
 const { scrapCalendarioLaLiga } = require("./src/scrapers/laliga/calendario");
+const { scrapMejoresMomentosLaLiga } = require("./src/scrapers/laliga/mejoresMomentos");
 
 const { scrapTablaSerieA } = require("./src/scrapers/seriea/tabla");
 const { scrapNoticiasSerieA } = require("./src/scrapers/seriea/noticias");
 const { scrapGoleadoresSerieA } = require("./src/scrapers/seriea/goleadores");
 const { scrapCalendarioSerieA } = require("./src/scrapers/seriea/calendario");
+const { scrapMejoresMomentosSerieA } = require("./src/scrapers/seriea/mejoresMomentos");
 
 const { scrapTablaBundesliga } = require("./src/scrapers/bundesliga/tabla");
 const { scrapNoticiasBundesliga } = require("./src/scrapers/bundesliga/noticias");
 const { scrapGoleadoresBundesliga } = require("./src/scrapers/bundesliga/goleadores");
 const { scrapCalendarioBundesliga } = require("./src/scrapers/bundesliga/calendario");
+const { scrapMejoresMomentosBundesliga } = require("./src/scrapers/bundesliga/mejoresMomentos");
 
 const { scrapTablaLigue1 } = require("./src/scrapers/ligue1/tabla");
 const { scrapNoticiasLigue1 } = require("./src/scrapers/ligue1/noticias");
 const { scrapGoleadoresLigue1 } = require("./src/scrapers/ligue1/goleadores");
 const { scrapCalendarioLigue1 } = require("./src/scrapers/ligue1/calendario");
+const { scrapMejoresMomentosLigue1 } = require("./src/scrapers/ligue1/mejoresMomentos");
 
 const { scrapTransmisiones } = require("./src/scrapers/transmisiones");
 
@@ -95,7 +100,8 @@ app.get("/", (req, res) => {
           tabla: "/premier/tabla",
           noticias: "/premier/noticias",
           goleadores: "/premier/goleadores",
-          calendario: "/premier/calendario"
+          calendario: "/premier/calendario",
+          mejoresMomentos: "/premier/mejores-momentos"
         }
       },
       laLiga: {
@@ -104,7 +110,8 @@ app.get("/", (req, res) => {
           tabla: "/laliga/tabla",
           noticias: "/laliga/noticias",
           goleadores: "/laliga/goleadores",
-          calendario: "/laliga/calendario"
+          calendario: "/laliga/calendario",
+          mejoresMomentos: "/laliga/mejores-momentos"
         }
       },
       serieA: {
@@ -113,7 +120,8 @@ app.get("/", (req, res) => {
           tabla: "/seriea/tabla",
           noticias: "/seriea/noticias",
           goleadores: "/seriea/goleadores",
-          calendario: "/seriea/calendario"
+          calendario: "/seriea/calendario",
+          mejoresMomentos: "/seriea/mejores-momentos"
         }
       },
       bundesliga: {
@@ -122,7 +130,8 @@ app.get("/", (req, res) => {
           tabla: "/bundesliga/tabla",
           noticias: "/bundesliga/noticias",
           goleadores: "/bundesliga/goleadores",
-          calendario: "/bundesliga/calendario"
+          calendario: "/bundesliga/calendario",
+          mejoresMomentos: "/bundesliga/mejores-momentos"
         }
       },
       ligue1: {
@@ -131,7 +140,8 @@ app.get("/", (req, res) => {
           tabla: "/ligue1/tabla",
           noticias: "/ligue1/noticias",
           goleadores: "/ligue1/goleadores",
-          calendario: "/ligue1/calendario"
+          calendario: "/ligue1/calendario",
+          mejoresMomentos: "/ligue1/mejores-momentos"
         }
       }
     },
@@ -379,6 +389,21 @@ app.get("/premier/calendario", async (req, res) => {
   }
 });
 
+app.get("/premier/mejores-momentos", async (req, res) => {
+  try {
+    let data = cache.get("premier_mejores_momentos");
+    if (!data) {
+      console.log("🎬 Obteniendo mejores momentos Premier League...");
+      data = await scrapMejoresMomentosPremier();
+      cache.set("premier_mejores_momentos", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /premier/mejores-momentos:", error.message);
+    res.status(500).json({ error: "Could not fetch Premier League highlights", detalles: error.message });
+  }
+});
+
 app.get("/laliga/tabla", async (req, res) => {
   try {
     let data = cache.get("laliga_tabla");
@@ -436,6 +461,21 @@ app.get("/laliga/calendario", async (req, res) => {
   } catch (error) {
     console.error("Error en /laliga/calendario:", error.message);
     res.status(500).json({ error: "No se pudieron obtener los calendario de La Liga", detalles: error.message });
+  }
+});
+
+app.get("/laliga/mejores-momentos", async (req, res) => {
+  try {
+    let data = cache.get("laliga_mejores_momentos");
+    if (!data) {
+      console.log("🎬 Obteniendo mejores momentos La Liga...");
+      data = await scrapMejoresMomentosLaLiga();
+      cache.set("laliga_mejores_momentos", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /laliga/mejores-momentos:", error.message);
+    res.status(500).json({ error: "No se pudieron obtener los mejores momentos de La Liga", detalles: error.message });
   }
 });
 
@@ -499,6 +539,21 @@ app.get("/seriea/calendario", async (req, res) => {
   }
 });
 
+app.get("/seriea/mejores-momentos", async (req, res) => {
+  try {
+    let data = cache.get("seriea_mejores_momentos");
+    if (!data) {
+      console.log("🎬 Obteniendo mejores momentos Serie A...");
+      data = await scrapMejoresMomentosSerieA();
+      cache.set("seriea_mejores_momentos", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /seriea/mejores-momentos:", error.message);
+    res.status(500).json({ error: "Impossibile ottenere i migliori momenti di Serie A", detalles: error.message });
+  }
+});
+
 app.get("/bundesliga/tabla", async (req, res) => {
   try {
     let data = cache.get("bundesliga_tabla");
@@ -559,6 +614,21 @@ app.get("/bundesliga/calendario", async (req, res) => {
   }
 });
 
+app.get("/bundesliga/mejores-momentos", async (req, res) => {
+  try {
+    let data = cache.get("bundesliga_mejores_momentos");
+    if (!data) {
+      console.log("🎬 Obteniendo mejores momentos Bundesliga...");
+      data = await scrapMejoresMomentosBundesliga();
+      cache.set("bundesliga_mejores_momentos", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /bundesliga/mejores-momentos:", error.message);
+    res.status(500).json({ error: "Bundesliga-Highlights konnten nicht abgerufen werden", detalles: error.message });
+  }
+});
+
 app.get("/ligue1/tabla", async (req, res) => {
   try {
     let data = cache.get("ligue1_tabla");
@@ -616,6 +686,21 @@ app.get("/ligue1/calendario", async (req, res) => {
   } catch (error) {
     console.error("Error en /ligue1/calendario:", error.message);
     res.status(500).json({ error: "Impossible d'obtenir les prochains matchs de Ligue 1", detalles: error.message });
+  }
+});
+
+app.get("/ligue1/mejores-momentos", async (req, res) => {
+  try {
+    let data = cache.get("ligue1_mejores_momentos");
+    if (!data) {
+      console.log("🎬 Obteniendo mejores momentos Ligue 1...");
+      data = await scrapMejoresMomentosLigue1();
+      cache.set("ligue1_mejores_momentos", data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /ligue1/mejores-momentos:", error.message);
+    res.status(500).json({ error: "Impossible d'obtenir les meilleurs moments de Ligue 1", detalles: error.message });
   }
 });
 
