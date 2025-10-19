@@ -2,10 +2,12 @@ const { tryMultipleSources } = require("../utils/multiSourceScraper");
 const espnSource = require("./sources/ligamx/espn");
 const soccerwaySource = require("./sources/ligamx/soccerway");
 const flashscoreSource = require("./sources/ligamx/flashscore");
+const mediotiempoSource = require("./sources/ligamx/mediotiempo");
 
 const sources = [
-  soccerwaySource,
+  mediotiempoSource,
   espnSource,
+  soccerwaySource,
   flashscoreSource
 ];
 

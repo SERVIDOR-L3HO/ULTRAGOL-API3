@@ -1,32 +1,32 @@
 const cheerio = require("cheerio");
 const { fetchWithRetry } = require("../../../utils/scraper");
 
-async function scrapTablaSoccerway() {
-  const url = "https://us.soccerway.com/national/mexico/primera-division/20242025/clausura/r82575/tables/";
+async function scrapTablaMediotiempo() {
+  const url = "https://www.mediotiempo.com/futbol/liga-mx/tabla-general";
   const html = await fetchWithRetry(url);
   const $ = cheerio.load(html);
   
   const equipos = [];
   
-  $("table.leaguetable tbody tr").each((i, row) => {
+  $("table tbody tr").each((i, row) => {
     const cells = $(row).find("td");
     if (cells.length < 10) return;
     
-    const posicion = $(cells[0]).text().trim();
-    const equipo = $(cells[1]).find("a").text().trim() || $(cells[1]).text().trim();
-    const pj = $(cells[2]).text().trim();
-    const pg = $(cells[3]).text().trim();
-    const pe = $(cells[4]).text().trim();
-    const pp = $(cells[5]).text().trim();
-    const gf = $(cells[6]).text().trim();
-    const gc = $(cells[7]).text().trim();
-    const dif = $(cells[8]).text().trim();
-    const pts = $(cells[9]).text().trim();
+    const posicion = $(cells[1]).text().trim();
+    const equipoElement = $(cells[2]).find("a").text().trim() || $(cells[2]).text().trim();
+    const pts = $(cells[3]).text().trim();
+    const pj = $(cells[4]).text().trim();
+    const pg = $(cells[5]).text().trim();
+    const pe = $(cells[6]).text().trim();
+    const pp = $(cells[7]).text().trim();
+    const gf = $(cells[8]).text().trim();
+    const gc = $(cells[9]).text().trim();
+    const dif = $(cells[10]).text().trim();
     
-    if (equipo && pts) {
+    if (equipoElement && pts) {
       equipos.push({
         posicion: parseInt(posicion) || (i + 1),
-        equipo: equipo,
+        equipo: equipoElement,
         estadisticas: {
           pj: parseInt(pj) || 0,
           pg: parseInt(pg) || 0,
@@ -50,7 +50,7 @@ async function scrapTablaSoccerway() {
 }
 
 module.exports = {
-  name: "Soccerway",
-  url: "https://us.soccerway.com/national/mexico/primera-division/",
-  scraper: scrapTablaSoccerway
+  name: "Mediotiempo",
+  url: "https://www.mediotiempo.com/futbol/liga-mx/tabla-general",
+  scraper: scrapTablaMediotiempo
 };
