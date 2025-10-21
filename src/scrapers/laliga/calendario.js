@@ -120,7 +120,7 @@ async function scrapCalendarioLaLiga() {
     });
 
     return {
-      actualizado: new Date().toLocaleString("es-ES", { timeZone: "Europe/Madrid" }),
+      actualizado: new Date().toLocaleString("es-MX", { timeZone: "Europe/Madrid" }), new Date().toLocaleString("es-ES", { timeZone: "Europe/Madrid" }),
       total: calendario.length,
       jornadasTotales: 38,
       liga: "La Liga",

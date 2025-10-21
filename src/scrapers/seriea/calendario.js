@@ -120,7 +120,7 @@ async function scrapCalendarioSerieA() {
     });
 
     return {
-      actualizado: new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome" }),
+      actualizado: new Date().toLocaleString("es-MX", { timeZone: "Europe/Rome" }), new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome" }),
       total: calendario.length,
       jornadasTotales: 38,
       liga: "Serie A",
