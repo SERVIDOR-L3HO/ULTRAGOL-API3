@@ -42,6 +42,15 @@ const { scrapMejoresMomentosLigue1 } = require("./src/scrapers/ligue1/mejoresMom
 
 const { scrapTransmisiones } = require("./src/scrapers/transmisiones");
 
+const { 
+  scrapMarcadoresLigaMX,
+  scrapMarcadoresPremier,
+  scrapMarcadoresLaLiga,
+  scrapMarcadoresSerieA,
+  scrapMarcadoresBundesliga,
+  scrapMarcadoresLigue1
+} = require("./src/scrapers/marcadores");
+
 const app = express();
 
 app.use(cors());
@@ -77,9 +86,10 @@ async function updateAllData() {
 app.get("/", (req, res) => {
   res.json({
     nombre: "Multi-League Football API",
-    version: "3.1.0",
-    descripcion: "API con scraping en tiempo real de múltiples ligas de fútbol",
+    version: "3.2.0",
+    descripcion: "API con scraping en tiempo real de múltiples ligas de fútbol + Marcadores en vivo desde ESPN",
     actualizacion: "Datos actualizados automáticamente cada 20 minutos",
+    novedades: "✨ Nuevos endpoints de marcadores en tiempo real usando API JSON de ESPN - Sin scraping, datos directos y actualizados",
     ligas_disponibles: {
       ligaMx: {
         nombre: "Liga MX",
@@ -91,6 +101,7 @@ app.get("/", (req, res) => {
           logos: "/logos",
           videos: "/videos",
           calendario: "/calendario",
+          marcadores: "/marcadores (⚽ NUEVO - Tiempo Real)",
           todo: "/todo"
         }
       },
@@ -101,6 +112,7 @@ app.get("/", (req, res) => {
           noticias: "/premier/noticias",
           goleadores: "/premier/goleadores",
           calendario: "/premier/calendario",
+          marcadores: "/premier/marcadores (⚽ NUEVO - Tiempo Real)",
           mejoresMomentos: "/premier/mejores-momentos"
         }
       },
@@ -111,6 +123,7 @@ app.get("/", (req, res) => {
           noticias: "/laliga/noticias",
           goleadores: "/laliga/goleadores",
           calendario: "/laliga/calendario",
+          marcadores: "/laliga/marcadores (⚽ NUEVO - Tiempo Real)",
           mejoresMomentos: "/laliga/mejores-momentos"
         }
       },
@@ -121,6 +134,7 @@ app.get("/", (req, res) => {
           noticias: "/seriea/noticias",
           goleadores: "/seriea/goleadores",
           calendario: "/seriea/calendario",
+          marcadores: "/seriea/marcadores (⚽ NUEVO - Tiempo Real)",
           mejoresMomentos: "/seriea/mejores-momentos"
         }
       },
@@ -131,6 +145,7 @@ app.get("/", (req, res) => {
           noticias: "/bundesliga/noticias",
           goleadores: "/bundesliga/goleadores",
           calendario: "/bundesliga/calendario",
+          marcadores: "/bundesliga/marcadores (⚽ NUEVO - Tiempo Real)",
           mejoresMomentos: "/bundesliga/mejores-momentos"
         }
       },
@@ -141,6 +156,7 @@ app.get("/", (req, res) => {
           noticias: "/ligue1/noticias",
           goleadores: "/ligue1/goleadores",
           calendario: "/ligue1/calendario",
+          marcadores: "/ligue1/marcadores (⚽ NUEVO - Tiempo Real)",
           mejoresMomentos: "/ligue1/mejores-momentos"
         }
       }
@@ -148,11 +164,17 @@ app.get("/", (req, res) => {
     endpoints_especiales: {
       todas_las_ligas: {
         calendario: "/calendario/todas-las-ligas",
-        descripcion: "Calendario completo de todas las jornadas de todas las ligas con información detallada"
+        marcadores: "/marcadores/todas-las-ligas (⚽ NUEVO)",
+        descripcion: "Calendario y marcadores completos de todas las ligas"
       },
       transmisiones: {
         endpoint: "/transmisiones",
         descripcion: "Transmisiones deportivas en vivo con fechas, horarios y canales disponibles"
+      },
+      parametros_marcadores: {
+        date: "?date=YYYYMMDD (opcional)",
+        ejemplo: "/marcadores?date=20251021",
+        descripcion: "Obtener marcadores de una fecha específica en formato YYYYMMDD"
       }
     },
     estado: "✅ Activo",
@@ -798,6 +820,171 @@ app.get("/transmisiones", async (req, res) => {
     console.error("Error en /transmisiones:", error.message);
     res.status(500).json({ 
       error: "No se pudieron obtener las transmisiones deportivas",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/marcadores", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const data = await scrapMarcadoresLigaMX(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /marcadores:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los marcadores de Liga MX",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/premier/marcadores", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const data = await scrapMarcadoresPremier(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /premier/marcadores:", error.message);
+    res.status(500).json({ 
+      error: "Could not fetch Premier League scores",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/laliga/marcadores", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const data = await scrapMarcadoresLaLiga(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /laliga/marcadores:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los marcadores de La Liga",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/seriea/marcadores", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const data = await scrapMarcadoresSerieA(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /seriea/marcadores:", error.message);
+    res.status(500).json({ 
+      error: "Impossibile ottenere i punteggi di Serie A",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/bundesliga/marcadores", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const data = await scrapMarcadoresBundesliga(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /bundesliga/marcadores:", error.message);
+    res.status(500).json({ 
+      error: "Bundesliga-Ergebnisse konnten nicht abgerufen werden",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/ligue1/marcadores", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const data = await scrapMarcadoresLigue1(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /ligue1/marcadores:", error.message);
+    res.status(500).json({ 
+      error: "Impossible d'obtenir les scores de Ligue 1",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/marcadores/todas-las-ligas", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    console.log("⚽ Obteniendo marcadores de todas las ligas...");
+    
+    const [ligaMx, premierLeague, laLiga, serieA, bundesliga, ligue1] = await Promise.all([
+      scrapMarcadoresLigaMX(date).catch(err => { console.error("Error Liga MX marcadores:", err.message); return null; }),
+      scrapMarcadoresPremier(date).catch(err => { console.error("Error Premier marcadores:", err.message); return null; }),
+      scrapMarcadoresLaLiga(date).catch(err => { console.error("Error La Liga marcadores:", err.message); return null; }),
+      scrapMarcadoresSerieA(date).catch(err => { console.error("Error Serie A marcadores:", err.message); return null; }),
+      scrapMarcadoresBundesliga(date).catch(err => { console.error("Error Bundesliga marcadores:", err.message); return null; }),
+      scrapMarcadoresLigue1(date).catch(err => { console.error("Error Ligue 1 marcadores:", err.message); return null; })
+    ]);
+
+    const todasLasLigas = {
+      actualizado: new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }),
+      totalLigas: 6,
+      fecha: date || "Hoy",
+      ligas: [
+        {
+          nombre: "Liga MX",
+          pais: "México",
+          codigo: "ligamx",
+          totalPartidos: ligaMx?.total || 0,
+          partidos: ligaMx?.partidos || []
+        },
+        {
+          nombre: "Premier League",
+          pais: "Inglaterra",
+          codigo: "premier",
+          totalPartidos: premierLeague?.total || 0,
+          partidos: premierLeague?.partidos || []
+        },
+        {
+          nombre: "La Liga",
+          pais: "España",
+          codigo: "laliga",
+          totalPartidos: laLiga?.total || 0,
+          partidos: laLiga?.partidos || []
+        },
+        {
+          nombre: "Serie A",
+          pais: "Italia",
+          codigo: "seriea",
+          totalPartidos: serieA?.total || 0,
+          partidos: serieA?.partidos || []
+        },
+        {
+          nombre: "Bundesliga",
+          pais: "Alemania",
+          codigo: "bundesliga",
+          totalPartidos: bundesliga?.total || 0,
+          partidos: bundesliga?.partidos || []
+        },
+        {
+          nombre: "Ligue 1",
+          pais: "Francia",
+          codigo: "ligue1",
+          totalPartidos: ligue1?.total || 0,
+          partidos: ligue1?.partidos || []
+        }
+      ],
+      totalPartidos: 
+        (ligaMx?.total || 0) + 
+        (premierLeague?.total || 0) + 
+        (laLiga?.total || 0) + 
+        (serieA?.total || 0) + 
+        (bundesliga?.total || 0) + 
+        (ligue1?.total || 0)
+    };
+
+    res.json(todasLasLigas);
+  } catch (error) {
+    console.error("Error en /marcadores/todas-las-ligas:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los marcadores",
       detalles: error.message 
     });
   }
