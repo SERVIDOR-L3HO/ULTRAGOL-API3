@@ -71,17 +71,28 @@ function buscarPartidoEnCalendario(evento, calendario) {
 
 function formatearFecha(fechaISO) {
   const fecha = new Date(fechaISO);
-  const dia = fecha.getDate().toString().padStart(2, '0');
-  const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
-  const año = fecha.getFullYear();
-  return `${dia}-${mes}-${año}`;
+  // Convertir a fecha de México (America/Mexico_City)
+  const partes = fecha.toLocaleString("es-MX", { 
+    timeZone: "America/Mexico_City",
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).split('/');
+  
+  // toLocaleString devuelve dd/mm/yyyy, necesitamos dd-mm-yyyy
+  return `${partes[0]}-${partes[1]}-${partes[2]}`;
 }
 
 function formatearHora(fechaISO) {
   const fecha = new Date(fechaISO);
-  const horas = fecha.getHours().toString().padStart(2, '0');
-  const minutos = fecha.getMinutes().toString().padStart(2, '0');
-  return `${horas}:${minutos}`;
+  // Convertir a hora de México (America/Mexico_City)
+  const horaLocal = fecha.toLocaleString("es-MX", { 
+    timeZone: "America/Mexico_City",
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+  return horaLocal;
 }
 
 async function scrapTransmisiones() {
