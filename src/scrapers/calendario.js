@@ -164,20 +164,42 @@ async function scrapCalendario() {
 
 function parseFechaHora(fechaTexto, horaTexto, timezone) {
   try {
-    let fechaPartido;
+    // Convertir hora de 12h a 24h si tiene AM/PM
+    let hora24 = horaTexto;
+    if (horaTexto.includes("PM") || horaTexto.includes("AM")) {
+      hora24 = convertirHora12a24(horaTexto);
+    }
     
-    if (fechaTexto && (horaTexto.includes("PM") || horaTexto.includes("AM"))) {
-      const fechaCompleta = `${fechaTexto} ${horaTexto}`;
-      fechaPartido = new Date(fechaCompleta);
-    } else if (horaTexto.includes("PM") || horaTexto.includes("AM")) {
-      const ahora = new Date();
-      const hora24 = convertirHora12a24(horaTexto);
-      fechaPartido = new Date(ahora);
-      fechaPartido.setHours(parseInt(hora24.split(":")[0]));
-      fechaPartido.setMinutes(parseInt(hora24.split(":")[1]));
-      fechaPartido.setSeconds(0);
+    // Parsear la fecha del texto (ej: "lunes, 21 de octubre")
+    let fechaPartido;
+    const ahora = new Date();
+    
+    if (fechaTexto && fechaTexto !== "Por confirmar") {
+      // Intentar parsear la fecha completa
+      const meses = {
+        'enero': 0, 'febrero': 1, 'marzo': 2, 'abril': 3,
+        'mayo': 4, 'junio': 5, 'julio': 6, 'agosto': 7,
+        'septiembre': 8, 'octubre': 9, 'noviembre': 10, 'diciembre': 11
+      };
+      
+      const match = fechaTexto.match(/(\d+)\s+de\s+(\w+)/i);
+      if (match) {
+        const dia = parseInt(match[1]);
+        const mes = meses[match[2].toLowerCase()];
+        const año = ahora.getFullYear();
+        
+        // Crear fecha en zona horaria de México
+        const [horas, minutos] = hora24.split(':').map(n => parseInt(n));
+        
+        // Crear la fecha directamente con los componentes
+        fechaPartido = new Date(año, mes, dia, horas, minutos, 0);
+      } else {
+        fechaPartido = new Date(`${fechaTexto} ${hora24}`);
+      }
     } else {
-      fechaPartido = new Date(`${fechaTexto} ${horaTexto}`);
+      // Si no hay fecha, usar hoy
+      const [horas, minutos] = hora24.split(':').map(n => parseInt(n));
+      fechaPartido = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), horas, minutos, 0);
     }
     
     if (isNaN(fechaPartido.getTime())) {
@@ -186,6 +208,7 @@ function parseFechaHora(fechaTexto, horaTexto, timezone) {
     
     return fechaPartido;
   } catch (error) {
+    console.error("Error parseando fecha/hora:", error.message);
     return new Date();
   }
 }
