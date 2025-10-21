@@ -70,29 +70,17 @@ function buscarPartidoEnCalendario(evento, calendario) {
 }
 
 function formatearFecha(fechaISO) {
-  const fecha = new Date(fechaISO);
-  // Convertir a fecha de México (America/Mexico_City)
-  const partes = fecha.toLocaleString("es-MX", { 
-    timeZone: "America/Mexico_City",
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).split('/');
-  
-  // toLocaleString devuelve dd/mm/yyyy, necesitamos dd-mm-yyyy
-  return `${partes[0]}-${partes[1]}-${partes[2]}`;
+  // Extraer fecha directamente del ISO (ya está en la fecha correcta)
+  const fechaParte = fechaISO.substring(0, 10);
+  const [año, mes, dia] = fechaParte.split('-');
+  return `${dia}-${mes}-${año}`;
 }
 
 function formatearHora(fechaISO) {
   const fecha = new Date(fechaISO);
-  // Convertir a hora de México (America/Mexico_City)
-  const horaLocal = fecha.toLocaleString("es-MX", { 
-    timeZone: "America/Mexico_City",
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
-  return horaLocal;
+  //  Extraer hora y minutos directamente del ISO (ya está en la hora correcta)
+  const horaMinutos = fechaISO.substring(11, 16);
+  return horaMinutos;
 }
 
 async function scrapTransmisiones() {

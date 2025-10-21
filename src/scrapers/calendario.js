@@ -30,204 +30,125 @@ function calcularContador(fechaPartido) {
   };
 }
 
-async function scrapCalendarioCompleto(url, timezone = "America/Mexico_City") {
-  const html = await fetchWithRetry(url);
-  const $ = cheerio.load(html);
-  
-  const partidos = [];
-  let fechaActual = "";
-  let jornada = 1;
-  
-  $(".ScheduleTables").children().each((index, element) => {
-    if ($(element).hasClass("Table__Title")) {
-      fechaActual = $(element).text().trim();
-      
-      const jornadaMatch = fechaActual.match(/Jornada (\d+)/i);
-      if (jornadaMatch) {
-        jornada = parseInt(jornadaMatch[1]);
-      }
-    } else if ($(element).hasClass("ResponsiveTable") || $(element).hasClass("Table")) {
-      $(element).find("tbody tr").each((i, row) => {
-        const tds = $(row).find("td");
+async function scrapCalendario() {
+  try {
+    const url = "https://www.mediotiempo.com/futbol/liga-mx/calendario";
+    const html = await fetchWithRetry(url);
+    const $ = cheerio.load(html);
+    
+    const partidos = [];
+    
+    $("table tbody tr").each((i, row) => {
+      try {
+        const cells = $(row).find("td");
+        if (cells.length < 2) return;
         
-        const equipoLocal = tds.eq(0).find(".Table__Team a").last().text().trim();
-        const escudoLocal = tds.eq(0).find("img").attr("data-default-src") || tds.eq(0).find("img").attr("src");
-        const enlaceLocal = tds.eq(0).find("a").last().attr("href");
+        const fechaHoraText = $(cells[0]).text().trim();
+        const partidoCell = $(cells[1]);
         
-        const equipoVisitante = tds.eq(1).find(".Table__Team a").last().text().trim();
-        const escudoVisitante = tds.eq(1).find("img").attr("data-default-src") || tds.eq(1).find("img").attr("src");
-        const enlaceVisitante = tds.eq(1).find("a").last().attr("href");
-        const enlacePartido = tds.eq(1).find("a").first().attr("href");
+        const equipoLocalElement = $(partidoCell).find("img").first();
+        const equipoVisitanteElement = $(partidoCell).find("img").last();
         
-        const textoHoraColumna = tds.eq(2).text().trim();
-        let horaTexto = textoHoraColumna;
-        let resultado = null;
+        const equipoLocal = equipoLocalElement.attr("alt") || "";
+        const escudoLocal = equipoLocalElement.attr("src") || null;
+        
+        const equipoVisitante = equipoVisitanteElement.attr("alt") || "";
+        const escudoVisitante = equipoVisitanteElement.attr("src") || null;
+        
+        const enlacePartido = $(partidoCell).find("a").attr("href") || null;
+        const estatusText = $(cells[2]).text().trim();
+        
+        if (!equipoLocal || !equipoVisitante || !fechaHoraText) return;
+        
+        const fechaHoraParts = fechaHoraText.split(/\s+/);
+        if (fechaHoraParts.length < 3) return;
+        
+        const dia = fechaHoraParts[0];
+        const mesAbreviado = fechaHoraParts[1].replace('.', '');
+        const hora24 = fechaHoraParts[2];
+        
+        const meses = {
+          'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3,
+          'may': 4, 'jun': 5, 'jul': 6, 'ago': 7,
+          'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
+        };
+        
+        const mes = meses[mesAbreviado.toLowerCase()];
+        if (mes === undefined) return;
+        
+        const ahora = new Date();
+        const año = ahora.getFullYear();
+        
+        const [horas, minutos] = hora24.split(':').map(n => parseInt(n));
+        const fechaPartido = new Date(año, mes, parseInt(dia), horas, minutos, 0);
+        
+        const contador = calcularContador(fechaPartido);
+        
         let estado = "Programado";
+        let resultado = null;
         
-        const resultadoMatch = textoHoraColumna.match(/(\d+)\s*-\s*(\d+)/);
-        if (resultadoMatch) {
-          resultado = {
-            local: parseInt(resultadoMatch[1]),
-            visitante: parseInt(resultadoMatch[2]),
-            ganador: parseInt(resultadoMatch[1]) > parseInt(resultadoMatch[2]) ? 'local' : 
-                     parseInt(resultadoMatch[2]) > parseInt(resultadoMatch[1]) ? 'visitante' : 'empate'
-          };
+        if (estatusText && estatusText.match(/\d+\s*-\s*\d+/)) {
           estado = "Finalizado";
-          horaTexto = tds.eq(2).find(".Schedule__Time").text().trim() || textoHoraColumna;
-        }
-        
-        const canalesTV = tds.eq(3).text().trim();
-        const estadio = tds.eq(4).text().trim();
-        
-        const odds = tds.eq(6).text().trim();
-        let apuestas = null;
-        if (odds) {
-          const oddsMatch = odds.match(/([A-Z]+):\s*([\+\-]\d+).*?([A-Z]+):\s*([\+\-]\d+)/);
-          if (oddsMatch) {
-            apuestas = {
-              local: { equipo: oddsMatch[1], valor: oddsMatch[2] },
-              visitante: { equipo: oddsMatch[3], valor: oddsMatch[4] }
+          const resultadoMatch = estatusText.match(/(\d+)\s*-\s*\d+/);
+          if (resultadoMatch) {
+            const [golesLocal, golesVisitante] = estatusText.split('-').map(g => parseInt(g.trim()));
+            resultado = {
+              local: golesLocal,
+              visitante: golesVisitante,
+              ganador: golesLocal > golesVisitante ? 'local' : 
+                       golesVisitante > golesLocal ? 'visitante' : 'empate'
             };
           }
         }
         
-        if (equipoLocal && equipoVisitante && (horaTexto || resultado)) {
-          let fechaPartido = parseFechaHora(fechaActual, horaTexto, timezone);
-          const contador = calcularContador(fechaPartido);
-          
-          const partido = {
-            jornada: jornada,
-            equipoLocal: {
-              nombre: equipoLocal,
-              escudo: escudoLocal || null,
-              enlace: enlaceLocal ? `https://www.espn.com.mx${enlaceLocal}` : null
-            },
-            equipoVisitante: {
-              nombre: equipoVisitante,
-              escudo: escudoVisitante || null,
-              enlace: enlaceVisitante ? `https://www.espn.com.mx${enlaceVisitante}` : null
-            },
-            fecha: fechaActual || "Por confirmar",
-            hora: horaTexto,
-            fechaCompleta: fechaPartido.toLocaleString("es-MX", { 
-              timeZone: timezone,
-              dateStyle: "full",
-              timeStyle: "short"
-            }),
-            fechaISO: fechaPartido.toISOString(),
-            contador: contador,
-            estado: estado,
-            resultado: resultado,
-            estadio: estadio || "Por confirmar",
-            canalesTV: canalesTV || "No disponible",
-            apuestas: apuestas,
-            enlacePartido: enlacePartido ? `https://www.espn.com.mx${enlacePartido}` : null
-          };
-          
-          partidos.push(partido);
-        }
-      });
-    }
-  });
-  
-  return partidos;
-}
-
-async function scrapCalendario() {
-  try {
-    const urlFuturos = "https://www.espn.com.mx/futbol/calendario/_/liga/mex.1";
-    const urlPasados = "https://www.espn.com.mx/futbol/resultados/_/liga/mex.1";
-    
-    const partidosFuturos = await scrapCalendarioCompleto(urlFuturos, "America/Mexico_City");
-    const partidosPasados = await scrapCalendarioCompleto(urlPasados, "America/Mexico_City");
-    
-    const todosLosPartidos = [...partidosPasados, ...partidosFuturos];
-    
-    todosLosPartidos.sort((a, b) => {
-      if (a.jornada !== b.jornada) return a.jornada - b.jornada;
-      return new Date(a.fechaISO) - new Date(b.fechaISO);
+        const partido = {
+          jornada: null,
+          equipoLocal: {
+            nombre: equipoLocal,
+            escudo: escudoLocal,
+            enlace: null
+          },
+          equipoVisitante: {
+            nombre: equipoVisitante,
+            escudo: escudoVisitante,
+            enlace: null
+          },
+          fecha: `${dia} de ${Object.keys(meses).find(key => meses[key] === mes)}`,
+          hora: hora24,
+          fechaCompleta: fechaPartido.toLocaleString("es-MX", { 
+            timeZone: "America/Mexico_City",
+            dateStyle: "full",
+            timeStyle: "short"
+          }),
+          fechaISO: fechaPartido.toISOString(),
+          contador: contador,
+          estado: estado,
+          resultado: resultado,
+          estadio: "Por confirmar",
+          canalesTV: "Por confirmar",
+          apuestas: null,
+          enlacePartido: enlacePartido ? `https://www.mediotiempo.com${enlacePartido}` : null
+        };
+        
+        partidos.push(partido);
+      } catch (error) {
+        console.error(`Error procesando partido en fila ${i}:`, error.message);
+      }
     });
 
     return {
       actualizado: new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" }),
-      total: todosLosPartidos.length,
+      total: partidos.length,
       jornadasTotales: 17,
       liga: "Liga MX",
       pais: "México",
-      calendario: todosLosPartidos
+      fuente: "Mediotiempo",
+      calendario: partidos
     };
   } catch (error) {
     console.error("Error scraping calendario:", error.message);
     throw error;
   }
-}
-
-function parseFechaHora(fechaTexto, horaTexto, timezone) {
-  try {
-    // Convertir hora de 12h a 24h si tiene AM/PM
-    let hora24 = horaTexto;
-    if (horaTexto.includes("PM") || horaTexto.includes("AM")) {
-      hora24 = convertirHora12a24(horaTexto);
-    }
-    
-    // Parsear la fecha del texto (ej: "lunes, 21 de octubre")
-    let fechaPartido;
-    const ahora = new Date();
-    
-    if (fechaTexto && fechaTexto !== "Por confirmar") {
-      // Intentar parsear la fecha completa
-      const meses = {
-        'enero': 0, 'febrero': 1, 'marzo': 2, 'abril': 3,
-        'mayo': 4, 'junio': 5, 'julio': 6, 'agosto': 7,
-        'septiembre': 8, 'octubre': 9, 'noviembre': 10, 'diciembre': 11
-      };
-      
-      const match = fechaTexto.match(/(\d+)\s+de\s+(\w+)/i);
-      if (match) {
-        const dia = parseInt(match[1]);
-        const mes = meses[match[2].toLowerCase()];
-        const año = ahora.getFullYear();
-        
-        // Crear fecha en zona horaria de México
-        const [horas, minutos] = hora24.split(':').map(n => parseInt(n));
-        
-        // Crear la fecha directamente con los componentes
-        fechaPartido = new Date(año, mes, dia, horas, minutos, 0);
-      } else {
-        fechaPartido = new Date(`${fechaTexto} ${hora24}`);
-      }
-    } else {
-      // Si no hay fecha, usar hoy
-      const [horas, minutos] = hora24.split(':').map(n => parseInt(n));
-      fechaPartido = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), horas, minutos, 0);
-    }
-    
-    if (isNaN(fechaPartido.getTime())) {
-      fechaPartido = new Date();
-    }
-    
-    return fechaPartido;
-  } catch (error) {
-    console.error("Error parseando fecha/hora:", error.message);
-    return new Date();
-  }
-}
-
-function convertirHora12a24(hora12) {
-  const match = hora12.match(/(\d+):(\d+)\s*(AM|PM)/i);
-  if (!match) return "00:00";
-  
-  let horas = parseInt(match[1]);
-  const minutos = match[2];
-  const periodo = match[3].toUpperCase();
-  
-  if (periodo === "PM" && horas !== 12) {
-    horas += 12;
-  } else if (periodo === "AM" && horas === 12) {
-    horas = 0;
-  }
-  
-  return `${horas.toString().padStart(2, '0')}:${minutos}`;
 }
 
 module.exports = { scrapCalendario };
