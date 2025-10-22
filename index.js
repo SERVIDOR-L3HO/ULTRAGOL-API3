@@ -1021,21 +1021,12 @@ app.get("/proxyStream", async (req, res) => {
 
     const $ = cheerio.load(response.data);
 
-    $('script').each((i, elem) => {
-      const scriptContent = $(elem).html() || '';
-      const scriptSrc = $(elem).attr('src') || '';
-      if (
-        scriptContent.toLowerCase().includes('ads') ||
-        scriptContent.toLowerCase().includes('adservice') ||
-        scriptContent.toLowerCase().includes('pop') ||
-        scriptContent.toLowerCase().includes('click') ||
-        scriptSrc.toLowerCase().includes('ads') ||
-        scriptSrc.toLowerCase().includes('adservice') ||
-        scriptSrc.toLowerCase().includes('pop') ||
-        scriptSrc.toLowerCase().includes('click')
-      ) {
-        $(elem).remove();
-      }
+    $('script').remove();
+    $('noscript').remove();
+    
+    $('a').each((i, elem) => {
+      $(elem).removeAttr('href');
+      $(elem).removeAttr('onclick');
     });
 
     $('iframe').each((i, elem) => {
@@ -1044,18 +1035,24 @@ app.get("/proxyStream", async (req, res) => {
         iframeSrc.toLowerCase().includes('ads') ||
         iframeSrc.toLowerCase().includes('adservice') ||
         iframeSrc.toLowerCase().includes('pop') ||
-        iframeSrc.toLowerCase().includes('click')
+        iframeSrc.toLowerCase().includes('click') ||
+        iframeSrc.toLowerCase().includes('banner')
       ) {
         $(elem).remove();
       }
     });
 
-    $('div').each((i, elem) => {
-      const divId = $(elem).attr('id') || '';
-      const divClass = $(elem).attr('class') || '';
+    $('div, span, section, aside').each((i, elem) => {
+      const elemId = $(elem).attr('id') || '';
+      const elemClass = $(elem).attr('class') || '';
+      const combined = (elemId + ' ' + elemClass).toLowerCase();
+      
       if (
-        divId.toLowerCase().includes('ad') ||
-        divClass.toLowerCase().includes('ad')
+        combined.includes('ad') ||
+        combined.includes('banner') ||
+        combined.includes('popup') ||
+        combined.includes('overlay') ||
+        combined.includes('modal')
       ) {
         $(elem).remove();
       }
@@ -1063,85 +1060,26 @@ app.get("/proxyStream", async (req, res) => {
 
     const iframe = $('iframe').first();
     const iframeSrc = iframe.attr('src') || '';
-
+    
     let cleanHtml;
 
     if (iframe.length > 0 && iframeSrc) {
-      try {
-        console.log(`🔄 Intentando cargar iframe: ${iframeSrc}`);
-        
-        const iframeUrl = iframeSrc.startsWith('http') ? iframeSrc : `https:${iframeSrc}`;
-        const iframeResponse = await axios.get(iframeUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': targetUrl
-          },
-          timeout: 10000
-        });
-
-        const $iframe = cheerio.load(iframeResponse.data);
-        
-        $iframe('script').each((i, elem) => {
-          const scriptContent = $iframe(elem).html() || '';
-          const scriptSrc = $iframe(elem).attr('src') || '';
-          if (
-            scriptContent.toLowerCase().includes('ads') ||
-            scriptContent.toLowerCase().includes('adservice') ||
-            scriptContent.toLowerCase().includes('pop') ||
-            scriptContent.toLowerCase().includes('click') ||
-            scriptSrc.toLowerCase().includes('ads') ||
-            scriptSrc.toLowerCase().includes('adservice') ||
-            scriptSrc.toLowerCase().includes('pop') ||
-            scriptSrc.toLowerCase().includes('click')
-          ) {
-            $iframe(elem).remove();
-          }
-        });
-
-        $iframe('div').each((i, elem) => {
-          const divId = $iframe(elem).attr('id') || '';
-          const divClass = $iframe(elem).attr('class') || '';
-          if (
-            divId.toLowerCase().includes('ad') ||
-            divClass.toLowerCase().includes('ad')
-          ) {
-            $iframe(elem).remove();
-          }
-        });
-
-        cleanHtml = $iframe.html();
-        
-        cleanHtml = `
+      const fullIframeSrc = iframeSrc.startsWith('http') ? iframeSrc : `https:${iframeSrc}`;
+      
+      cleanHtml = `
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="script-src 'none';">
   <title>Stream Player</title>
   <style>
-    body {
+    * {
       margin: 0;
       padding: 0;
-      overflow: hidden;
-      background-color: #000;
+      box-sizing: border-box;
     }
-  </style>
-</head>
-${cleanHtml}
-</html>`;
-        
-        console.log(`✅ Contenido del iframe cargado exitosamente`);
-      } catch (iframeError) {
-        console.log(`⚠️ No se pudo cargar el iframe, usando fallback: ${iframeError.message}`);
-        
-        cleanHtml = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stream Player</title>
-  <style>
     body {
       margin: 0;
       padding: 0;
@@ -1156,13 +1094,26 @@ ${cleanHtml}
       height: 100%;
       border: none;
     }
+    a {
+      pointer-events: none;
+      cursor: default;
+    }
   </style>
 </head>
 <body>
-  ${$.html(iframe)}
+  <iframe 
+    src="${fullIframeSrc}" 
+    width="100%" 
+    height="100%" 
+    scrolling="no" 
+    frameborder="0" 
+    allowfullscreen="true"
+    sandbox="allow-same-origin allow-scripts allow-forms">
+  </iframe>
 </body>
 </html>`;
-      }
+      
+      console.log(`✅ Iframe extraído: ${fullIframeSrc}`);
     } else {
       const video = $('video').first();
       
@@ -1231,6 +1182,8 @@ ${cleanHtml}
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Content-Security-Policy', "script-src 'none'");
     res.send(cleanHtml);
 
     console.log(`✅ Proxy completado para: ${targetUrl}`);
