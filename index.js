@@ -1012,7 +1012,9 @@ app.get("/proxyStream", async (req, res) => {
 
     const response = await axios.get(targetUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': targetUrl,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
       },
       timeout: 10000
     });
@@ -1060,12 +1062,79 @@ app.get("/proxyStream", async (req, res) => {
     });
 
     const iframe = $('iframe').first();
-    const video = $('video').first();
+    const iframeSrc = iframe.attr('src') || '';
 
     let cleanHtml;
 
-    if (iframe.length > 0) {
-      cleanHtml = `
+    if (iframe.length > 0 && iframeSrc) {
+      try {
+        console.log(`🔄 Intentando cargar iframe: ${iframeSrc}`);
+        
+        const iframeUrl = iframeSrc.startsWith('http') ? iframeSrc : `https:${iframeSrc}`;
+        const iframeResponse = await axios.get(iframeUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': targetUrl
+          },
+          timeout: 10000
+        });
+
+        const $iframe = cheerio.load(iframeResponse.data);
+        
+        $iframe('script').each((i, elem) => {
+          const scriptContent = $iframe(elem).html() || '';
+          const scriptSrc = $iframe(elem).attr('src') || '';
+          if (
+            scriptContent.toLowerCase().includes('ads') ||
+            scriptContent.toLowerCase().includes('adservice') ||
+            scriptContent.toLowerCase().includes('pop') ||
+            scriptContent.toLowerCase().includes('click') ||
+            scriptSrc.toLowerCase().includes('ads') ||
+            scriptSrc.toLowerCase().includes('adservice') ||
+            scriptSrc.toLowerCase().includes('pop') ||
+            scriptSrc.toLowerCase().includes('click')
+          ) {
+            $iframe(elem).remove();
+          }
+        });
+
+        $iframe('div').each((i, elem) => {
+          const divId = $iframe(elem).attr('id') || '';
+          const divClass = $iframe(elem).attr('class') || '';
+          if (
+            divId.toLowerCase().includes('ad') ||
+            divClass.toLowerCase().includes('ad')
+          ) {
+            $iframe(elem).remove();
+          }
+        });
+
+        cleanHtml = $iframe.html();
+        
+        cleanHtml = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stream Player</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #000;
+    }
+  </style>
+</head>
+${cleanHtml}
+</html>`;
+        
+        console.log(`✅ Contenido del iframe cargado exitosamente`);
+      } catch (iframeError) {
+        console.log(`⚠️ No se pudo cargar el iframe, usando fallback: ${iframeError.message}`);
+        
+        cleanHtml = `
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1093,8 +1162,12 @@ app.get("/proxyStream", async (req, res) => {
   ${$.html(iframe)}
 </body>
 </html>`;
-    } else if (video.length > 0) {
-      cleanHtml = `
+      }
+    } else {
+      const video = $('video').first();
+      
+      if (video.length > 0) {
+        cleanHtml = `
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1121,8 +1194,8 @@ app.get("/proxyStream", async (req, res) => {
   ${$.html(video)}
 </body>
 </html>`;
-    } else {
-      cleanHtml = `
+      } else {
+        cleanHtml = `
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1154,6 +1227,7 @@ app.get("/proxyStream", async (req, res) => {
   </div>
 </body>
 </html>`;
+      }
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
