@@ -173,6 +173,12 @@ app.get("/", (req, res) => {
         endpoint: "/transmisiones",
         descripcion: "Transmisiones deportivas en vivo con fechas, horarios y canales disponibles"
       },
+      getStreamUrl: {
+        endpoint: "/getStreamUrl",
+        parametro: "?url=https://rereyano.ru/player/3/1",
+        descripcion: "Extrae la URL del reproductor de video en formato JSON - úsala directamente en tu iframe",
+        respuesta: "{ success: true, playerUrl: 'https://...', type: 'iframe' }"
+      },
       proxyStream: {
         endpoint: "/proxyStream",
         parametro: "?url=https://rereyano.ru/player/3/1",
@@ -992,6 +998,60 @@ app.get("/marcadores/todas-las-ligas", async (req, res) => {
     console.error("Error en /marcadores/todas-las-ligas:", error.message);
     res.status(500).json({ 
       error: "No se pudieron obtener los marcadores",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/getStreamUrl", async (req, res) => {
+  try {
+    const targetUrl = req.query.url;
+    
+    if (!targetUrl) {
+      return res.status(400).json({ 
+        error: "Falta el parámetro 'url'",
+        ejemplo: "/getStreamUrl?url=https://rereyano.ru/player/3/1"
+      });
+    }
+
+    console.log(`🔍 Extrayendo URL del stream: ${targetUrl}`);
+
+    const response = await axios.get(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data);
+    const iframe = $('iframe').first();
+    const iframeSrc = iframe.attr('src') || '';
+
+    if (iframe.length > 0 && iframeSrc) {
+      const fullUrl = iframeSrc.startsWith('http') ? iframeSrc : `https:${iframeSrc}`;
+      
+      res.json({
+        success: true,
+        playerUrl: fullUrl,
+        type: 'iframe',
+        originalUrl: targetUrl
+      });
+      
+      console.log(`✅ URL extraída: ${fullUrl}`);
+    } else {
+      res.status(404).json({
+        success: false,
+        error: "No se encontró un reproductor de video en la página",
+        originalUrl: targetUrl
+      });
+    }
+
+  } catch (error) {
+    console.error("❌ Error en /getStreamUrl:", error.message);
+    res.status(500).json({ 
+      success: false,
+      error: "No se pudo procesar la URL",
       detalles: error.message 
     });
   }
