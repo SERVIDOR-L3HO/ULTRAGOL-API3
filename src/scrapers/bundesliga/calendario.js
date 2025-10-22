@@ -120,7 +120,7 @@ async function scrapCalendarioBundesliga() {
     });
 
     return {
-      actualizado: new Date().toLocaleString("es-MX", { timeZone: "Europe/Berlin" }), new Date().toLocaleString("de-DE", { timeZone: "Europe/Berlin" }),
+      actualizado: new Date().toLocaleString("de-DE", { timeZone: "Europe/Berlin" }),
       total: calendario.length,
       jornadasTotales: 34,
       liga: "Bundesliga",

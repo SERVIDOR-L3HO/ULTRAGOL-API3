@@ -120,7 +120,7 @@ async function scrapCalendarioLigue1() {
     });
 
     return {
-      actualizado: new Date().toLocaleString("es-MX", { timeZone: "Europe/Paris" }), new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" }),
+      actualizado: new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" }),
       total: calendario.length,
       jornadasTotales: 34,
       liga: "Ligue 1",
