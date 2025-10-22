@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const cron = require("node-cron");
+const axios = require("axios");
+const cheerio = require("cheerio");
 const cache = require("./src/cache/dataCache");
 const { scrapTabla } = require("./src/scrapers/tabla");
 const { scrapNoticias } = require("./src/scrapers/noticias");
@@ -170,6 +172,11 @@ app.get("/", (req, res) => {
       transmisiones: {
         endpoint: "/transmisiones",
         descripcion: "Transmisiones deportivas en vivo con fechas, horarios y canales disponibles"
+      },
+      proxyStream: {
+        endpoint: "/proxyStream",
+        parametro: "?url=https://rereyano.ru/player/3/1",
+        descripcion: "Proxy limpiador de HTML para streams de video - elimina anuncios y pop-ups, extrae solo el reproductor de video"
       },
       parametros_marcadores: {
         date: "?date=YYYYMMDD (opcional)",
@@ -987,6 +994,217 @@ app.get("/marcadores/todas-las-ligas", async (req, res) => {
       error: "No se pudieron obtener los marcadores",
       detalles: error.message 
     });
+  }
+});
+
+app.get("/proxyStream", async (req, res) => {
+  try {
+    const targetUrl = req.query.url;
+    
+    if (!targetUrl) {
+      return res.status(400).json({ 
+        error: "Falta el parámetro 'url'",
+        ejemplo: "/proxyStream?url=https://rereyano.ru/player/3/1"
+      });
+    }
+
+    console.log(`🎥 Proxy solicitado para: ${targetUrl}`);
+
+    const response = await axios.get(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data);
+
+    $('script').each((i, elem) => {
+      const scriptContent = $(elem).html() || '';
+      const scriptSrc = $(elem).attr('src') || '';
+      if (
+        scriptContent.toLowerCase().includes('ads') ||
+        scriptContent.toLowerCase().includes('adservice') ||
+        scriptContent.toLowerCase().includes('pop') ||
+        scriptContent.toLowerCase().includes('click') ||
+        scriptSrc.toLowerCase().includes('ads') ||
+        scriptSrc.toLowerCase().includes('adservice') ||
+        scriptSrc.toLowerCase().includes('pop') ||
+        scriptSrc.toLowerCase().includes('click')
+      ) {
+        $(elem).remove();
+      }
+    });
+
+    $('iframe').each((i, elem) => {
+      const iframeSrc = $(elem).attr('src') || '';
+      if (
+        iframeSrc.toLowerCase().includes('ads') ||
+        iframeSrc.toLowerCase().includes('adservice') ||
+        iframeSrc.toLowerCase().includes('pop') ||
+        iframeSrc.toLowerCase().includes('click')
+      ) {
+        $(elem).remove();
+      }
+    });
+
+    $('div').each((i, elem) => {
+      const divId = $(elem).attr('id') || '';
+      const divClass = $(elem).attr('class') || '';
+      if (
+        divId.toLowerCase().includes('ad') ||
+        divClass.toLowerCase().includes('ad')
+      ) {
+        $(elem).remove();
+      }
+    });
+
+    const iframe = $('iframe').first();
+    const video = $('video').first();
+
+    let cleanHtml;
+
+    if (iframe.length > 0) {
+      cleanHtml = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stream Player</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #000;
+    }
+    iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  ${$.html(iframe)}
+</body>
+</html>`;
+    } else if (video.length > 0) {
+      cleanHtml = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Player</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #000;
+    }
+    video {
+      max-width: 100%;
+      max-height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  ${$.html(video)}
+</body>
+</html>`;
+    } else {
+      cleanHtml = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sin contenido</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #1a1a1a;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+    .message {
+      text-align: center;
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="message">
+    <h2>⚠️ No se encontró contenido de video</h2>
+    <p>La página no contiene un reproductor de video válido.</p>
+  </div>
+</body>
+</html>`;
+    }
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(cleanHtml);
+
+    console.log(`✅ Proxy completado para: ${targetUrl}`);
+
+  } catch (error) {
+    console.error("❌ Error en /proxyStream:", error.message);
+    
+    const errorHtml = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Error</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #1a1a1a;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+    .error {
+      text-align: center;
+      padding: 20px;
+      max-width: 600px;
+    }
+    .error-code {
+      color: #ff4444;
+      font-size: 18px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="error">
+    <h2>❌ Error al cargar el contenido</h2>
+    <p>No se pudo acceder a la URL proporcionada.</p>
+    <div class="error-code">${error.message}</div>
+  </div>
+</body>
+</html>`;
+    
+    res.status(500).setHeader('Content-Type', 'text/html; charset=utf-8').send(errorHtml);
   }
 });
 
