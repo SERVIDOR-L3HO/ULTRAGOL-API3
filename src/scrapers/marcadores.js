@@ -42,6 +42,25 @@ async function scrapMarcadores(leagueCode, leagueName, date = null) {
       const status = event.status;
       const statusType = status.type.name; // 'STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_FINAL'
       
+      // Extraer goles y eventos del partido (en tiempo real)
+      const goles = (competition.details || [])
+        .filter(detail => detail.scoringPlay === true)
+        .map(gol => ({
+          minuto: gol.clock?.displayValue || gol.clock?.value || 'N/A',
+          goleador: gol.athletesInvolved?.[0]?.displayName || 'Desconocido',
+          jugadorId: gol.athletesInvolved?.[0]?.id || null,
+          equipoId: gol.team?.id || null,
+          equipo: gol.team?.displayName || 
+                  (gol.team?.id === homeTeam.team.id ? homeTeam.team.displayName : 
+                   gol.team?.id === awayTeam.team.id ? awayTeam.team.displayName : 'Desconocido'),
+          descripcion: gol.text || '',
+          tipoGol: gol.type?.text || 'Gol'
+        }));
+      
+      // Separar goles por equipo
+      const golesLocal = goles.filter(g => g.equipoId === homeTeam.team.id);
+      const golesVisitante = goles.filter(g => g.equipoId === awayTeam.team.id);
+      
       return {
         id: event.id,
         fecha: new Date(event.date).toLocaleString('es-MX', { 
@@ -66,7 +85,8 @@ async function scrapMarcadores(leagueCode, leagueName, date = null) {
           nombreCorto: homeTeam.team.abbreviation,
           logo: homeTeam.team.logo || null,
           marcador: homeTeam.score || '0',
-          ganador: homeTeam.winner || false
+          ganador: homeTeam.winner || false,
+          goles: golesLocal
         },
         visitante: {
           id: awayTeam.team.id,
@@ -74,8 +94,10 @@ async function scrapMarcadores(leagueCode, leagueName, date = null) {
           nombreCorto: awayTeam.team.abbreviation,
           logo: awayTeam.team.logo || null,
           marcador: awayTeam.score || '0',
-          ganador: awayTeam.winner || false
+          ganador: awayTeam.winner || false,
+          goles: golesVisitante
         },
+        goles: goles,
         detalles: {
           nombrePartido: event.name,
           nombreCorto: event.shortName,
