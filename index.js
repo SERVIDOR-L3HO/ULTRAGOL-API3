@@ -53,6 +53,11 @@ const {
   scrapMarcadoresLigue1
 } = require("./src/scrapers/marcadores");
 
+const { 
+  generarNotificaciones, 
+  obtenerEstadisticasNotificaciones 
+} = require("./src/scrapers/notificaciones");
+
 const app = express();
 
 app.use(cors());
@@ -168,6 +173,12 @@ app.get("/", (req, res) => {
         calendario: "/calendario/todas-las-ligas",
         marcadores: "/marcadores/todas-las-ligas (⚽ NUEVO)",
         descripcion: "Calendario y marcadores completos de todas las ligas"
+      },
+      notificaciones: {
+        todas: "/notificaciones (🔔 NUEVO)",
+        porLiga: "/notificaciones/:liga",
+        estadisticas: "/notificaciones/stats",
+        descripcion: "Sistema inteligente de notificaciones - Detecta partidos en vivo, próximos a iniciar (15min, 30min, 1h, 2h) y partidos del día"
       },
       transmisiones: {
         endpoint: "/transmisiones",
@@ -998,6 +1009,100 @@ app.get("/marcadores/todas-las-ligas", async (req, res) => {
     console.error("Error en /marcadores/todas-las-ligas:", error.message);
     res.status(500).json({ 
       error: "No se pudieron obtener los marcadores",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/notificaciones", async (req, res) => {
+  try {
+    console.log("🔔 Generando notificaciones de todas las ligas...");
+    const notificaciones = generarNotificaciones('todas');
+    
+    res.json({
+      success: true,
+      total: notificaciones.length,
+      actualizado: new Date().toLocaleString('es-MX', { 
+        timeZone: 'America/Mexico_City' 
+      }),
+      logo: "https://ultragol-l3ho.com.mx/attached_assets/1001721720-removebg-preview_1759201879566.png",
+      descripcion: "Notificaciones inteligentes de partidos - En vivo, próximos a iniciar y del día",
+      notificaciones: notificaciones
+    });
+  } catch (error) {
+    console.error("Error en /notificaciones:", error.message);
+    res.status(500).json({ 
+      success: false,
+      error: "No se pudieron generar las notificaciones",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/notificaciones/stats", async (req, res) => {
+  try {
+    console.log("📊 Generando estadísticas de notificaciones...");
+    const stats = obtenerEstadisticasNotificaciones();
+    
+    res.json({
+      success: true,
+      actualizado: new Date().toLocaleString('es-MX', { 
+        timeZone: 'America/Mexico_City' 
+      }),
+      estadisticas: stats,
+      descripcion: "Estadísticas del sistema de notificaciones"
+    });
+  } catch (error) {
+    console.error("Error en /notificaciones/stats:", error.message);
+    res.status(500).json({ 
+      success: false,
+      error: "No se pudieron generar las estadísticas",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/notificaciones/:liga", async (req, res) => {
+  try {
+    const liga = req.params.liga.toLowerCase();
+    const ligasValidas = ['ligamx', 'premier', 'laliga', 'seriea', 'bundesliga', 'ligue1'];
+    
+    if (!ligasValidas.includes(liga)) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Liga no válida",
+        ligasValidas: ligasValidas,
+        ejemplo: "/notificaciones/premier"
+      });
+    }
+    
+    console.log(`🔔 Generando notificaciones de ${liga}...`);
+    const notificaciones = generarNotificaciones(liga);
+    
+    const ligasNombres = {
+      'ligamx': 'Liga MX',
+      'premier': 'Premier League',
+      'laliga': 'La Liga',
+      'seriea': 'Serie A',
+      'bundesliga': 'Bundesliga',
+      'ligue1': 'Ligue 1'
+    };
+    
+    res.json({
+      success: true,
+      liga: ligasNombres[liga],
+      total: notificaciones.length,
+      actualizado: new Date().toLocaleString('es-MX', { 
+        timeZone: 'America/Mexico_City' 
+      }),
+      logo: "https://ultragol-l3ho.com.mx/attached_assets/1001721720-removebg-preview_1759201879566.png",
+      notificaciones: notificaciones
+    });
+  } catch (error) {
+    console.error("Error en /notificaciones/:liga:", error.message);
+    res.status(500).json({ 
+      success: false,
+      error: "No se pudieron generar las notificaciones",
       detalles: error.message 
     });
   }
