@@ -168,9 +168,9 @@ async function scrapTransmisiones() {
             numero: numeroCanal,
             nombre: nombreCanal,
             links: {
-              hoca: linksReproduccion.hoca ? `${linksReproduccion.hoca.replace(/\/\d+\/\d+$/, '')}/${numeroCanal}/1` : null,
-              caster: linksReproduccion.caster ? `${linksReproduccion.caster.replace(/\/\d+\/\d+$/, '')}/${numeroCanal}/1` : null,
-              wigi: linksReproduccion.wigi ? `${linksReproduccion.wigi.replace(/\/\d+\/\d+$/, '')}/${numeroCanal}/1` : null
+              hoca: linksReproduccion.hoca ? `${linksReproduccion.hoca.replace(/\/\d+$/, '')}/${numeroCanal}` : null,
+              caster: linksReproduccion.caster ? `${linksReproduccion.caster.replace(/\/\d+$/, '')}/${numeroCanal}` : null,
+              wigi: linksReproduccion.wigi ? `${linksReproduccion.wigi.replace(/\/\d+$/, '')}/${numeroCanal}` : null
             }
           });
         }
