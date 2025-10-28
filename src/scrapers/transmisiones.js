@@ -93,6 +93,42 @@ async function scrapTransmisiones() {
     const textoCompleto = $("textarea").first().text();
     const lineas = textoCompleto.split("\n");
     
+    const canalesInfo = {};
+    const linksReproduccion = {
+      hoca: null,
+      caster: null,
+      wigi: null
+    };
+    
+    const lineasHTML = html.split("\n");
+    for (const linea of lineasHTML) {
+      const canalMatch = linea.match(/\(CH(\d+)\)\s*-\s*(.+)/);
+      if (canalMatch) {
+        canalesInfo[canalMatch[1]] = canalMatch[2].trim();
+      }
+    }
+    
+    for (const linea of lineas) {
+      if (linea.includes("hoca :")) {
+        const linkMatch = linea.match(/hoca\s*:\s*(https?:\/\/[^\s]+)/i);
+        if (linkMatch) linksReproduccion.hoca = linkMatch[1];
+      }
+      if (linea.includes("Caster :")) {
+        const linkMatch = linea.match(/Caster\s*:\s*(https?:\/\/[^\s]+)/i);
+        if (linkMatch) linksReproduccion.caster = linkMatch[1];
+      }
+      if (linea.includes("WIGI :")) {
+        const linkMatch = linea.match(/WIGI\s*:\s*(https?:\/\/[^\s]+)/i);
+        if (linkMatch) linksReproduccion.wigi = linkMatch[1];
+      }
+    }
+    
+    console.log(`📺 Canales identificados: ${Object.keys(canalesInfo).length}`);
+    if (Object.keys(canalesInfo).length > 0) {
+      console.log(`📺 Primeros 5 canales: ${JSON.stringify(Object.fromEntries(Object.entries(canalesInfo).slice(0, 5)))}`);
+    }
+    console.log(`🔗 Links de reproducción: hoca=${!!linksReproduccion.hoca}, caster=${!!linksReproduccion.caster}, wigi=${!!linksReproduccion.wigi}`);
+    
     const lineaRegex = /^(\d{2}-\d{2}-\d{4})\s*\((\d{2}:\d{2})\)\s+(.+?)(\s+\(CH.+)?$/;
     
     console.log("📅 Obteniendo calendario para corregir fechas...");
@@ -124,7 +160,19 @@ async function scrapTransmisiones() {
         let matchCanal;
         
         while ((matchCanal = canalesRegex.exec(linea)) !== null) {
-          canales.push(matchCanal[1]);
+          const numeroCanal = matchCanal[1];
+          const numeroBase = numeroCanal.match(/^(\d+)/)?.[1] || numeroCanal;
+          const nombreCanal = canalesInfo[numeroBase] || "Canal desconocido";
+          
+          canales.push({
+            numero: numeroCanal,
+            nombre: nombreCanal,
+            links: {
+              hoca: linksReproduccion.hoca ? `${linksReproduccion.hoca.replace(/\/\d+\/\d+$/, '')}/${numeroCanal}/1` : null,
+              caster: linksReproduccion.caster ? `${linksReproduccion.caster.replace(/\/\d+\/\d+$/, '')}/${numeroCanal}/1` : null,
+              wigi: linksReproduccion.wigi ? `${linksReproduccion.wigi.replace(/\/\d+\/\d+$/, '')}/${numeroCanal}/1` : null
+            }
+          });
         }
         
         const evento = eventoCompleto.replace(/\(CH[\d\w]+\)/g, "").trim();
