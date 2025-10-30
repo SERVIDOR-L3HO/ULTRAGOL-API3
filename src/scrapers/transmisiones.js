@@ -164,13 +164,17 @@ async function scrapTransmisiones() {
           const numeroBase = numeroCanal.match(/^(\d+)/)?.[1] || numeroCanal;
           const nombreCanal = canalesInfo[numeroBase] || "Canal desconocido";
           
+          const linkHoca = linksReproduccion.hoca ? `${linksReproduccion.hoca.replace(/\/\d+$/, '')}/${numeroBase}` : null;
+          const linkCaster = linksReproduccion.caster ? `${linksReproduccion.caster.replace(/\/\d+$/, '')}/${numeroBase}` : null;
+          const linkWigi = linksReproduccion.wigi ? `${linksReproduccion.wigi.replace(/\/\d+$/, '')}/${numeroBase}` : null;
+          
           canales.push({
             numero: numeroCanal,
             nombre: nombreCanal,
             links: {
-              hoca: linksReproduccion.hoca ? `${linksReproduccion.hoca.replace(/\/\d+$/, '')}/${numeroBase}` : null,
-              caster: linksReproduccion.caster ? `${linksReproduccion.caster.replace(/\/\d+$/, '')}/${numeroBase}` : null,
-              wigi: linksReproduccion.wigi ? `${linksReproduccion.wigi.replace(/\/\d+$/, '')}/${numeroBase}` : null
+              hoca: linkHoca ? `https://golazotvhd.com/evento.html?get=${linkHoca}` : null,
+              caster: linkCaster ? `https://golazotvhd.com/evento.html?get=${linkCaster}` : null,
+              wigi: linkWigi ? `https://golazotvhd.com/evento.html?get=${linkWigi}` : null
             }
           });
         }
