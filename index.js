@@ -43,6 +43,7 @@ const { scrapCalendarioLigue1 } = require("./src/scrapers/ligue1/calendario");
 const { scrapMejoresMomentosLigue1 } = require("./src/scrapers/ligue1/mejoresMomentos");
 
 const { scrapTransmisiones } = require("./src/scrapers/transmisiones");
+const { scrapTransmisiones2 } = require("./src/scrapers/transmisiones2");
 
 const { 
   scrapMarcadoresLigaMX,
@@ -183,6 +184,10 @@ app.get("/", (req, res) => {
       transmisiones: {
         endpoint: "/transmisiones",
         descripcion: "Transmisiones deportivas en vivo con fechas, horarios y canales disponibles"
+      },
+      transmisiones2: {
+        endpoint: "/transmisiones2",
+        descripcion: "Transmisiones deportivas completas de todos los deportes (SOCCER, BASKETBALL, HOCKEY, TENNIS, VOLLEYBALL, etc.) con hora, liga y enlaces desde dp.mycraft.click"
       },
       getStreamUrl: {
         endpoint: "/getStreamUrl",
@@ -844,6 +849,26 @@ app.get("/transmisiones", async (req, res) => {
     console.error("Error en /transmisiones:", error.message);
     res.status(500).json({ 
       error: "No se pudieron obtener las transmisiones deportivas",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/transmisiones2", async (req, res) => {
+  try {
+    let data = cache.get("transmisiones2");
+    
+    if (!data) {
+      console.log("📺 Obteniendo transmisiones deportivas desde dp.mycraft.click (caché vacío)...");
+      data = await scrapTransmisiones2();
+      cache.set("transmisiones2", data);
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /transmisiones2:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las transmisiones deportivas desde dp.mycraft.click",
       detalles: error.message 
     });
   }
