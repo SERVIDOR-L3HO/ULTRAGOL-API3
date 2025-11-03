@@ -860,8 +860,35 @@ app.get("/transmisiones2", async (req, res) => {
     
     if (!data) {
       console.log("📺 Obteniendo transmisiones deportivas desde dp.mycraft.click (caché vacío)...");
-      data = await scrapTransmisiones2();
-      cache.set("transmisiones2", data);
+      try {
+        data = await scrapTransmisiones2();
+        
+        if (data && data.total > 0) {
+          cache.set("transmisiones2", data);
+        } else if (data && data.error) {
+          const staleData = cache.getStale("transmisiones2");
+          if (staleData && staleData.total > 0) {
+            console.log("⚠️ Usando datos en caché (expirados) debido a bloqueo del sitio");
+            data = {
+              ...staleData,
+              advertencia: "Datos del caché (pueden no estar actualizados). El sitio web está bloqueando peticiones nuevas.",
+              ultimaActualizacion: staleData.actualizado
+            };
+          }
+        }
+      } catch (scrapeError) {
+        const staleData = cache.getStale("transmisiones2");
+        if (staleData && staleData.total > 0) {
+          console.log("⚠️ Usando datos en caché (expirados) debido a error en scraping");
+          data = {
+            ...staleData,
+            advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos: " + scrapeError.message,
+            ultimaActualizacion: staleData.actualizado
+          };
+        } else {
+          throw scrapeError;
+        }
+      }
     }
     
     res.json(data);
@@ -869,7 +896,8 @@ app.get("/transmisiones2", async (req, res) => {
     console.error("Error en /transmisiones2:", error.message);
     res.status(500).json({ 
       error: "No se pudieron obtener las transmisiones deportivas desde dp.mycraft.click",
-      detalles: error.message 
+      detalles: error.message,
+      sugerencia: "El sitio web puede estar bloqueando las peticiones. Intenta de nuevo más tarde o considera usar un proxy."
     });
   }
 });

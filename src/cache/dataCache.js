@@ -38,6 +38,14 @@ class DataCache {
     return (now - cached.timestamp) > this.CACHE_DURATION;
   }
 
+  getStale(key) {
+    const cached = this.cache[key];
+    if (!cached || !cached.data) {
+      return null;
+    }
+    return cached.data;
+  }
+
   clear(key) {
     if (key) {
       this.cache[key] = { data: null, timestamp: null };

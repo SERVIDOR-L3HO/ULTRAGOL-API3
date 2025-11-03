@@ -125,6 +125,24 @@ async function scrapTransmisiones2() {
     
   } catch (error) {
     console.error("❌ Error en scrapTransmisiones2:", error.message);
+    
+    // Si el error es 403 (bloqueado), retornar mensaje informativo
+    if (error.message.includes("403") || error.message.includes("Acceso bloqueado")) {
+      console.log("⚠️ El sitio dp.mycraft.click está bloqueando las peticiones desde este servidor");
+      console.log("💡 Sugerencia: Los datos se cachean por 30 minutos. Si necesitas acceso más frecuente, considera usar un proxy.");
+      
+      return {
+        total: 0,
+        actualizado: new Date().toISOString(),
+        fuente: "dp.mycraft.click",
+        error: "Acceso bloqueado por el sitio web. El sitio está bloqueando peticiones desde servidores de hosting. Los datos se cachean por 30 minutos cuando están disponibles.",
+        sugerencia: "Considera usar un servicio de proxy o consultar el endpoint en horarios de menor tráfico.",
+        deportes: {},
+        deportesDisponibles: [],
+        transmisiones: []
+      };
+    }
+    
     throw new Error(`No se pudieron obtener las transmisiones de dp.mycraft.click: ${error.message}`);
   }
 }
