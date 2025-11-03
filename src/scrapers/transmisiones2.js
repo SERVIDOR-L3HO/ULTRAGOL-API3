@@ -1,10 +1,66 @@
 const cheerio = require("cheerio");
-const { fetchWithRetry } = require("../utils/scraper");
+const axios = require("axios");
 
 async function scrapTransmisiones2() {
   try {
     const url = "https://dp.mycraft.click/home.html";
-    const html = await fetchWithRetry(url);
+    
+    // Estrategia con múltiples reintentos y headers mejorados
+    let html = null;
+    let lastError = null;
+    
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        // Headers específicos para dp.mycraft.click con rotación de User-Agent
+        const userAgents = [
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        ];
+        
+        const response = await axios.get(url, {
+          headers: {
+            "User-Agent": userAgents[attempt - 1],
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "DNT": "1",
+            "Upgrade-Insecure-Requests": "1",
+            "Connection": "keep-alive"
+          },
+          timeout: 25000,
+          maxRedirects: 10,
+          validateStatus: function (status) {
+            return status >= 200 && status < 500;
+          }
+        });
+        
+        if (response.status === 200) {
+          html = response.data;
+          break;
+        } else if (response.status === 403 || response.status === 429) {
+          // Esperar más tiempo antes del siguiente intento
+          await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+          lastError = new Error(`HTTP ${response.status} - Acceso bloqueado, reintentando...`);
+          continue;
+        } else {
+          lastError = new Error(`HTTP ${response.status}`);
+          continue;
+        }
+      } catch (error) {
+        lastError = error;
+        if (attempt < 3) {
+          // Esperar antes del siguiente intento
+          await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+        }
+      }
+    }
+    
+    if (!html) {
+      throw lastError || new Error("No se pudo obtener el HTML después de 3 intentos");
+    }
     const $ = cheerio.load(html);
     
     const transmisiones = [];
