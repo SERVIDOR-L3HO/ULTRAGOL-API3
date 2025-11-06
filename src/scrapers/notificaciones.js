@@ -43,8 +43,8 @@ function generarNotificaciones(liga = 'todas') {
             id: `live-${partido.id}`,
             tipo: 'en_vivo',
             prioridad: 'alta',
-            titulo: '🔴 PARTIDO EN VIVO',
-            mensaje: `${partido.local.nombre} ${partido.local.marcador} - ${partido.visitante.marcador} ${partido.visitante.nombre}`,
+            titulo: `🔴 ${partido.local.nombre} vs ${partido.visitante.nombre} - EN VIVO`,
+            mensaje: `¡${partido.local.nombre} y ${partido.visitante.nombre} están jugando AHORA en ULTRAGOL! Marcador: ${partido.local.marcador} - ${partido.visitante.marcador}`,
             detalles: {
               liga: ligaNombre,
               periodo: partido.periodo,
@@ -66,7 +66,7 @@ function generarNotificaciones(liga = 'todas') {
             icono: LOGO_NOTIFICACIONES,
             timestamp: ahora.toISOString(),
             accion: {
-              texto: 'Ver partido en vivo',
+              texto: 'Ver partido en vivo en ULTRAGOL',
               url: `/marcadores/${ligaKey}`
             }
           });
