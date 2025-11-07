@@ -30,18 +30,23 @@ async function getLineupFromESPN(eventId) {
     const header = data.header || {};
     const competition = header.competitions?.[0] || {};
     
-    const lineups = teams.map((teamData, index) => {
+    const lineups = await Promise.all(teams.map(async (teamData, index) => {
       const team = teamData.team;
       const statistics = teamData.statistics || [];
       
-      // Obtener jugadores titulares y suplentes
       const titulares = [];
       const suplentes = [];
       const entrenador = null;
       
-      statistics.forEach(stat => {
+      for (const stat of statistics) {
         const athletes = stat.athletes || [];
-        athletes.forEach(athlete => {
+        for (const athlete of athletes) {
+          let photoUrl = athlete.athlete?.headshot?.href || athlete.athlete?.headshot || null;
+          
+          if (!photoUrl && athlete.athlete?.displayName) {
+            photoUrl = await getPlayerPhoto(athlete.athlete.displayName, team.displayName);
+          }
+          
           const player = {
             id: athlete.athlete?.id || null,
             nombre: athlete.athlete?.displayName || 'Desconocido',
@@ -49,10 +54,9 @@ async function getLineupFromESPN(eventId) {
             numero: athlete.athlete?.jersey || '',
             posicion: athlete.athlete?.position?.abbreviation || athlete.athlete?.position?.name || 'N/A',
             posicionCompleta: athlete.athlete?.position?.displayName || '',
-            foto: athlete.athlete?.headshot?.href || athlete.athlete?.headshot || null,
+            foto: photoUrl,
             titular: athlete.starter === true,
             capitan: athlete.captain === true,
-            // Estadísticas del partido si están disponibles
             estadisticas: stat.names && stat.labels ? stat.names.map((name, i) => ({
               tipo: name,
               valor: athlete.stats?.[i] || '0'
@@ -64,10 +68,9 @@ async function getLineupFromESPN(eventId) {
           } else {
             suplentes.push(player);
           }
-        });
-      });
+        }
+      }
       
-      // Obtener formación si está disponible
       const formacion = data.gameInfo?.attendance ? 
         (data.rosters?.[index]?.formation || 'N/A') : 'N/A';
       
@@ -87,7 +90,7 @@ async function getLineupFromESPN(eventId) {
         totalJugadores: titulares.length + suplentes.length,
         alineacionConfirmada: titulares.length >= 11
       };
-    });
+    }));
     
     return {
       eventoId: eventId,
@@ -152,28 +155,23 @@ async function getLineupFromFlashscore(matchUrl) {
  * @returns {Promise<string|null>} URL de la foto
  */
 async function getPlayerPhoto(playerName, teamName) {
-  // Prioridad:
-  // 1. ESPN (ya incluido en la respuesta principal)
-  // 2. TheSportsDB (gratis con watermark)
-  // 3. Fallback a imagen placeholder
-  
   try {
-    // Buscar en TheSportsDB
     const searchUrl = `https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(playerName)}`;
-    const response = await axios.get(searchUrl, { timeout: 5000 });
+    const response = await axios.get(searchUrl, { timeout: 3000 });
     
     if (response.data && response.data.player && response.data.player.length > 0) {
-      const player = response.data.player[0];
-      if (player.strThumb || player.strCutout) {
+      const player = response.data.player.find(p => 
+        p.strPlayer.toLowerCase().includes(playerName.split(' ')[0].toLowerCase())
+      ) || response.data.player[0];
+      
+      if (player && (player.strCutout || player.strThumb)) {
         return player.strCutout || player.strThumb;
       }
     }
   } catch (error) {
-    // Silenciosamente fallar y usar placeholder
   }
   
-  // Placeholder genérico
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(playerName)}&size=200&background=random`;
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(playerName)}&size=200&background=random&bold=true`;
 }
 
 /**

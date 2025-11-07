@@ -37,7 +37,8 @@ class DataCache {
     if (!cached || !cached.timestamp) return true;
     
     const now = Date.now();
-    return (now - cached.timestamp) > this.CACHE_DURATION;
+    const duration = cached.ttl || this.CACHE_DURATION;
+    return (now - cached.timestamp) > duration;
   }
 
   getStale(key) {

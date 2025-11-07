@@ -1658,8 +1658,11 @@ cron.schedule("*/20 * * * *", () => {
 });
 
 cron.schedule("*/15 * * * *", () => {
-  console.log("⚽ Actualización de alineaciones iniciada (cada 15 min)");
-  console.log("💡 Las alineaciones se actualizan dinámicamente cuando se solicitan");
+  console.log("⚽ Limpiando caché de alineaciones (cada 15 min)");
+  const cacheKeys = ['alineaciones_ligamx_hoy', 'alineaciones_premier_hoy', 'alineaciones_laliga_hoy', 
+                     'alineaciones_seriea_hoy', 'alineaciones_bundesliga_hoy', 'alineaciones_ligue1_hoy'];
+  cacheKeys.forEach(key => cache.clear(key));
+  console.log("💡 Las alineaciones se actualizarán en la próxima solicitud");
 });
 
 const PORT = process.env.PORT || 5000;
