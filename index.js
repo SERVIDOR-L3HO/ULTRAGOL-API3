@@ -44,6 +44,7 @@ const { scrapMejoresMomentosLigue1 } = require("./src/scrapers/ligue1/mejoresMom
 
 const { scrapTransmisiones } = require("./src/scrapers/transmisiones");
 const { scrapTransmisiones2 } = require("./src/scrapers/transmisiones2");
+const { scrapTransmisiones3 } = require("./src/scrapers/transmisiones3");
 
 const { 
   scrapMarcadoresLigaMX,
@@ -188,6 +189,10 @@ app.get("/", (req, res) => {
       transmisiones2: {
         endpoint: "/transmisiones2",
         descripcion: "Transmisiones deportivas completas de todos los deportes (SOCCER, BASKETBALL, HOCKEY, TENNIS, VOLLEYBALL, etc.) con hora, liga y enlaces desde dp.mycraft.click"
+      },
+      transmisiones3: {
+        endpoint: "/transmisiones3",
+        descripcion: "✨ NUEVO ✨ Transmisiones deportivas de e1link.link - Fuente alternativa con HOCKEY, FOOTBALL/SOCCER, BASKETBALL, AMERICAN FOOTBALL, MOTORSPORT. Incluye canal, ID y enlaces directos"
       },
       getStreamUrl: {
         endpoint: "/getStreamUrl",
@@ -898,6 +903,54 @@ app.get("/transmisiones2", async (req, res) => {
       error: "No se pudieron obtener las transmisiones deportivas desde dp.mycraft.click",
       detalles: error.message,
       sugerencia: "El sitio web puede estar bloqueando las peticiones. Intenta de nuevo más tarde o considera usar un proxy."
+    });
+  }
+});
+
+app.get("/transmisiones3", async (req, res) => {
+  try {
+    let data = cache.get("transmisiones3");
+    
+    if (!data) {
+      console.log("📺 Obteniendo transmisiones deportivas desde e1link.link (caché vacío)...");
+      try {
+        data = await scrapTransmisiones3();
+        
+        if (data && data.total > 0) {
+          cache.set("transmisiones3", data);
+        } else if (data && data.error) {
+          const staleData = cache.getStale("transmisiones3");
+          if (staleData && staleData.total > 0) {
+            console.log("⚠️ Usando datos en caché (expirados) debido a bloqueo del sitio");
+            data = {
+              ...staleData,
+              advertencia: "Datos del caché (pueden no estar actualizados). El sitio web está bloqueando peticiones nuevas.",
+              ultimaActualizacion: staleData.actualizado
+            };
+          }
+        }
+      } catch (scrapeError) {
+        const staleData = cache.getStale("transmisiones3");
+        if (staleData && staleData.total > 0) {
+          console.log("⚠️ Usando datos en caché (expirados) debido a error en scraping");
+          data = {
+            ...staleData,
+            advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos: " + scrapeError.message,
+            ultimaActualizacion: staleData.actualizado
+          };
+        } else {
+          throw scrapeError;
+        }
+      }
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /transmisiones3:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las transmisiones deportivas desde e1link.link",
+      detalles: error.message,
+      sugerencia: "El sitio web puede estar bloqueando las peticiones. Intenta de nuevo más tarde."
     });
   }
 });
