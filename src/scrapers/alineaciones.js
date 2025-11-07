@@ -1,6 +1,34 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 
+const photoCache = new Map();
+const photoStats = {
+  totalRequests: 0,
+  cacheHits: 0,
+  espnProvided: 0,
+  theSportsDbSuccess: 0,
+  theSportsDbFail: 0,
+  placeholderUsed: 0
+};
+
+function getPhotoStats() {
+  return {
+    ...photoStats,
+    cacheHitRate: photoStats.totalRequests > 0 
+      ? ((photoStats.cacheHits / photoStats.totalRequests) * 100).toFixed(2) + '%'
+      : '0%',
+    enrichmentRate: photoStats.totalRequests > 0
+      ? ((photoStats.theSportsDbSuccess / (photoStats.totalRequests - photoStats.espnProvided - photoStats.cacheHits)) * 100).toFixed(2) + '%'
+      : '0%'
+  };
+}
+
+function clearPhotoCache() {
+  const size = photoCache.size;
+  photoCache.clear();
+  console.log(`🧹 Caché de fotos limpiado (${size} entradas)`);
+}
+
 /**
  * Obtener alineaciones desde ESPN API (fuente principal)
  * @param {string} eventId - ID del evento/partido
@@ -43,7 +71,10 @@ async function getLineupFromESPN(eventId) {
         for (const athlete of athletes) {
           let photoUrl = athlete.athlete?.headshot?.href || athlete.athlete?.headshot || null;
           
-          if (!photoUrl && athlete.athlete?.displayName) {
+          if (photoUrl) {
+            photoStats.totalRequests++;
+            photoStats.espnProvided++;
+          } else if (athlete.athlete?.displayName) {
             photoUrl = await getPlayerPhoto(athlete.athlete.displayName, team.displayName);
           }
           
@@ -149,12 +180,21 @@ async function getLineupFromFlashscore(matchUrl) {
 }
 
 /**
- * Obtener fotos de jugadores desde múltiples fuentes
+ * Obtener fotos de jugadores desde múltiples fuentes con memoización
  * @param {string} playerName - Nombre del jugador
  * @param {string} teamName - Nombre del equipo
  * @returns {Promise<string|null>} URL de la foto
  */
 async function getPlayerPhoto(playerName, teamName) {
+  photoStats.totalRequests++;
+  
+  const cacheKey = `${playerName.toLowerCase().trim()}_${teamName.toLowerCase().trim()}`;
+  
+  if (photoCache.has(cacheKey)) {
+    photoStats.cacheHits++;
+    return photoCache.get(cacheKey);
+  }
+  
   try {
     const searchUrl = `https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(playerName)}`;
     const response = await axios.get(searchUrl, { timeout: 3000 });
@@ -165,13 +205,26 @@ async function getPlayerPhoto(playerName, teamName) {
       ) || response.data.player[0];
       
       if (player && (player.strCutout || player.strThumb)) {
-        return player.strCutout || player.strThumb;
+        const photoUrl = player.strCutout || player.strThumb;
+        photoCache.set(cacheKey, photoUrl);
+        photoStats.theSportsDbSuccess++;
+        console.log(`✅ Foto encontrada para ${playerName} en TheSportsDB`);
+        return photoUrl;
       }
     }
+    
+    photoStats.theSportsDbFail++;
+    console.log(`⚠️  Foto no encontrada para ${playerName} en TheSportsDB, usando placeholder`);
   } catch (error) {
+    photoStats.theSportsDbFail++;
+    console.log(`❌ Error buscando foto para ${playerName}: ${error.message}`);
   }
   
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(playerName)}&size=200&background=random&bold=true`;
+  const placeholderUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(playerName)}&size=200&background=random&bold=true`;
+  photoCache.set(cacheKey, placeholderUrl);
+  photoStats.placeholderUsed++;
+  
+  return placeholderUrl;
 }
 
 /**
@@ -409,5 +462,7 @@ module.exports = {
   scrapAlineacionesLigue1,
   scrapAlineacionesTodasLasLigas,
   getLineupFromESPN,
-  getPlayerPhoto
+  getPlayerPhoto,
+  getPhotoStats,
+  clearPhotoCache
 };

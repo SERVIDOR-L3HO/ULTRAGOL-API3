@@ -68,7 +68,9 @@ const {
   scrapAlineacionesBundesliga,
   scrapAlineacionesLigue1,
   scrapAlineacionesTodasLasLigas,
-  scrapAlineacionPartido
+  scrapAlineacionPartido,
+  getPhotoStats,
+  clearPhotoCache
 } = require("./src/scrapers/alineaciones");
 
 const app = express();
@@ -199,6 +201,11 @@ app.get("/", (req, res) => {
         descripcion: "Alineación de un partido específico usando su ID de evento",
         ejemplo: "/alineaciones/partido/12345",
         caracteristicas: "Incluye fotos de jugadores, posiciones, números de camiseta, formación táctica, titulares y suplentes"
+      },
+      metricas_sistema: {
+        alineaciones: "/alineaciones/stats",
+        descripcion: "Métricas y estadísticas del sistema de alineaciones",
+        incluye: "Cache hit rate, tasa de enriquecimiento de fotos, fuentes de datos utilizadas"
       },
       notificaciones: {
         todas: "/notificaciones (🔔 NUEVO)",
@@ -1264,6 +1271,41 @@ app.get("/alineaciones/partido/:eventId", async (req, res) => {
   }
 });
 
+app.get("/alineaciones/stats", async (req, res) => {
+  try {
+    const stats = getPhotoStats();
+    res.json({
+      sistema: "Sistema de Alineaciones - Métricas Profesionales",
+      version: "3.3.0",
+      actualizado: new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }),
+      metricas: {
+        fotosJugadores: {
+          totalSolicitudes: stats.totalRequests,
+          cachéHits: stats.cacheHits,
+          tasaCachéHit: stats.cacheHitRate,
+          provistaPorESPN: stats.espnProvided,
+          enriquecidaPorTheSportsDB: stats.theSportsDbSuccess,
+          fallosTheSportsDB: stats.theSportsDbFail,
+          placeholdersGenerados: stats.placeholderUsed,
+          tasaEnriquecimiento: stats.enrichmentRate
+        },
+        rendimiento: {
+          optimizacion: "Memoización activa",
+          cachéActivo: true,
+          actualizacionAutomatica: "Cada 15 minutos"
+        }
+      },
+      descripcion: "El sistema usa memoización para evitar llamadas duplicadas. Las fotos provienen de ESPN (principal), TheSportsDB (fallback) y placeholders generados (último recurso)."
+    });
+  } catch (error) {
+    console.error("Error en /alineaciones/stats:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las estadísticas",
+      detalles: error.message 
+    });
+  }
+});
+
 app.get("/notificaciones", async (req, res) => {
   try {
     console.log("🔔 Generando notificaciones de todas las ligas...");
@@ -1663,6 +1705,13 @@ cron.schedule("*/15 * * * *", () => {
                      'alineaciones_seriea_hoy', 'alineaciones_bundesliga_hoy', 'alineaciones_ligue1_hoy'];
   cacheKeys.forEach(key => cache.clear(key));
   console.log("💡 Las alineaciones se actualizarán en la próxima solicitud");
+});
+
+cron.schedule("0 */6 * * *", () => {
+  console.log("🧹 Limpiando caché de fotos de jugadores (cada 6 horas)");
+  clearPhotoCache();
+  const stats = getPhotoStats();
+  console.log(`📊 Métricas de fotos: ${stats.totalRequests} solicitudes, ${stats.cacheHitRate} cache hit rate`);
 });
 
 const PORT = process.env.PORT || 5000;
