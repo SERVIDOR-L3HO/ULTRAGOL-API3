@@ -60,6 +60,17 @@ const {
   obtenerEstadisticasNotificaciones 
 } = require("./src/scrapers/notificaciones");
 
+const {
+  scrapAlineacionesLigaMX,
+  scrapAlineacionesPremier,
+  scrapAlineacionesLaLiga,
+  scrapAlineacionesSerieA,
+  scrapAlineacionesBundesliga,
+  scrapAlineacionesLigue1,
+  scrapAlineacionesTodasLasLigas,
+  scrapAlineacionPartido
+} = require("./src/scrapers/alineaciones");
+
 const app = express();
 
 app.use(cors());
@@ -95,7 +106,7 @@ async function updateAllData() {
 app.get("/", (req, res) => {
   res.json({
     nombre: "Multi-League Football API",
-    version: "3.2.0",
+    version: "3.3.0",
     descripcion: "API con scraping en tiempo real de múltiples ligas de fútbol + Marcadores en vivo desde ESPN",
     actualizacion: "Datos actualizados automáticamente cada 20 minutos",
     novedades: "✨ Nuevos endpoints de marcadores en tiempo real usando API JSON de ESPN - Sin scraping, datos directos y actualizados",
@@ -111,6 +122,7 @@ app.get("/", (req, res) => {
           videos: "/videos",
           calendario: "/calendario",
           marcadores: "/marcadores (⚽ NUEVO - Tiempo Real)",
+          alineaciones: "/alineaciones (⚽ NUEVO - Multi-fuente con fotos)",
           todo: "/todo"
         }
       },
@@ -122,6 +134,7 @@ app.get("/", (req, res) => {
           goleadores: "/premier/goleadores",
           calendario: "/premier/calendario",
           marcadores: "/premier/marcadores (⚽ NUEVO - Tiempo Real)",
+          alineaciones: "/premier/alineaciones (⚽ NUEVO)",
           mejoresMomentos: "/premier/mejores-momentos"
         }
       },
@@ -133,6 +146,7 @@ app.get("/", (req, res) => {
           goleadores: "/laliga/goleadores",
           calendario: "/laliga/calendario",
           marcadores: "/laliga/marcadores (⚽ NUEVO - Tiempo Real)",
+          alineaciones: "/laliga/alineaciones (⚽ NUEVO)",
           mejoresMomentos: "/laliga/mejores-momentos"
         }
       },
@@ -144,6 +158,7 @@ app.get("/", (req, res) => {
           goleadores: "/seriea/goleadores",
           calendario: "/seriea/calendario",
           marcadores: "/seriea/marcadores (⚽ NUEVO - Tiempo Real)",
+          alineaciones: "/seriea/alineaciones (⚽ NUEVO)",
           mejoresMomentos: "/seriea/mejores-momentos"
         }
       },
@@ -155,6 +170,7 @@ app.get("/", (req, res) => {
           goleadores: "/bundesliga/goleadores",
           calendario: "/bundesliga/calendario",
           marcadores: "/bundesliga/marcadores (⚽ NUEVO - Tiempo Real)",
+          alineaciones: "/bundesliga/alineaciones (⚽ NUEVO)",
           mejoresMomentos: "/bundesliga/mejores-momentos"
         }
       },
@@ -166,6 +182,7 @@ app.get("/", (req, res) => {
           goleadores: "/ligue1/goleadores",
           calendario: "/ligue1/calendario",
           marcadores: "/ligue1/marcadores (⚽ NUEVO - Tiempo Real)",
+          alineaciones: "/ligue1/alineaciones (⚽ NUEVO)",
           mejoresMomentos: "/ligue1/mejores-momentos"
         }
       }
@@ -174,7 +191,14 @@ app.get("/", (req, res) => {
       todas_las_ligas: {
         calendario: "/calendario/todas-las-ligas",
         marcadores: "/marcadores/todas-las-ligas (⚽ NUEVO)",
-        descripcion: "Calendario y marcadores completos de todas las ligas"
+        alineaciones: "/alineaciones/todas-las-ligas (⚽ NUEVO - Multi-fuente)",
+        descripcion: "Calendario, marcadores y alineaciones completas de todas las ligas"
+      },
+      alineaciones_especificas: {
+        porPartido: "/alineaciones/partido/:eventId",
+        descripcion: "Alineación de un partido específico usando su ID de evento",
+        ejemplo: "/alineaciones/partido/12345",
+        caracteristicas: "Incluye fotos de jugadores, posiciones, números de camiseta, formación táctica, titulares y suplentes"
       },
       notificaciones: {
         todas: "/notificaciones (🔔 NUEVO)",
@@ -1115,6 +1139,118 @@ app.get("/marcadores/todas-las-ligas", async (req, res) => {
     console.error("Error en /marcadores/todas-las-ligas:", error.message);
     res.status(500).json({ 
       error: "No se pudieron obtener los marcadores",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/alineaciones", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const data = await scrapAlineacionesLigaMX(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /alineaciones:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las alineaciones",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/premier/alineaciones", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const data = await scrapAlineacionesPremier(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /premier/alineaciones:", error.message);
+    res.status(500).json({ 
+      error: "Could not fetch Premier League lineups",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/laliga/alineaciones", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const data = await scrapAlineacionesLaLiga(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /laliga/alineaciones:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las alineaciones de La Liga",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/seriea/alineaciones", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const data = await scrapAlineacionesSerieA(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /seriea/alineaciones:", error.message);
+    res.status(500).json({ 
+      error: "Impossibile ottenere le formazioni di Serie A",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/bundesliga/alineaciones", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const data = await scrapAlineacionesBundesliga(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /bundesliga/alineaciones:", error.message);
+    res.status(500).json({ 
+      error: "Bundesliga-Aufstellungen konnten nicht abgerufen werden",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/ligue1/alineaciones", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const data = await scrapAlineacionesLigue1(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /ligue1/alineaciones:", error.message);
+    res.status(500).json({ 
+      error: "Impossible d'obtenir les compositions de Ligue 1",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/alineaciones/todas-las-ligas", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const data = await scrapAlineacionesTodasLasLigas(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /alineaciones/todas-las-ligas:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las alineaciones de todas las ligas",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/alineaciones/partido/:eventId", async (req, res) => {
+  try {
+    const eventId = req.params.eventId;
+    const data = await scrapAlineacionPartido(eventId);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /alineaciones/partido/:eventId:", error.message);
+    res.status(500).json({ 
+      error: "No se pudo obtener la alineación del partido",
       detalles: error.message 
     });
   }
