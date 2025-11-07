@@ -109,7 +109,7 @@ app.get("/", (req, res) => {
     version: "3.3.0",
     descripcion: "API con scraping en tiempo real de múltiples ligas de fútbol + Marcadores en vivo desde ESPN",
     actualizacion: "Datos actualizados automáticamente cada 20 minutos",
-    novedades: "✨ Nuevos endpoints de marcadores en tiempo real usando API JSON de ESPN - Sin scraping, datos directos y actualizados",
+    novedades: "⚽ NUEVO: Endpoints de alineaciones con fotos de jugadores, posiciones, formaciones y sistema multi-fuente - Se actualizan automáticamente cada 15 minutos",
     ligas_disponibles: {
       ligaMx: {
         nombre: "Liga MX",
