@@ -125,6 +125,9 @@ async function scrapTransmisiones3() {
           estado = "Por comenzar";
         }
         
+        const urlConPrefijo = `https://golazotvhd.com/evento.html?get=${enlaces[0]}`;
+        const enlacesConPrefijo = enlaces.map(enlace => `https://golazotvhd.com/evento.html?get=${enlace}`);
+        
         transmisiones.push({
           hora: `${horaFormateada} UTC-6`,
           gmtTimestamp: gmtTime,
@@ -135,8 +138,8 @@ async function scrapTransmisiones3() {
           evento: titulo,
           canal: canal,
           channelId: channelId,
-          url: enlaces[0],
-          enlaces: enlaces,
+          url: urlConPrefijo,
+          enlaces: enlacesConPrefijo,
           estado: estado
         });
       }
