@@ -9,10 +9,11 @@ class DataCache {
     this.CACHE_DURATION = 30 * 60 * 1000;
   }
 
-  set(key, data) {
+  set(key, data, ttlSeconds = null) {
     this.cache[key] = {
       data: data,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      ttl: ttlSeconds ? ttlSeconds * 1000 : this.CACHE_DURATION
     };
   }
 
@@ -23,7 +24,8 @@ class DataCache {
     }
 
     const now = Date.now();
-    if (now - cached.timestamp > this.CACHE_DURATION) {
+    const duration = cached.ttl || this.CACHE_DURATION;
+    if (now - cached.timestamp > duration) {
       return null;
     }
 

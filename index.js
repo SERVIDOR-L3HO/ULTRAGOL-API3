@@ -1147,7 +1147,15 @@ app.get("/marcadores/todas-las-ligas", async (req, res) => {
 app.get("/alineaciones", async (req, res) => {
   try {
     const date = req.query.date || null;
-    const data = await scrapAlineacionesLigaMX(date);
+    const cacheKey = `alineaciones_ligamx_${date || 'hoy'}`;
+    
+    let data = cache.get(cacheKey);
+    if (!data) {
+      console.log("⚽ Obteniendo alineaciones Liga MX (caché vacío)...");
+      data = await scrapAlineacionesLigaMX(date);
+      cache.set(cacheKey, data, 900);
+    }
+    
     res.json(data);
   } catch (error) {
     console.error("Error en /alineaciones:", error.message);
@@ -1647,6 +1655,11 @@ updateAllData();
 cron.schedule("*/20 * * * *", () => {
   console.log("⏰ Actualización programada iniciada");
   updateAllData();
+});
+
+cron.schedule("*/15 * * * *", () => {
+  console.log("⚽ Actualización de alineaciones iniciada (cada 15 min)");
+  console.log("💡 Las alineaciones se actualizan dinámicamente cuando se solicitan");
 });
 
 const PORT = process.env.PORT || 5000;
