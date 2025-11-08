@@ -109,6 +109,21 @@ async function updateMarcadores() {
   console.log("⚽ Actualizando marcadores de todas las ligas para notificaciones...");
   
   try {
+    // Guardar estados anteriores para detectar eventos (goles, inicio de partido, etc.)
+    const marcadoresAnterior = cache.get("marcadores");
+    const marcadoresAnteriorporemier = cache.get("marcadorespremier");
+    const marcadoresAnteriorlaliga = cache.get("marcadoreslaliga");
+    const marcadoresAnteriorseriea = cache.get("marcadoresseriea");
+    const marcadoresAnteriorbundesliga = cache.get("marcadoresbundesliga");
+    const marcadoresAnteriorligue1 = cache.get("marcadoresligue1");
+    
+    if (marcadoresAnterior) cache.set("marcadores_anterior", marcadoresAnterior);
+    if (marcadoresAnteriorporemier) cache.set("marcadorespremier_anterior", marcadoresAnteriorporemier);
+    if (marcadoresAnteriorlaliga) cache.set("marcadoreslaliga_anterior", marcadoresAnteriorlaliga);
+    if (marcadoresAnteriorseriea) cache.set("marcadoresseriea_anterior", marcadoresAnteriorseriea);
+    if (marcadoresAnteriorbundesliga) cache.set("marcadoresbundesliga_anterior", marcadoresAnteriorbundesliga);
+    if (marcadoresAnteriorligue1) cache.set("marcadoresligue1_anterior", marcadoresAnteriorligue1);
+    
     const [ligaMx, premier, laLiga, serieA, bundesliga, ligue1] = await Promise.all([
       scrapMarcadoresLigaMX().catch(err => { console.error("Error marcadores Liga MX:", err.message); return null; }),
       scrapMarcadoresPremier().catch(err => { console.error("Error marcadores Premier:", err.message); return null; }),
@@ -130,6 +145,17 @@ async function updateMarcadores() {
       .reduce((total, data) => total + data.partidos.length, 0);
     
     const notificaciones = generarNotificaciones('todas');
+    const notificacionesEventos = notificaciones.filter(n => 
+      n.tipo === 'gol' || n.tipo === 'inicio_partido' || n.tipo === 'fin_primer_tiempo' || n.tipo === 'inicio_segundo_tiempo'
+    );
+    
+    if (notificacionesEventos.length > 0) {
+      console.log(`🔔 EVENTOS DETECTADOS: ${notificacionesEventos.length}`);
+      notificacionesEventos.forEach(notif => {
+        console.log(`   ${notif.titulo} - ${notif.mensaje}`);
+      });
+    }
+    
     console.log(`✅ Marcadores actualizados: ${totalPartidos} partidos encontrados, ${notificaciones.length} notificaciones generadas`);
   } catch (error) {
     console.error("❌ Error actualizando marcadores:", error.message);
@@ -139,10 +165,10 @@ async function updateMarcadores() {
 app.get("/", (req, res) => {
   res.json({
     nombre: "Multi-League Football API",
-    version: "3.3.0",
+    version: "3.4.0",
     descripcion: "API con scraping en tiempo real de múltiples ligas de fútbol + Marcadores en vivo desde ESPN",
     actualizacion: "Datos actualizados automáticamente cada 20 minutos",
-    novedades: "⚽ NUEVO: Endpoints de alineaciones con fotos de jugadores, posiciones, formaciones y sistema multi-fuente - Se actualizan automáticamente cada 15 minutos",
+    novedades: "🔔 NUEVO: Sistema inteligente de notificaciones con detección automática de GOLES, INICIO DE PARTIDO y FIN DEL PRIMER TIEMPO en tiempo real",
     ligas_disponibles: {
       ligaMx: {
         nombre: "Liga MX",
@@ -239,10 +265,18 @@ app.get("/", (req, res) => {
         incluye: "Cache hit rate, tasa de enriquecimiento de fotos, fuentes de datos utilizadas"
       },
       notificaciones: {
-        todas: "/notificaciones (🔔 NUEVO)",
+        todas: "/notificaciones (🔔 ACTUALIZADO)",
         porLiga: "/notificaciones/:liga",
         estadisticas: "/notificaciones/stats",
-        descripcion: "Sistema inteligente de notificaciones - Detecta partidos en vivo, próximos a iniciar (15min, 30min, 1h, 2h) y partidos del día"
+        descripcion: "Sistema inteligente de notificaciones - Detecta GOLES en tiempo real ⚽, INICIO DE PARTIDO 🏁, FIN DEL PRIMER TIEMPO ⏸️, partidos en vivo, próximos a iniciar (15min, 30min, 1h, 2h) y partidos del día",
+        caracteristicas: {
+          detectaGoles: "Notificación instantánea cuando un equipo anota",
+          detectaInicioPartido: "Notificación al comenzar el partido",
+          detectaFinPrimerTiempo: "Notificación al terminar el primer tiempo con marcador",
+          detectaInicioSegundoTiempo: "Notificación al comenzar el segundo tiempo",
+          partidosEnVivo: "Monitoreo continuo de partidos en curso",
+          proximosPartidos: "Alertas 15min, 30min, 1h y 2h antes del inicio"
+        }
       },
       transmisiones: {
         endpoint: "/transmisiones",

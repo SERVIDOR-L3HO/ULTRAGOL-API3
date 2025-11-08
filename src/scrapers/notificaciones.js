@@ -3,6 +3,69 @@ const cache = require("../cache/dataCache");
 const LOGO_NOTIFICACIONES = "https://ultragol-l3ho.com.mx/attached_assets/1001721720-removebg-preview_1759201879566.png";
 
 /**
+ * Compara estados de partidos para detectar eventos (goles, cambios de periodo)
+ * @param {Object} partidoActual - Estado actual del partido
+ * @param {Object} partidoAnterior - Estado anterior del partido (puede ser null)
+ * @returns {Array} Array de eventos detectados
+ */
+function detectarEventos(partidoActual, partidoAnterior) {
+  const eventos = [];
+  
+  if (!partidoAnterior) return eventos;
+  
+  // Detectar goles nuevos
+  const golesActuales = partidoActual.goles || [];
+  const golesAnteriores = partidoAnterior.goles || [];
+  
+  if (golesActuales.length > golesAnteriores.length) {
+    const golesNuevos = golesActuales.slice(golesAnteriores.length);
+    golesNuevos.forEach(gol => {
+      eventos.push({
+        tipo: 'gol',
+        datos: {
+          partido: partidoActual,
+          gol: gol
+        }
+      });
+    });
+  }
+  
+  // Detectar inicio del partido (cambio de programado a en vivo)
+  if (partidoAnterior.estado.programado && partidoActual.estado.enVivo && partidoActual.periodo === 1) {
+    eventos.push({
+      tipo: 'inicio_partido',
+      datos: {
+        partido: partidoActual
+      }
+    });
+  }
+  
+  // Detectar fin del primer tiempo (cambio de periodo 1 a 2, o estado de medio tiempo)
+  if (partidoAnterior.periodo === 1 && (partidoActual.periodo === 2 || partidoActual.estado.tipo === 'STATUS_HALFTIME')) {
+    eventos.push({
+      tipo: 'fin_primer_tiempo',
+      datos: {
+        partido: partidoActual,
+        marcadorLocal: partidoActual.local.marcador,
+        marcadorVisitante: partidoActual.visitante.marcador
+      }
+    });
+  }
+  
+  // Detectar inicio del segundo tiempo
+  if (partidoAnterior.periodo === 1 && partidoActual.periodo === 2 && partidoAnterior.estado.tipo !== partidoActual.estado.tipo) {
+    eventos.push({
+      tipo: 'inicio_segundo_tiempo',
+      datos: {
+        partido: partidoActual
+      }
+    });
+  }
+  
+  return eventos;
+}
+
+/**
  * Genera notificaciones inteligentes basadas en el estado de los partidos
  * @param {string} liga - Nombre de la liga ('ligamx', 'premier', 'laliga', 'seriea', 'bundesliga', 'ligue1')
  * @returns {Array} Array de notificaciones
@@ -32,8 +95,145 @@ function generarNotificaciones(liga = 'todas') {
     const marcadoresKey = ligaKey === 'ligamx' ? 'marcadores' : `marcadores${ligaKey}`;
     const marcadores = cache.get(marcadoresKey);
     
+    // Obtener marcadores anteriores para detectar eventos
+    const marcadoresAnterioresKey = `${marcadoresKey}_anterior`;
+    const marcadoresAnteriores = cache.get(marcadoresAnterioresKey) || { partidos: [] };
+    
     if (marcadores && marcadores.partidos) {
       marcadores.partidos.forEach(partido => {
+        // Buscar el estado anterior del partido
+        const partidoAnterior = marcadoresAnteriores.partidos.find(p => p.id === partido.id);
+        
+        // Detectar eventos (goles, cambios de periodo)
+        const eventos = detectarEventos(partido, partidoAnterior);
+        
+        // Generar notificaciones para cada evento detectado
+        eventos.forEach(evento => {
+          switch (evento.tipo) {
+            case 'gol':
+              const gol = evento.datos.gol;
+              const equipoGoleador = partido.local.goles.includes(gol) ? partido.local : partido.visitante;
+              notificaciones.push({
+                id: `gol-${partido.id}-${Date.now()}`,
+                tipo: 'gol',
+                prioridad: 'alta',
+                titulo: `⚽ ¡GOOOOOOL! ${equipoGoleador.nombre}`,
+                mensaje: `${gol.goleador} marca para ${gol.equipo} en el minuto ${gol.minuto}`,
+                detalles: {
+                  liga: ligaNombre,
+                  partido: {
+                    local: partido.local.nombre,
+                    logoLocal: partido.local.logo,
+                    marcadorLocal: partido.local.marcador,
+                    visitante: partido.visitante.nombre,
+                    logoVisitante: partido.visitante.logo,
+                    marcadorVisitante: partido.visitante.marcador
+                  },
+                  gol: {
+                    goleador: gol.goleador,
+                    equipo: gol.equipo,
+                    minuto: gol.minuto,
+                    tipo: gol.tipoGol,
+                    descripcion: gol.descripcion
+                  },
+                  periodo: partido.periodo,
+                  reloj: partido.reloj
+                },
+                icono: equipoGoleador.logo || LOGO_NOTIFICACIONES,
+                timestamp: ahora.toISOString(),
+                accion: {
+                  texto: 'Ver partido en vivo',
+                  url: `/marcadores/${ligaKey}`
+                }
+              });
+              break;
+              
+            case 'inicio_partido':
+              notificaciones.push({
+                id: `inicio-${partido.id}`,
+                tipo: 'inicio_partido',
+                prioridad: 'alta',
+                titulo: `🏁 ¡COMENZÓ EL PARTIDO!`,
+                mensaje: `${partido.local.nombre} vs ${partido.visitante.nombre}`,
+                detalles: {
+                  liga: ligaNombre,
+                  local: {
+                    nombre: partido.local.nombre,
+                    logo: partido.local.logo
+                  },
+                  visitante: {
+                    nombre: partido.visitante.nombre,
+                    logo: partido.visitante.logo
+                  },
+                  estadio: partido.detalles.estadio
+                },
+                icono: LOGO_NOTIFICACIONES,
+                timestamp: ahora.toISOString(),
+                accion: {
+                  texto: 'Ver partido en vivo',
+                  url: `/marcadores/${ligaKey}`
+                }
+              });
+              break;
+              
+            case 'fin_primer_tiempo':
+              notificaciones.push({
+                id: `ht-${partido.id}`,
+                tipo: 'fin_primer_tiempo',
+                prioridad: 'media',
+                titulo: `⏸️ FIN DEL PRIMER TIEMPO`,
+                mensaje: `${partido.local.nombre} ${evento.datos.marcadorLocal} - ${evento.datos.marcadorVisitante} ${partido.visitante.nombre}`,
+                detalles: {
+                  liga: ligaNombre,
+                  partido: {
+                    local: partido.local.nombre,
+                    logoLocal: partido.local.logo,
+                    marcadorLocal: evento.datos.marcadorLocal,
+                    visitante: partido.visitante.nombre,
+                    logoVisitante: partido.visitante.logo,
+                    marcadorVisitante: evento.datos.marcadorVisitante
+                  },
+                  estadio: partido.detalles.estadio
+                },
+                icono: LOGO_NOTIFICACIONES,
+                timestamp: ahora.toISOString(),
+                accion: {
+                  texto: 'Ver estadísticas del partido',
+                  url: `/marcadores/${ligaKey}`
+                }
+              });
+              break;
+              
+            case 'inicio_segundo_tiempo':
+              notificaciones.push({
+                id: `st-${partido.id}`,
+                tipo: 'inicio_segundo_tiempo',
+                prioridad: 'media',
+                titulo: `▶️ SEGUNDO TIEMPO EN MARCHA`,
+                mensaje: `${partido.local.nombre} vs ${partido.visitante.nombre}`,
+                detalles: {
+                  liga: ligaNombre,
+                  partido: {
+                    local: partido.local.nombre,
+                    logoLocal: partido.local.logo,
+                    marcadorLocal: partido.local.marcador,
+                    visitante: partido.visitante.nombre,
+                    logoVisitante: partido.visitante.logo,
+                    marcadorVisitante: partido.visitante.marcador
+                  }
+                },
+                icono: LOGO_NOTIFICACIONES,
+                timestamp: ahora.toISOString(),
+                accion: {
+                  texto: 'Ver partido en vivo',
+                  url: `/marcadores/${ligaKey}`
+                }
+              });
+              break;
+          }
+        });
+        
+        // Continuar con las notificaciones normales
         const fechaPartido = new Date(partido.fechaISO);
         const diferenciaMinutos = (fechaPartido - ahora) / (1000 * 60);
         
@@ -205,6 +405,10 @@ function obtenerEstadisticasNotificaciones() {
   return {
     total: notificaciones.length,
     porTipo: {
+      gol: notificaciones.filter(n => n.tipo === 'gol').length,
+      inicioPartido: notificaciones.filter(n => n.tipo === 'inicio_partido').length,
+      finPrimerTiempo: notificaciones.filter(n => n.tipo === 'fin_primer_tiempo').length,
+      inicioSegundoTiempo: notificaciones.filter(n => n.tipo === 'inicio_segundo_tiempo').length,
       enVivo: notificaciones.filter(n => n.tipo === 'en_vivo').length,
       iniciaMuyPronto: notificaciones.filter(n => n.tipo === 'inicia_muy_pronto').length,
       iniciaPronto: notificaciones.filter(n => n.tipo === 'inicia_pronto').length,
