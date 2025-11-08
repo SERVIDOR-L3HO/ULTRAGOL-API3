@@ -61,6 +61,13 @@ async function scrapMarcadores(leagueCode, leagueName, date = null) {
       const golesLocal = goles.filter(g => g.equipoId === homeTeam.team.id);
       const golesVisitante = goles.filter(g => g.equipoId === awayTeam.team.id);
       
+      const esEnVivo = 
+        statusType === 'STATUS_IN_PROGRESS' ||
+        statusType === 'STATUS_FIRST_HALF' ||
+        statusType === 'STATUS_SECOND_HALF' ||
+        statusType === 'STATUS_HALFTIME' ||
+        !status.type.completed && status.period > 0;
+      
       return {
         id: event.id,
         fecha: new Date(event.date).toLocaleString('es-MX', { 
@@ -73,8 +80,8 @@ async function scrapMarcadores(leagueCode, leagueName, date = null) {
           tipo: statusType,
           descripcion: status.type.description,
           completado: status.type.completed,
-          enVivo: statusType === 'STATUS_IN_PROGRESS',
-          finalizado: statusType === 'STATUS_FINAL',
+          enVivo: esEnVivo,
+          finalizado: statusType === 'STATUS_FINAL' || statusType === 'STATUS_FULL_TIME',
           programado: statusType === 'STATUS_SCHEDULED'
         },
         periodo: status.period || 0,

@@ -105,6 +105,37 @@ async function updateAllData() {
   }
 }
 
+async function updateMarcadores() {
+  console.log("⚽ Actualizando marcadores de todas las ligas para notificaciones...");
+  
+  try {
+    const [ligaMx, premier, laLiga, serieA, bundesliga, ligue1] = await Promise.all([
+      scrapMarcadoresLigaMX().catch(err => { console.error("Error marcadores Liga MX:", err.message); return null; }),
+      scrapMarcadoresPremier().catch(err => { console.error("Error marcadores Premier:", err.message); return null; }),
+      scrapMarcadoresLaLiga().catch(err => { console.error("Error marcadores La Liga:", err.message); return null; }),
+      scrapMarcadoresSerieA().catch(err => { console.error("Error marcadores Serie A:", err.message); return null; }),
+      scrapMarcadoresBundesliga().catch(err => { console.error("Error marcadores Bundesliga:", err.message); return null; }),
+      scrapMarcadoresLigue1().catch(err => { console.error("Error marcadores Ligue 1:", err.message); return null; })
+    ]);
+    
+    if (ligaMx) cache.set("marcadores", ligaMx);
+    if (premier) cache.set("marcadorespremier", premier);
+    if (laLiga) cache.set("marcadoreslaliga", laLiga);
+    if (serieA) cache.set("marcadoresseriea", serieA);
+    if (bundesliga) cache.set("marcadoresbundesliga", bundesliga);
+    if (ligue1) cache.set("marcadoresligue1", ligue1);
+    
+    const totalPartidos = [ligaMx, premier, laLiga, serieA, bundesliga, ligue1]
+      .filter(data => data && data.partidos)
+      .reduce((total, data) => total + data.partidos.length, 0);
+    
+    const notificaciones = generarNotificaciones('todas');
+    console.log(`✅ Marcadores actualizados: ${totalPartidos} partidos encontrados, ${notificaciones.length} notificaciones generadas`);
+  } catch (error) {
+    console.error("❌ Error actualizando marcadores:", error.message);
+  }
+}
+
 app.get("/", (req, res) => {
   res.json({
     nombre: "Multi-League Football API",
@@ -1693,10 +1724,16 @@ app.get("/proxyStream", async (req, res) => {
 });
 
 updateAllData();
+updateMarcadores();
 
 cron.schedule("*/20 * * * *", () => {
   console.log("⏰ Actualización programada iniciada");
   updateAllData();
+});
+
+cron.schedule("*/5 * * * *", () => {
+  console.log("⚽ Actualización de marcadores programada (cada 5 min)");
+  updateMarcadores();
 });
 
 cron.schedule("*/15 * * * *", () => {
