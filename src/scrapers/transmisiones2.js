@@ -93,7 +93,7 @@ async function scrapTransmisiones2() {
             liga: infoCompleto || "N/A",
             titulo: titulo,
             evento: titulo,
-            url: enlace,
+            url: `https://golazotvhd.com/evento.html?get=${enlace}`,
             estado: tituloCompleto.includes("●") || tituloCompleto.includes("stopdot") ? "En vivo" : 
                     tituloCompleto.includes("◉") || tituloCompleto.includes("readydot") ? "Por comenzar" : 
                     "Programado"
