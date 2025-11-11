@@ -1,0 +1,70 @@
+═══════════════════════════════════════════════════════════
+   GUÍA DE INICIO RÁPIDO - TERMUX (Android)
+═══════════════════════════════════════════════════════════
+
+📱 PASO 1: INSTALAR TERMUX
+──────────────────────────────────────────────────────────
+1. Descarga F-Droid desde: https://f-droid.org/
+2. Instala Termux desde F-Droid (NO desde Play Store)
+3. Abre Termux
+
+📦 PASO 2: INSTALAR LA API
+──────────────────────────────────────────────────────────
+Copia los archivos del proyecto a tu dispositivo y ejecuta:
+
+  cd /sdcard/Download/ligamx-api
+  chmod +x install-termux.sh
+  ./install-termux.sh
+
+O si ya tienes git configurado:
+
+  git clone [URL_REPOSITORIO]
+  cd ligamx-api
+  chmod +x install-termux.sh
+  ./install-termux.sh
+
+🚀 PASO 3: INICIAR EL SERVIDOR
+──────────────────────────────────────────────────────────
+  ./start-server.sh
+
+El servidor te mostrará:
+  ✅ Tu IP pública
+  🔗 La URL completa de tu API
+  📋 Lista de endpoints disponibles
+
+Ejemplo de salida:
+  📡 IP PÚBLICA: 192.168.1.100
+  🔗 URL DE LA API: http://192.168.1.100:5000
+
+🌐 PASO 4: USAR LA API EN TU WEB
+──────────────────────────────────────────────────────────
+Copia la URL que te mostró el servidor y úsala en tu web:
+
+  fetch('http://TU_IP:5000/tabla')
+    .then(r => r.json())
+    .then(data => console.log(data))
+
+🔧 COMANDOS ÚTILES
+──────────────────────────────────────────────────────────
+Detener servidor:     Ctrl + C
+Reiniciar servidor:   ./start-server.sh
+Ver archivos:         ls -la
+Editar código:        nano index.js
+
+🔄 INICIO AUTOMÁTICO (OPCIONAL)
+──────────────────────────────────────────────────────────
+Para que arranque solo al abrir Termux:
+
+  echo 'cd ~/ligamx-api && ./start-server.sh' >> ~/.bashrc
+
+⚠️ IMPORTANTE
+──────────────────────────────────────────────────────────
+✓ Tu teléfono y computadora deben estar en la misma WiFi
+✓ Mantén Termux abierto para que el servidor funcione
+✓ Para acceso desde internet, usa ngrok o localtunnel
+
+📚 DOCUMENTACIÓN COMPLETA
+──────────────────────────────────────────────────────────
+Ver: TERMUX_INSTALACION.md
+
+═══════════════════════════════════════════════════════════

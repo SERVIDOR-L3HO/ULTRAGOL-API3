@@ -3,6 +3,8 @@
 ## Overview
 This project provides a professional, real-time scraping API for multiple football leagues. Its primary purpose is to deliver up-to-date data including league standings, top scorers, news, teams, logos, and YouTube videos (for Liga MX). The API aims to be a reliable and comprehensive source of football statistics and information, serving as a backend for sports applications, data analysis, and news platforms. It supports Liga MX, Premier League, La Liga, Serie A, Bundesliga, and Ligue 1, with an ambitious vision to expand to more leagues and real-time features.
 
+**NEW (Nov 2025):** The API is now fully compatible with Termux on Android devices, allowing users to run the entire football data API directly on their smartphones with automatic IP detection and easy deployment.
+
 ## User Preferences
 I prefer clear and concise information. When making changes, prioritize modularity and scalability. I value detailed explanations for complex architectural decisions. Do not make changes to the `replit.nix` file.
 
@@ -41,3 +43,14 @@ The project is built on Node.js 20 with Express 4.21, designed for high performa
 *   **node-cron 4.2:** Library for scheduling tasks in Node.js.
 *   **googleapis:** Google APIs client for Node.js, specifically used for interacting with YouTube (though web scraping is used for video data to avoid quota limits).
 *   **ESPN, Mediotiempo, BBC Sport, FlashScore, TheSportsDB:** Primary data sources for football statistics, news, and player imagery.
+
+## Deployment Options
+
+### Termux Support (Android)
+The API now includes full Termux compatibility for running on Android devices:
+
+*   **Automated Installation:** `install-termux.sh` script handles complete setup including Node.js, dependencies, and permissions
+*   **Auto IP Detection:** `start-server.sh` automatically detects and displays the device's public IP address for easy integration with web applications
+*   **Auto-start Capability:** Optional configuration for automatic server startup when Termux opens
+*   **Public IP Display:** Server startup shows the complete API URL with public IP for direct use in web projects
+*   **Full Documentation:** `TERMUX_INSTALACION.md` provides comprehensive installation guide with troubleshooting and remote access options (ngrok, localtunnel)

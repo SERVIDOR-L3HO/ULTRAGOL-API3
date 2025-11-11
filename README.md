@@ -122,12 +122,32 @@ Todos los datos en un solo endpoint
 
 ## 🏃 Ejecutar localmente
 
+### En computadora (Linux/Mac/Windows):
+
 ```bash
 npm install
 npm start
 ```
 
 El servidor estará disponible en `http://localhost:5000`
+
+### 📱 En Android con Termux:
+
+¡Ahora puedes ejecutar esta API directamente en tu dispositivo Android!
+
+```bash
+chmod +x install-termux.sh
+./install-termux.sh
+```
+
+Luego para iniciar el servidor:
+```bash
+./start-server.sh
+```
+
+El script mostrará automáticamente tu **IP pública** y la **URL completa** para usar en tu página web.
+
+📖 **Guía completa de instalación en Termux:** Ver [TERMUX_INSTALACION.md](TERMUX_INSTALACION.md)
 
 ## 🔄 Actualización automática
 
