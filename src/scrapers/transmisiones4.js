@@ -109,13 +109,14 @@ async function scrapTransmisiones4() {
           if (base64Match) {
             const urlDecodificada = decodificarBase64(base64Match[1]);
             
-            const urlCompleta = `https://ftvhd.com${embedIframe}`;
-            const urlProxy = `https://golazotvhd.com/evento.html?get=${urlCompleta}`;
+            const urlProxy = urlDecodificada ? `https://golazotvhd.com/evento.html?get=${urlDecodificada}` : null;
             
-            canales.push({
-              nombre: nombreCanal,
-              url: urlProxy
-            });
+            if (urlProxy) {
+              canales.push({
+                nombre: nombreCanal,
+                url: urlProxy
+              });
+            }
           }
         }
       });
