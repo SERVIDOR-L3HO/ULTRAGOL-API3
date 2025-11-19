@@ -1,5 +1,6 @@
 const cheerio = require("cheerio");
 const axios = require("axios");
+const { extraerEquiposYLogos } = require("../utils/logoHelper");
 
 async function scrapTransmisiones2() {
   try {
@@ -86,6 +87,8 @@ async function scrapTransmisiones2() {
         
         // Solo agregar si tiene información válida (hora, categoria, titulo y enlace)
         if (hora && categoria && titulo && enlace) {
+          const equiposLogos = extraerEquiposYLogos(titulo);
+          
           transmisiones.push({
             hora: hora,
             deporte: categoria,
@@ -93,6 +96,10 @@ async function scrapTransmisiones2() {
             liga: infoCompleto || "N/A",
             titulo: titulo,
             evento: titulo,
+            equipo1: equiposLogos.equipo1,
+            equipo2: equiposLogos.equipo2,
+            logo1: equiposLogos.logo1,
+            logo2: equiposLogos.logo2,
             url: `https://golazotvhd.com/evento.html?get=${enlace}`,
             estado: tituloCompleto.includes("●") || tituloCompleto.includes("stopdot") ? "En vivo" : 
                     tituloCompleto.includes("◉") || tituloCompleto.includes("readydot") ? "Por comenzar" : 

@@ -1,6 +1,7 @@
 const cheerio = require("cheerio");
 const { fetchWithRetry } = require("../utils/scraper");
 const { scrapCalendario } = require("./calendario");
+const { extraerEquiposYLogos } = require("../utils/logoHelper");
 
 function normalizarNombreEquipo(nombre) {
   const normalizaciones = {
@@ -193,11 +194,17 @@ async function scrapTransmisiones() {
         }
         
         if (evento && fecha && hora) {
+          const equiposLogos = extraerEquiposYLogos(evento);
+          
           transmisiones.push({
             fecha: fecha,
             hora: hora,
             fechaHora: `${fecha} ${hora}`,
             evento: evento,
+            equipo1: equiposLogos.equipo1,
+            equipo2: equiposLogos.equipo2,
+            logo1: equiposLogos.logo1,
+            logo2: equiposLogos.logo2,
             canales: canales,
             totalCanales: canales.length,
             fechaCorregida: fechaCorregida

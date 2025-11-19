@@ -1,5 +1,6 @@
 const cheerio = require("cheerio");
 const axios = require("axios");
+const { extraerEquiposYLogos } = require("../utils/logoHelper");
 
 async function scrapTransmisiones3() {
   try {
@@ -127,6 +128,7 @@ async function scrapTransmisiones3() {
         
         const urlConPrefijo = `https://golazotvhd.com/evento.html?get=${enlaces[0]}`;
         const enlacesConPrefijo = enlaces.map(enlace => `https://golazotvhd.com/evento.html?get=${enlace}`);
+        const equiposLogos = extraerEquiposYLogos(titulo);
         
         transmisiones.push({
           hora: `${horaFormateada} UTC-6`,
@@ -136,6 +138,10 @@ async function scrapTransmisiones3() {
           info: liga,
           titulo: titulo,
           evento: titulo,
+          equipo1: equiposLogos.equipo1,
+          equipo2: equiposLogos.equipo2,
+          logo1: equiposLogos.logo1,
+          logo2: equiposLogos.logo2,
           canal: canal,
           channelId: channelId,
           url: urlConPrefijo,
