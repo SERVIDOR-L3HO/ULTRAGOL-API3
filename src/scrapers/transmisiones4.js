@@ -114,7 +114,9 @@ async function scrapTransmisiones4() {
             
             canales.push({
               nombre: nombreCanal,
-              urlOriginal: urlProxy
+              urlOriginal: urlDecodificada || urlProxy,
+              urlEmbed: urlCompleta,
+              urlProxy: urlProxy
             });
           }
         }
