@@ -46,6 +46,7 @@ const { scrapTransmisiones } = require("./src/scrapers/transmisiones");
 const { scrapTransmisiones2 } = require("./src/scrapers/transmisiones2");
 const { scrapTransmisiones3 } = require("./src/scrapers/transmisiones3");
 const { scrapTransmisiones4 } = require("./src/scrapers/transmisiones4");
+const { scrapTransmisiones5 } = require("./src/scrapers/transmisiones5");
 
 const { 
   scrapMarcadoresLigaMX,
@@ -294,6 +295,10 @@ app.get("/", (req, res) => {
       transmisiones4: {
         endpoint: "/transmisiones4",
         descripcion: "🌎 NUEVO 🌎 Transmisiones deportivas de ftvhd.com - Eventos internacionales con logos de equipos, país, banderas, múltiples opciones de canales y enlaces proxy listos para usar"
+      },
+      transmisiones5: {
+        endpoint: "/transmisiones5",
+        descripcion: "🆕 NUEVO 🆕 Transmisiones deportivas de donromans.com - API de WordPress con eventos deportivos organizados por liga, hora, país, incluye múltiples enlaces de transmisión (urls_list, SpecialLinks, canales, servidores) con compatibilidad y modo replay"
       },
       getStreamUrl: {
         endpoint: "/getStreamUrl",
@@ -1100,6 +1105,54 @@ app.get("/transmisiones4", async (req, res) => {
       error: "No se pudieron obtener las transmisiones deportivas desde ftvhd.com",
       detalles: error.message,
       sugerencia: "El sitio web puede estar bloqueando las peticiones. Intenta de nuevo más tarde."
+    });
+  }
+});
+
+app.get("/transmisiones5", async (req, res) => {
+  try {
+    let data = cache.get("transmisiones5");
+    
+    if (!data) {
+      console.log("📺 Obteniendo transmisiones deportivas desde donromans.com API (caché vacío)...");
+      try {
+        data = await scrapTransmisiones5();
+        
+        if (data && data.success && data.totalEvents > 0) {
+          cache.set("transmisiones5", data);
+        } else if (data && !data.success) {
+          const staleData = cache.getStale("transmisiones5");
+          if (staleData && staleData.success && staleData.totalEvents > 0) {
+            console.log("⚠️ Usando datos en caché (expirados) debido a error en la API");
+            data = {
+              ...staleData,
+              advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos de la API.",
+              ultimaActualizacion: staleData.timestamp
+            };
+          }
+        }
+      } catch (scrapeError) {
+        const staleData = cache.getStale("transmisiones5");
+        if (staleData && staleData.success && staleData.totalEvents > 0) {
+          console.log("⚠️ Usando datos en caché (expirados) debido a error en scraping");
+          data = {
+            ...staleData,
+            advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos: " + scrapeError.message,
+            ultimaActualizacion: staleData.timestamp
+          };
+        } else {
+          throw scrapeError;
+        }
+      }
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /transmisiones5:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las transmisiones deportivas desde donromans.com API",
+      detalles: error.message,
+      sugerencia: "La API de donromans.com puede no estar disponible. Intenta de nuevo más tarde."
     });
   }
 });
