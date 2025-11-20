@@ -75,62 +75,73 @@ async function scrapTransmisiones5() {
   const startTime = Date.now();
   
   try {
-    console.log("🔄 Obteniendo transmisiones desde donromans.com API...");
+    console.log("🔄 Obteniendo transmisiones EN TIEMPO REAL desde donromans.com API...");
     
-    const schedules = await getScheduleData();
-    console.log(`📅 Total de eventos encontrados: ${schedules.length}`);
+    const today = new Date().toISOString().split('T')[0];
+    console.log(`📅 Buscando eventos del día: ${today}`);
     
-    const allStreamingData = [];
-    let totalMatches = 0;
-    let matchesWithLinks = 0;
-
-    for (const schedule of schedules) {
-      try {
-        const fullEvent = await getScheduleData(schedule.id);
-        const streamingData = await extractStreamingLinks(fullEvent);
-        
-        const validMatches = streamingData.matches.filter(m => m.links.length > 0);
-        
-        if (validMatches.length > 0) {
-          allStreamingData.push({
-            eventId: streamingData.eventId,
-            eventTitle: streamingData.eventTitle,
-            totalMatches: validMatches.length,
-            matches: validMatches
-          });
-          matchesWithLinks += validMatches.length;
-        }
-        
-        totalMatches += streamingData.matches.length;
-        
-      } catch (eventError) {
-        console.error(`Error procesando evento ${schedule.id}:`, eventError.message);
+    const url = 'https://donromans.com/wp-json/wp/v2/schedule?per_page=20&orderby=id&order=desc';
+    const response = await axios.get(url, {
+      timeout: 15000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
+    });
+    
+    const schedules = response.data;
+    console.log(`📊 Total de eventos disponibles: ${schedules.length}`);
+    
+    const todayEvent = schedules.find(event => event.title?.rendered === today);
+    
+    if (!todayEvent) {
+      console.log(`⚠️ No se encontró evento para hoy (${today}). Eventos disponibles:`, 
+        schedules.slice(0, 5).map(e => e.title?.rendered));
+      
+      return {
+        success: false,
+        source: "donromans.com API",
+        timestamp: new Date().toISOString(),
+        eventDate: today,
+        error: `No hay eventos programados para hoy (${today})`,
+        totalMatches: 0,
+        matches: []
+      };
     }
-
+    
+    console.log(`✅ Evento de hoy encontrado: ID ${todayEvent.id}`);
+    
+    const fullEvent = await getScheduleData(todayEvent.id);
+    const streamingData = await extractStreamingLinks(fullEvent);
+    
+    const validMatches = streamingData.matches.filter(m => m.links.length > 0);
+    
     const elapsedTime = Date.now() - startTime;
     
-    console.log(`✅ Transmisiones5 obtenidas: ${allStreamingData.length} eventos, ${matchesWithLinks}/${totalMatches} partidos con enlaces en ${elapsedTime}ms`);
+    console.log(`✅ Transmisiones5 EN VIVO: ${validMatches.length} partidos de hoy con enlaces en ${elapsedTime}ms`);
     
     return {
       success: true,
       source: "donromans.com API",
       timestamp: new Date().toISOString(),
-      totalEvents: allStreamingData.length,
-      totalMatches: matchesWithLinks,
+      eventDate: today,
+      totalMatches: validMatches.length,
       elapsedTime: `${elapsedTime}ms`,
-      events: allStreamingData
+      matches: validMatches
     };
     
   } catch (error) {
     console.error("❌ Error en scrapTransmisiones5:", error.message);
     
+    const today = new Date().toISOString().split('T')[0];
+    
     return {
       success: false,
       source: "donromans.com API",
       timestamp: new Date().toISOString(),
+      eventDate: today,
       error: error.message,
-      events: []
+      totalMatches: 0,
+      matches: []
     };
   }
 }

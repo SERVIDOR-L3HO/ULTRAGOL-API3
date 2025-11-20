@@ -1114,35 +1114,68 @@ app.get("/transmisiones5", async (req, res) => {
     let data = cache.get("transmisiones5");
     
     if (!data) {
-      console.log("📺 Obteniendo transmisiones deportivas desde donromans.com API (caché vacío)...");
+      console.log("📺 Obteniendo transmisiones EN TIEMPO REAL desde donromans.com API (caché vacío)...");
       try {
         data = await scrapTransmisiones5();
         
-        if (data && data.success && data.totalEvents > 0) {
-          cache.set("transmisiones5", data);
+        if (data && data.success && data.totalMatches > 0) {
+          cache.set("transmisiones5", data, 300);
+          return res.json(data);
         } else if (data && !data.success) {
           const staleData = cache.getStale("transmisiones5");
-          if (staleData && staleData.success && staleData.totalEvents > 0) {
+          if (staleData && staleData.success && staleData.totalMatches > 0) {
             console.log("⚠️ Usando datos en caché (expirados) debido a error en la API");
             data = {
               ...staleData,
               advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos de la API.",
               ultimaActualizacion: staleData.timestamp
             };
+            return res.json(data);
           }
+          
+          if (data.error && data.error.includes("No hay eventos programados")) {
+            return res.status(404).json({
+              success: false,
+              source: "donromans.com API",
+              timestamp: data.timestamp,
+              eventDate: data.eventDate,
+              error: data.error,
+              totalMatches: 0,
+              matches: []
+            });
+          }
+          
+          return res.status(502).json({
+            success: false,
+            source: "donromans.com API",
+            timestamp: data.timestamp,
+            eventDate: data.eventDate,
+            error: data.error || "Error al obtener datos de la API",
+            totalMatches: 0,
+            matches: []
+          });
         }
       } catch (scrapeError) {
         const staleData = cache.getStale("transmisiones5");
-        if (staleData && staleData.success && staleData.totalEvents > 0) {
+        if (staleData && staleData.success && staleData.totalMatches > 0) {
           console.log("⚠️ Usando datos en caché (expirados) debido a error en scraping");
           data = {
             ...staleData,
             advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos: " + scrapeError.message,
             ultimaActualizacion: staleData.timestamp
           };
-        } else {
-          throw scrapeError;
+          return res.json(data);
         }
+        
+        return res.status(502).json({
+          success: false,
+          source: "donromans.com API",
+          timestamp: new Date().toISOString(),
+          eventDate: new Date().toISOString().split('T')[0],
+          error: scrapeError.message,
+          totalMatches: 0,
+          matches: []
+        });
       }
     }
     
@@ -1150,9 +1183,13 @@ app.get("/transmisiones5", async (req, res) => {
   } catch (error) {
     console.error("Error en /transmisiones5:", error.message);
     res.status(500).json({ 
-      error: "No se pudieron obtener las transmisiones deportivas desde donromans.com API",
-      detalles: error.message,
-      sugerencia: "La API de donromans.com puede no estar disponible. Intenta de nuevo más tarde."
+      success: false,
+      source: "donromans.com API",
+      timestamp: new Date().toISOString(),
+      eventDate: new Date().toISOString().split('T')[0],
+      error: error.message,
+      totalMatches: 0,
+      matches: []
     });
   }
 });
