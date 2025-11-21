@@ -111,8 +111,11 @@ async function scrapTransmisiones5() {
   try {
     console.log("🔄 Obteniendo transmisiones EN TIEMPO REAL desde donromans.com API...");
     
-    const today = new Date().toISOString().split('T')[0];
-    console.log(`📅 Buscando eventos del día: ${today}`);
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    console.log(`📅 Buscando eventos del día: ${today} o ${yesterday}`);
     
     const url = 'https://donromans.com/wp-json/wp/v2/schedule?per_page=20&orderby=id&order=desc';
     const response = await axios.get(url, {
@@ -125,10 +128,28 @@ async function scrapTransmisiones5() {
     const schedules = response.data;
     console.log(`📊 Total de eventos disponibles: ${schedules.length}`);
     
-    const todayEvent = schedules.find(event => event.title?.rendered === today);
+    let targetEvent = schedules.find(event => event.title?.rendered === today);
+    let eventDate = today;
     
-    if (!todayEvent) {
-      console.log(`⚠️ No se encontró evento para hoy (${today}). Eventos disponibles:`, 
+    if (!targetEvent) {
+      console.log(`⚠️ No se encontró evento para hoy (${today}), buscando evento de ayer o más reciente...`);
+      targetEvent = schedules.find(event => event.title?.rendered === yesterday);
+      
+      if (!targetEvent) {
+        const validEvents = schedules.filter(e => e.title?.rendered !== 'REPETICIONES');
+        if (validEvents.length > 0) {
+          targetEvent = validEvents[0];
+          eventDate = targetEvent.title?.rendered || today;
+          console.log(`✅ Usando evento más reciente: ${eventDate}`);
+        }
+      } else {
+        eventDate = yesterday;
+        console.log(`✅ Usando evento de ayer: ${eventDate}`);
+      }
+    }
+    
+    if (!targetEvent) {
+      console.log(`❌ No se encontraron eventos válidos. Eventos disponibles:`, 
         schedules.slice(0, 5).map(e => e.title?.rendered));
       
       return {
@@ -136,31 +157,34 @@ async function scrapTransmisiones5() {
         source: "donromans.com API",
         timestamp: new Date().toISOString(),
         eventDate: today,
-        error: `No hay eventos programados para hoy (${today})`,
+        error: `No hay eventos programados disponibles`,
         totalMatches: 0,
         matches: []
       };
     }
     
-    console.log(`✅ Evento de hoy encontrado: ID ${todayEvent.id}`);
+    console.log(`✅ Evento encontrado: ID ${targetEvent.id} (${targetEvent.title?.rendered})`);
     
-    const fullEvent = await getScheduleData(todayEvent.id);
+    const fullEvent = await getScheduleData(targetEvent.id);
     const streamingData = await extractStreamingLinks(fullEvent);
     
-    const validMatches = streamingData.matches.filter(m => m.links.length > 0);
+    const allMatches = streamingData.matches;
+    const matchesWithLinks = allMatches.filter(m => m.links.length > 0).length;
     
     const elapsedTime = Date.now() - startTime;
     
-    console.log(`✅ Transmisiones5 EN VIVO: ${validMatches.length} partidos de hoy con enlaces en ${elapsedTime}ms`);
+    console.log(`✅ Transmisiones5 EN VIVO: ${allMatches.length} partidos totales, ${matchesWithLinks} con enlaces en ${elapsedTime}ms`);
     
     return {
       success: true,
       source: "donromans.com API",
       timestamp: new Date().toISOString(),
-      eventDate: today,
-      totalMatches: validMatches.length,
+      eventDate: eventDate,
+      eventTitle: targetEvent.title?.rendered,
+      totalMatches: allMatches.length,
+      matchesWithLinks: matchesWithLinks,
       elapsedTime: `${elapsedTime}ms`,
-      matches: validMatches
+      matches: allMatches
     };
     
   } catch (error) {
