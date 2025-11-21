@@ -128,27 +128,24 @@ async function scrapTransmisiones5() {
     const schedules = response.data;
     console.log(`📊 Total de eventos disponibles: ${schedules.length}`);
     
-    let targetEvent = schedules.find(event => event.title?.rendered === today);
-    let eventDate = today;
+    const todayEvent = schedules.find(event => event.title?.rendered === today);
+    const yesterdayEvent = schedules.find(event => event.title?.rendered === yesterday);
     
-    if (!targetEvent) {
-      console.log(`⚠️ No se encontró evento para hoy (${today}), buscando evento de ayer o más reciente...`);
-      targetEvent = schedules.find(event => event.title?.rendered === yesterday);
-      
-      if (!targetEvent) {
-        const validEvents = schedules.filter(e => e.title?.rendered !== 'REPETICIONES');
-        if (validEvents.length > 0) {
-          targetEvent = validEvents[0];
-          eventDate = targetEvent.title?.rendered || today;
-          console.log(`✅ Usando evento más reciente: ${eventDate}`);
-        }
-      } else {
-        eventDate = yesterday;
-        console.log(`✅ Usando evento de ayer: ${eventDate}`);
+    const eventsToProcess = [];
+    if (todayEvent) eventsToProcess.push({ event: todayEvent, date: today });
+    if (yesterdayEvent) eventsToProcess.push({ event: yesterdayEvent, date: yesterday });
+    
+    if (eventsToProcess.length === 0) {
+      const validEvents = schedules.filter(e => e.title?.rendered !== 'REPETICIONES');
+      if (validEvents.length > 0) {
+        eventsToProcess.push({ 
+          event: validEvents[0], 
+          date: validEvents[0].title?.rendered || today 
+        });
       }
     }
     
-    if (!targetEvent) {
+    if (eventsToProcess.length === 0) {
       console.log(`❌ No se encontraron eventos válidos. Eventos disponibles:`, 
         schedules.slice(0, 5).map(e => e.title?.rendered));
       
@@ -163,12 +160,23 @@ async function scrapTransmisiones5() {
       };
     }
     
-    console.log(`✅ Evento encontrado: ID ${targetEvent.id} (${targetEvent.title?.rendered})`);
+    console.log(`✅ Procesando ${eventsToProcess.length} eventos: ${eventsToProcess.map(e => e.date).join(', ')}`);
     
-    const fullEvent = await getScheduleData(targetEvent.id);
-    const streamingData = await extractStreamingLinks(fullEvent);
+    let allMatches = [];
+    const processedEvents = [];
     
-    const allMatches = streamingData.matches;
+    for (const { event, date } of eventsToProcess) {
+      const fullEvent = await getScheduleData(event.id);
+      const streamingData = await extractStreamingLinks(fullEvent);
+      
+      streamingData.matches.forEach(match => {
+        match.eventDate = date;
+      });
+      
+      allMatches = allMatches.concat(streamingData.matches);
+      processedEvents.push(date);
+    }
+    
     const matchesWithLinks = allMatches.filter(m => m.links.length > 0).length;
     
     const elapsedTime = Date.now() - startTime;
@@ -179,8 +187,7 @@ async function scrapTransmisiones5() {
       success: true,
       source: "donromans.com API",
       timestamp: new Date().toISOString(),
-      eventDate: eventDate,
-      eventTitle: targetEvent.title?.rendered,
+      eventsProcessed: processedEvents,
       totalMatches: allMatches.length,
       matchesWithLinks: matchesWithLinks,
       elapsedTime: `${elapsedTime}ms`,
