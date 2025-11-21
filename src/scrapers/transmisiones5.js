@@ -20,6 +20,40 @@ async function getScheduleData(scheduleId = null) {
   }
 }
 
+function applyGolazoProxy(url) {
+  if (!url || typeof url !== 'string') return url;
+  if (url.includes('golazotvhd.com')) return url;
+  return `https://golazotvhd.com/evento.html?get=${url}`;
+}
+
+function processLinkData(data) {
+  if (!data) return data;
+  
+  if (typeof data === 'string') {
+    return applyGolazoProxy(data);
+  }
+  
+  if (Array.isArray(data)) {
+    return data.map(item => processLinkData(item));
+  }
+  
+  if (typeof data === 'object') {
+    const processed = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'))) {
+        processed[key] = applyGolazoProxy(value);
+      } else if (typeof value === 'object') {
+        processed[key] = processLinkData(value);
+      } else {
+        processed[key] = value;
+      }
+    }
+    return processed;
+  }
+  
+  return data;
+}
+
 async function extractStreamingLinks(event) {
   const streamingInfo = {
     eventId: event.id,
@@ -43,14 +77,14 @@ async function extractStreamingLinks(event) {
       if (match.urls_list && match.urls_list !== null) {
         matchInfo.links.push({
           type: 'urls_list',
-          data: match.urls_list
+          data: processLinkData(match.urls_list)
         });
       }
 
       if (match.SpecialLinks && match.SpecialLinks !== null) {
         matchInfo.links.push({
           type: 'SpecialLinks',
-          data: match.SpecialLinks
+          data: processLinkData(match.SpecialLinks)
         });
       }
 
@@ -59,7 +93,7 @@ async function extractStreamingLinks(event) {
         if (match[field] && match[field] !== null) {
           matchInfo.links.push({
             type: field,
-            data: match[field]
+            data: processLinkData(match[field])
           });
         }
       });
