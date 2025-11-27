@@ -22,8 +22,7 @@ async function getScheduleData(scheduleId = null) {
 
 function applyGolazoProxy(url) {
   if (!url || typeof url !== 'string') return url;
-  if (url.includes('golazotvhd.com')) return url;
-  return `https://golazotvhd.com/evento.html?get=${url}`;
+  return url;
 }
 
 function processLinkData(data) {

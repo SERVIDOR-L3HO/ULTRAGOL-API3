@@ -100,7 +100,7 @@ async function scrapTransmisiones2() {
             equipo2: equiposLogos.equipo2,
             logo1: equiposLogos.logo1,
             logo2: equiposLogos.logo2,
-            url: `https://golazotvhd.com/evento.html?get=${enlace}`,
+            url: enlace,
             estado: tituloCompleto.includes("●") || tituloCompleto.includes("stopdot") ? "En vivo" : 
                     tituloCompleto.includes("◉") || tituloCompleto.includes("readydot") ? "Por comenzar" : 
                     "Programado"

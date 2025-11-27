@@ -126,8 +126,8 @@ async function scrapTransmisiones3() {
           estado = "Por comenzar";
         }
         
-        const urlConPrefijo = `https://golazotvhd.com/evento.html?get=${enlaces[0]}`;
-        const enlacesConPrefijo = enlaces.map(enlace => `https://golazotvhd.com/evento.html?get=${enlace}`);
+        const urlConPrefijo = enlaces[0];
+        const enlacesConPrefijo = enlaces;
         const equiposLogos = extraerEquiposYLogos(titulo);
         
         transmisiones.push({

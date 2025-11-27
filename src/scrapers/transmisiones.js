@@ -173,9 +173,9 @@ async function scrapTransmisiones() {
             numero: numeroCanal,
             nombre: nombreCanal,
             links: {
-              hoca: linkHoca ? `https://golazotvhd.com/evento.html?get=${linkHoca}` : null,
-              caster: linkCaster ? `https://golazotvhd.com/evento.html?get=${linkCaster}` : null,
-              wigi: linkWigi ? `https://golazotvhd.com/evento.html?get=${linkWigi}` : null
+              hoca: linkHoca || null,
+              caster: linkCaster || null,
+              wigi: linkWigi || null
             }
           });
         }

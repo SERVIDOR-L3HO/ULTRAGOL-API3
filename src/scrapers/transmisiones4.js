@@ -109,7 +109,7 @@ async function scrapTransmisiones4() {
           if (base64Match) {
             const urlDecodificada = decodificarBase64(base64Match[1]);
             
-            const urlProxy = urlDecodificada ? `https://golazotvhd.com/evento.html?get=${urlDecodificada}` : null;
+            const urlProxy = urlDecodificada || null;
             
             if (urlProxy) {
               canales.push({
