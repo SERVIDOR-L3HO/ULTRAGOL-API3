@@ -1,7 +1,8 @@
 const cheerio = require("cheerio");
 const { fetchWithRetry } = require("../../utils/scraper");
+const { scrapNoticiasConContenido } = require("../../utils/articleExtractor");
 
-async function scrapNoticiasBundesliga() {
+async function scrapNoticiasBundesliga(incluirContenido = true) {
   try {
     const url = "https://www.espn.com/soccer/league/_/name/ger.1";
     const html = await fetchWithRetry(url);
@@ -33,12 +34,19 @@ async function scrapNoticiasBundesliga() {
       }
     });
 
+    let noticiasFinales = noticias;
+    if (incluirContenido && noticias.length > 0) {
+      console.log("📰 Extrayendo contenido completo de artículos de Bundesliga...");
+      noticiasFinales = await scrapNoticiasConContenido(noticias, 5);
+    }
+
     return {
       liga: "Bundesliga",
       actualizado: new Date().toLocaleString("de-DE", { timeZone: "Europe/Berlin" }),
-      total: noticias.length,
+      total: noticiasFinales.length,
       fuente: fuente,
-      noticias: noticias
+      nota: "El campo 'contenido' incluye el texto completo del artículo cuando está disponible",
+      noticias: noticiasFinales
     };
   } catch (error) {
     console.error("Error scraping noticias Bundesliga:", error.message);

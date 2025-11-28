@@ -1,7 +1,8 @@
 const cheerio = require("cheerio");
 const { fetchWithRetry } = require("../../utils/scraper");
+const { scrapNoticiasConContenido } = require("../../utils/articleExtractor");
 
-async function scrapNoticiasPremier() {
+async function scrapNoticiasPremier(incluirContenido = true) {
   try {
     const url = "https://www.bbc.com/sport/football/premier-league";
     const html = await fetchWithRetry(url);
@@ -64,12 +65,19 @@ async function scrapNoticiasPremier() {
       });
     }
 
+    let noticiasFinales = noticias;
+    if (incluirContenido && noticias.length > 0) {
+      console.log("📰 Extrayendo contenido completo de artículos de Premier League...");
+      noticiasFinales = await scrapNoticiasConContenido(noticias, 5);
+    }
+
     return {
       liga: "Premier League",
       actualizado: new Date().toLocaleString("en-GB", { timeZone: "Europe/London" }),
-      total: noticias.length,
+      total: noticiasFinales.length,
       fuente: fuente,
-      noticias: noticias
+      nota: "El campo 'contenido' incluye el texto completo del artículo cuando está disponible",
+      noticias: noticiasFinales
     };
   } catch (error) {
     console.error("Error scraping noticias Premier League:", error.message);
