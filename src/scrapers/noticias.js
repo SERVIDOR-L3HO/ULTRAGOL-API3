@@ -1,7 +1,8 @@
 const cheerio = require("cheerio");
 const { fetchWithRetry } = require("../utils/scraper");
+const { scrapNoticiasConContenido } = require("../utils/articleExtractor");
 
-async function scrapNoticias() {
+async function scrapNoticias(incluirContenido = true) {
   try {
     const url = "https://www.mediotiempo.com/futbol/liga-mx";
     const html = await fetchWithRetry(url);
@@ -31,7 +32,7 @@ async function scrapNoticias() {
         noticias.push({
           titulo: titulo,
           descripcion: descripcion || "Sin descripción disponible",
-          texto: textoCompleto || descripcion || "Sin contenido disponible",
+          resumen: textoCompleto || descripcion || "Sin contenido disponible",
           url: urlCompleta,
           imagen: imagen || "https://via.placeholder.com/600x400?text=Sin+Imagen",
           fuente: fuente,
@@ -59,7 +60,7 @@ async function scrapNoticias() {
           noticias.push({
             titulo: titulo,
             descripcion: descripcion || "Sin descripción disponible",
-            texto: descripcion || "Sin contenido disponible",
+            resumen: descripcion || "Sin contenido disponible",
             url: urlCompleta,
             imagen: imagen || "https://via.placeholder.com/600x400?text=Sin+Imagen",
             fuente: fuente,
@@ -70,11 +71,18 @@ async function scrapNoticias() {
       });
     }
 
+    let noticiasFinales = noticias;
+    if (incluirContenido && noticias.length > 0) {
+      console.log("📰 Extrayendo contenido completo de artículos de Liga MX...");
+      noticiasFinales = await scrapNoticiasConContenido(noticias, 5);
+    }
+
     return {
       actualizado: new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" }),
-      total: noticias.length,
+      total: noticiasFinales.length,
       fuente: fuente,
-      noticias: noticias
+      nota: "El campo 'contenido' incluye el texto completo del artículo cuando está disponible",
+      noticias: noticiasFinales
     };
   } catch (error) {
     console.error("Error scraping noticias:", error.message);
