@@ -30,6 +30,7 @@ The project is built on Node.js 20 with Express 4.21, designed for high performa
 
 **Feature Specifications:**
 *   **League Data:** Comprehensive standings, top scorers, and news for all supported leagues.
+*   **Full Article Content Extraction (NEW - Nov 2025):** News endpoints now extract and return the complete text content of news articles instead of just links. The system visits each article URL and extracts the full body text, with intelligent parsing for different sources (Mediotiempo, ESPN, BBC Sport). Each news item includes a `contenido` field with the full article text and a `contenidoDisponible` flag. To optimize performance, the first 5 articles include full content while remaining articles provide placeholders with links for on-demand access.
 *   **Liga MX Specifics:** Includes team lists, logos (4 sizes), and YouTube video highlights (up to 50 recent videos with metadata).
 *   **Calendar with Matchdays:** Provides detailed fixture lists, including matchday numbers, team names, dates, times, and a live countdown to each match for all leagues.
 *   **Unified Calendar Endpoint:** `/calendario/todas-las-ligas` provides a professional aggregated view of all fixtures across all 6 leagues with complete information (jornada, teams, dates, times, countdowns) and structured metadata (updated timestamp, total leagues, total matches per league).
