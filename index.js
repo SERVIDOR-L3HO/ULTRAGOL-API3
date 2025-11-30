@@ -1844,12 +1844,21 @@ app.get("/glz", async (req, res) => {
         
         iframeHtml = iframeHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, (match) => {
           const matchLower = match.toLowerCase();
-          if (matchLower.includes('ads') || matchLower.includes('pop') || 
-              matchLower.includes('track') || matchLower.includes('histats') || 
-              matchLower.includes('aclib') || matchLower.includes('admedia') ||
+          const isPlayerScript = matchLower.includes('clappr') || matchLower.includes('jwplayer') || 
+                                 matchLower.includes('hls.js') || matchLower.includes('p2p-engine') ||
+                                 matchLower.includes('wsreload') || matchLower.includes('player') ||
+                                 matchLower.includes('video') || matchLower.includes('source');
+          if (isPlayerScript) {
+            let cleanedScript = match;
+            cleanedScript = cleanedScript.replace(/if\s*\(\s*window\s*[!=]==?\s*window\.top\s*\)[^}]*\{[^}]*\}/gi, '');
+            cleanedScript = cleanedScript.replace(/window\.top\s*[!=]==?\s*window/gi, 'false');
+            return cleanedScript;
+          }
+          if (matchLower.includes('aclib') || matchLower.includes('runpop') ||
+              matchLower.includes('histats') || matchLower.includes('admedia') ||
               matchLower.includes('nunush') || matchLower.includes('lalavita') ||
               matchLower.includes('awistats') || matchLower.includes('amung.us') ||
-              matchLower.includes('window==window.top') || matchLower.includes('window.top')) {
+              matchLower.includes('zoneid')) {
             return '';
           }
           return match;
@@ -1861,9 +1870,19 @@ app.get("/glz", async (req, res) => {
           const src = $iframe(elem).attr('src') || '';
           const content = $iframe(elem).html() || '';
           const classAttr = $iframe(elem).attr('class') || '';
+          const isPlayerRelated = content.includes('Clappr') || content.includes('jwplayer') || 
+                                  content.includes('WSreload') || content.includes('player') ||
+                                  src.includes('clappr') || src.includes('hls') || src.includes('p2p-engine');
+          if (isPlayerRelated) {
+            let cleanContent = content;
+            cleanContent = cleanContent.replace(/if\s*\(\s*window\s*[!=]==?\s*window\.top\s*\)[^}]*\{[^}]*\}/gi, '');
+            cleanContent = cleanContent.replace(/window\.top/gi, 'window.self');
+            $iframe(elem).html(cleanContent);
+            return;
+          }
           if (isBlockedDomain(src) || 
-              content.includes('pop') || content.includes('ads') ||
-              content.includes('window.top') || content.includes('admedia') ||
+              content.includes('aclib') || content.includes('runPop') ||
+              content.includes('admedia') || content.includes('zoneId') ||
               classAttr.includes('nunush') || src.includes('awistats') ||
               src.includes('deb.js')) {
             $iframe(elem).remove();
@@ -1885,10 +1904,20 @@ app.get("/glz", async (req, res) => {
 
         $iframe('div[onclick]').each((i, elem) => {
           const onclick = $iframe(elem).attr('onclick') || '';
-          if (!onclick.includes('unmute') && !onclick.includes('Unmute') && !onclick.includes('play')) {
+          if (!onclick.includes('unmute') && !onclick.includes('Unmute') && !onclick.includes('play') && !onclick.includes('WSUnmute')) {
             $iframe(elem).remove();
           }
         });
+
+        if ($iframe('#player').length === 0) {
+          $iframe('body').prepend('<div class="jwplayer jw-reset jw-skin-glow player live" id="player"></div>');
+        }
+        if ($iframe('#btn-unmute').length === 0) {
+          $iframe('body').append('<div id="btn-unmute" onclick="WSUnmute()" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#ff0101;color:#fff;padding:15px 30px;border-radius:8px;cursor:pointer;z-index:9999;font-weight:bold;">CLICK TO UNMUTE</div>');
+        }
+        if ($iframe('video-js').length === 0) {
+          $iframe('#player').after('<video-js id="player2" class="vjs-big-play-centered vjs-default-skin player" style="display:none" controls></video-js>');
+        }
 
         const baseTag = `<base href="${iframeOrigin}/">`;
         const headContent = $iframe('head').html() || '';
