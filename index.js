@@ -300,16 +300,17 @@ app.get("/", (req, res) => {
         endpoint: "/transmisiones5",
         descripcion: "🆕 NUEVO 🆕 Transmisiones deportivas de donromans.com - API de WordPress con eventos deportivos organizados por liga, hora, país, incluye múltiples enlaces de transmisión (urls_list, SpecialLinks, canales, servidores) con compatibilidad y modo replay"
       },
-      getStreamUrl: {
-        endpoint: "/getStreamUrl",
-        parametro: "?url=https://rereyano.ru/player/3/1",
-        descripcion: "Extrae la URL del reproductor de video en formato JSON - úsala directamente en tu iframe",
-        respuesta: "{ success: true, playerUrl: 'https://...', type: 'iframe' }"
-      },
-      proxyStream: {
-        endpoint: "/proxyStream",
-        parametro: "?url=https://rereyano.ru/player/3/1",
-        descripcion: "Proxy limpiador de HTML para streams de video - elimina anuncios y pop-ups, extrae solo el reproductor de video"
+      glz: {
+        endpoint: "/glz",
+        parametro: "?get=URL_DEL_STREAM",
+        descripcion: "🛡️ Proxy bloqueador de anuncios para streams - Limpia HTML, elimina scripts maliciosos, bloquea dominios de ads y extrae solo el reproductor de video",
+        ejemplo: "/glz?get=https://ejemplo.com/player",
+        caracteristicas: {
+          bloqueoAds: "Filtra dominios de publicidad conocidos",
+          limpiezaHTML: "Elimina scripts, popups, overlays y elementos de anuncios",
+          soporteHLS: "Filtra segmentos de anuncios en playlists m3u8",
+          seguridad: "Validación de URLs y protección contra SSRF"
+        }
       },
       parametros_marcadores: {
         date: "?date=YYYYMMDD (opcional)",
@@ -1608,290 +1609,280 @@ app.get("/notificaciones/:liga", async (req, res) => {
   }
 });
 
-app.get("/getStreamUrl", async (req, res) => {
+const blockedAdDomains = [
+  'doubleclick.net', 'googlesyndication.com', 'adservice.google.com',
+  'googleadservices.com', 'pagead2.googlesyndication.com', 'adnxs.com',
+  'adsrvr.org', 'facebook.com/tr', 'amazon-adsystem.com', 'taboola.com',
+  'outbrain.com', 'criteo.com', 'rubiconproject.com', 'pubmatic.com',
+  'openx.net', 'casalemedia.com', 'advertising.com', 'bidswitch.net',
+  'exelator.com', 'mathtag.com', 'serving-sys.com', 'flashtalking.com',
+  'popads.net', 'popcash.net', 'propellerads.com', 'exoclick.com',
+  'trafficjunky.com', 'juicyads.com', 'clickadu.com', 'hilltopads.net',
+  'adcash.com', 'mgid.com', 'revcontent.com', 'content.ad', 'zergnet.com',
+  'adsterra.com', 'admaven.io', 'a-ads.com', 'cointraffic.io'
+];
+
+function isBlockedDomain(url) {
+  if (!url) return false;
+  const urlLower = url.toLowerCase();
+  return blockedAdDomains.some(domain => urlLower.includes(domain));
+}
+
+function isValidUrl(url) {
   try {
-    const targetUrl = req.query.url;
-    
-    if (!targetUrl) {
-      return res.status(400).json({ 
-        error: "Falta el parámetro 'url'",
-        ejemplo: "/getStreamUrl?url=https://rereyano.ru/player/3/1"
-      });
-    }
-
-    console.log(`🔍 Extrayendo URL del stream: ${targetUrl}`);
-
-    const response = await axios.get(targetUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
-      },
-      timeout: 10000
-    });
-
-    const $ = cheerio.load(response.data);
-    const iframe = $('iframe').first();
-    const iframeSrc = iframe.attr('src') || '';
-
-    if (iframe.length > 0 && iframeSrc) {
-      const fullUrl = iframeSrc.startsWith('http') ? iframeSrc : `https:${iframeSrc}`;
-      
-      res.json({
-        success: true,
-        playerUrl: fullUrl,
-        type: 'iframe',
-        originalUrl: targetUrl
-      });
-      
-      console.log(`✅ URL extraída: ${fullUrl}`);
-    } else {
-      res.status(404).json({
-        success: false,
-        error: "No se encontró un reproductor de video en la página",
-        originalUrl: targetUrl
-      });
-    }
-
-  } catch (error) {
-    console.error("❌ Error en /getStreamUrl:", error.message);
-    res.status(500).json({ 
-      success: false,
-      error: "No se pudo procesar la URL",
-      detalles: error.message 
-    });
+    const parsed = new URL(url);
+    return ['http:', 'https:'].includes(parsed.protocol);
+  } catch {
+    return false;
   }
-});
+}
 
-app.get("/proxyStream", async (req, res) => {
+function filterM3u8Content(content, baseUrl) {
+  const lines = content.split('\n');
+  const filtered = [];
+  let skipNext = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    if (trimmed.toLowerCase().includes('ad-') || 
+        trimmed.toLowerCase().includes('/ads/') ||
+        trimmed.toLowerCase().includes('advertisement') ||
+        isBlockedDomain(trimmed)) {
+      skipNext = true;
+      continue;
+    }
+
+    if (skipNext && !trimmed.startsWith('#')) {
+      skipNext = false;
+      continue;
+    }
+
+    filtered.push(line);
+  }
+
+  return filtered.join('\n');
+}
+
+app.get("/glz", async (req, res) => {
   try {
-    const targetUrl = req.query.url;
+    const targetUrl = req.query.get;
     
     if (!targetUrl) {
+      return res.status(200).send('Esperando contenido con ?get=');
+    }
+
+    if (!isValidUrl(targetUrl)) {
       return res.status(400).json({ 
-        error: "Falta el parámetro 'url'",
-        ejemplo: "/proxyStream?url=https://rereyano.ru/player/3/1"
+        error: "URL inválida",
+        ejemplo: "/glz?get=https://ejemplo.com/player"
       });
     }
 
-    console.log(`🎥 Proxy solicitado para: ${targetUrl}`);
+    if (isBlockedDomain(targetUrl)) {
+      return res.status(403).json({ 
+        error: "Dominio bloqueado por política de anuncios"
+      });
+    }
+
+    console.log(`🛡️ GLZ Proxy solicitado para: ${targetUrl}`);
 
     const response = await axios.get(targetUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': targetUrl,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
       },
-      timeout: 10000
+      timeout: 15000,
+      maxRedirects: 5,
+      responseType: 'text'
     });
+
+    const contentType = response.headers['content-type'] || '';
+    
+    if (contentType.includes('mpegurl') || contentType.includes('m3u8') || targetUrl.includes('.m3u8')) {
+      const filteredContent = filterM3u8Content(response.data, targetUrl);
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.send(filteredContent);
+    }
 
     const $ = cheerio.load(response.data);
 
     $('script').remove();
     $('noscript').remove();
+    $('style').each((i, elem) => {
+      const styleContent = $(elem).html() || '';
+      if (styleContent.includes('pop') || styleContent.includes('overlay') || styleContent.includes('fixed')) {
+      }
+    });
     
     $('a').each((i, elem) => {
-      $(elem).removeAttr('href');
-      $(elem).removeAttr('onclick');
+      const href = $(elem).attr('href') || '';
+      if (isBlockedDomain(href) || href.includes('javascript:') || href.includes('void(')) {
+        $(elem).removeAttr('href');
+        $(elem).removeAttr('onclick');
+        $(elem).removeAttr('target');
+      }
     });
 
     $('iframe').each((i, elem) => {
       const iframeSrc = $(elem).attr('src') || '';
-      if (
-        iframeSrc.toLowerCase().includes('ads') ||
-        iframeSrc.toLowerCase().includes('adservice') ||
-        iframeSrc.toLowerCase().includes('pop') ||
-        iframeSrc.toLowerCase().includes('click') ||
-        iframeSrc.toLowerCase().includes('banner')
-      ) {
+      if (isBlockedDomain(iframeSrc) ||
+          iframeSrc.toLowerCase().includes('ads') ||
+          iframeSrc.toLowerCase().includes('pop') ||
+          iframeSrc.toLowerCase().includes('click') ||
+          iframeSrc.toLowerCase().includes('banner') ||
+          iframeSrc.toLowerCase().includes('track')) {
         $(elem).remove();
       }
     });
 
-    $('div, span, section, aside').each((i, elem) => {
+    $('div, span, section, aside, article, header, footer').each((i, elem) => {
       const elemId = $(elem).attr('id') || '';
       const elemClass = $(elem).attr('class') || '';
-      const combined = (elemId + ' ' + elemClass).toLowerCase();
+      const elemStyle = $(elem).attr('style') || '';
+      const combined = (elemId + ' ' + elemClass + ' ' + elemStyle).toLowerCase();
       
-      if (
-        combined.includes('ad') ||
-        combined.includes('banner') ||
-        combined.includes('popup') ||
-        combined.includes('overlay') ||
-        combined.includes('modal')
-      ) {
+      if (combined.includes('ad-') ||
+          combined.includes('ads-') ||
+          combined.includes('advert') ||
+          combined.includes('banner') ||
+          combined.includes('popup') ||
+          combined.includes('overlay') ||
+          combined.includes('modal') ||
+          combined.includes('interstitial') ||
+          combined.includes('sponsor') ||
+          combined.includes('promo-') ||
+          (combined.includes('fixed') && combined.includes('z-index'))) {
         $(elem).remove();
       }
+    });
+
+    $('img').each((i, elem) => {
+      const src = $(elem).attr('src') || '';
+      if (isBlockedDomain(src)) {
+        $(elem).remove();
+      }
+    });
+
+    $('[onclick], [onload], [onerror], [onmouseover], [onmouseout]').each((i, elem) => {
+      $(elem).removeAttr('onclick');
+      $(elem).removeAttr('onload');
+      $(elem).removeAttr('onerror');
+      $(elem).removeAttr('onmouseover');
+      $(elem).removeAttr('onmouseout');
     });
 
     const iframe = $('iframe').first();
+    const video = $('video').first();
     const iframeSrc = iframe.attr('src') || '';
     
     let cleanHtml;
 
-    if (iframe.length > 0 && iframeSrc) {
-      const fullIframeSrc = iframeSrc.startsWith('http') ? iframeSrc : `https:${iframeSrc}`;
+    if (iframe.length > 0 && iframeSrc && !isBlockedDomain(iframeSrc)) {
+      const fullIframeSrc = iframeSrc.startsWith('http') ? iframeSrc : 
+                            iframeSrc.startsWith('//') ? `https:${iframeSrc}` :
+                            new URL(iframeSrc, targetUrl).href;
       
-      cleanHtml = `
-<!DOCTYPE html>
+      cleanHtml = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="script-src 'none';">
-  <title>Stream Player</title>
+  <title>GLZ Player</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background-color: #000;
-    }
-    iframe {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-    a {
-      pointer-events: none;
-      cursor: default;
-    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;overflow:hidden;background:#000}
+    iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none}
+    a{pointer-events:none;cursor:default}
   </style>
 </head>
 <body>
-  <iframe 
-    src="${fullIframeSrc}" 
-    width="100%" 
-    height="100%" 
-    scrolling="no" 
-    frameborder="0" 
-    allowfullscreen="true"
-    sandbox="allow-same-origin allow-scripts allow-forms">
-  </iframe>
+  <iframe src="${fullIframeSrc}" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; fullscreen; encrypted-media"></iframe>
 </body>
 </html>`;
       
-      console.log(`✅ Iframe extraído: ${fullIframeSrc}`);
+      console.log(`✅ GLZ Iframe limpio: ${fullIframeSrc}`);
+    } else if (video.length > 0) {
+      const videoSrc = video.attr('src') || '';
+      const source = video.find('source').first();
+      const sourceSrc = source.attr('src') || '';
+      const finalSrc = videoSrc || sourceSrc;
+      
+      cleanHtml = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GLZ Video Player</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;display:flex;justify-content:center;align-items:center;background:#000}
+    video{max-width:100%;max-height:100vh;width:100%;height:auto}
+  </style>
+</head>
+<body>
+  <video controls autoplay playsinline>
+    <source src="${finalSrc}" type="video/mp4">
+  </video>
+</body>
+</html>`;
+
+      console.log(`✅ GLZ Video limpio: ${finalSrc}`);
     } else {
-      const video = $('video').first();
-      
-      if (video.length > 0) {
-        cleanHtml = `
-<!DOCTYPE html>
+      cleanHtml = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Video Player</title>
+  <title>GLZ - Sin contenido</title>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      background-color: #000;
-    }
-    video {
-      max-width: 100%;
-      max-height: 100vh;
-    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{min-height:100vh;display:flex;justify-content:center;align-items:center;background:#1a1a1a;color:#fff;font-family:system-ui,-apple-system,sans-serif}
+    .msg{text-align:center;padding:2rem}
+    .msg h2{margin-bottom:1rem;color:#ff9800}
   </style>
 </head>
 <body>
-  ${$.html(video)}
-</body>
-</html>`;
-      } else {
-        cleanHtml = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sin contenido</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      background-color: #1a1a1a;
-      color: #fff;
-      font-family: Arial, sans-serif;
-    }
-    .message {
-      text-align: center;
-      padding: 20px;
-    }
-  </style>
-</head>
-<body>
-  <div class="message">
-    <h2>⚠️ No se encontró contenido de video</h2>
-    <p>La página no contiene un reproductor de video válido.</p>
+  <div class="msg">
+    <h2>No se encontró contenido de video</h2>
+    <p>La página no contiene un reproductor válido.</p>
   </div>
 </body>
 </html>`;
-      }
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    res.setHeader('Content-Security-Policy', "script-src 'none'");
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.send(cleanHtml);
 
-    console.log(`✅ Proxy completado para: ${targetUrl}`);
+    console.log(`✅ GLZ Proxy completado para: ${targetUrl}`);
 
   } catch (error) {
-    console.error("❌ Error en /proxyStream:", error.message);
+    console.error("❌ Error en /glz:", error.message);
     
-    const errorHtml = `
-<!DOCTYPE html>
+    const errorHtml = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Error</title>
+  <title>GLZ - Error</title>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      background-color: #1a1a1a;
-      color: #fff;
-      font-family: Arial, sans-serif;
-    }
-    .error {
-      text-align: center;
-      padding: 20px;
-      max-width: 600px;
-    }
-    .error-code {
-      color: #ff4444;
-      font-size: 18px;
-      margin-top: 10px;
-    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{min-height:100vh;display:flex;justify-content:center;align-items:center;background:#1a1a1a;color:#fff;font-family:system-ui,-apple-system,sans-serif}
+    .error{text-align:center;padding:2rem;max-width:600px}
+    .error h2{margin-bottom:1rem;color:#f44336}
+    .code{color:#ff6b6b;font-size:0.9rem;margin-top:1rem;padding:1rem;background:#2a2a2a;border-radius:8px}
   </style>
 </head>
 <body>
   <div class="error">
-    <h2>❌ Error al cargar el contenido</h2>
+    <h2>Error al cargar el contenido</h2>
     <p>No se pudo acceder a la URL proporcionada.</p>
-    <div class="error-code">${error.message}</div>
+    <div class="code">${error.message}</div>
   </div>
 </body>
 </html>`;
