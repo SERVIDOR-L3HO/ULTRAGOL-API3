@@ -1774,7 +1774,7 @@ app.get("/ultragol-l3ho", (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reproductor de Video Sin Publicidad</title>
+  <title>Reproductor de Video Sin Publicidad - ULTRAGOL</title>
   <style>
     html, body {
       margin: 0;
@@ -1801,24 +1801,50 @@ app.get("/ultragol-l3ho", (req, res) => {
       background-color: black;
     }
 
-    #logo {
+    #logo-link {
       position: fixed;
-      top: 10px;
-      right: 10px;
-      width: 20%;
-      max-width: 80px;
-      z-index: 2;
-      opacity: 0.8;
+      top: 8px;
+      right: 8px;
+      z-index: 1000;
+      text-decoration: none;
+    }
+
+    #logo {
+      width: 120px;
+      max-width: 25vw;
+      height: auto;
+      opacity: 0.85;
+      transition: opacity 0.3s ease, transform 0.2s ease;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    }
+
+    #logo:hover {
+      opacity: 1;
+      transform: scale(1.05);
     }
 
     @media (max-width: 600px) {
       #logo {
-        width: 35px;
+        width: 80px;
+        max-width: 20vw;
+      }
+      #logo-link {
+        top: 5px;
+        right: 5px;
+      }
+    }
+
+    @media (max-width: 400px) {
+      #logo {
+        width: 60px;
       }
     }
   </style>
 </head>
 <body>
+  <a href="https://ultragol-l3ho.com.mx/index2.html" target="_blank" id="logo-link">
+    <img src="/attached_assets/1001854642-removebg-preview_1764574041344.png" alt="ULTRAGOL" id="logo">
+  </a>
   <div id="videoPlayer">
     <iframe 
       src="${decodedUrl}" 
