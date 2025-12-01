@@ -113,10 +113,24 @@ app.use('/public', express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-const ADMIN_USERS = {
-  'admin': bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'L3HO2025!', 12),
-  'l3ho': bcrypt.hashSync(process.env.L3HO_PASSWORD || 'Interactive@2025', 12)
+let ADMIN_USERS = {};
+const initAdminUsers = () => {
+  if (!process.env.ADMIN_PASSWORD && !process.env.L3HO_PASSWORD) {
+    console.warn('⚠️ ADVERTENCIA: Variables de entorno ADMIN_PASSWORD y L3HO_PASSWORD no configuradas');
+    console.warn('⚠️ Usando credenciales temporales solo para desarrollo');
+    ADMIN_USERS = {
+      'admin': bcrypt.hashSync('temp_dev_pass_' + Date.now(), 12)
+    };
+  } else {
+    if (process.env.ADMIN_PASSWORD) {
+      ADMIN_USERS['admin'] = bcrypt.hashSync(process.env.ADMIN_PASSWORD, 12);
+    }
+    if (process.env.L3HO_PASSWORD) {
+      ADMIN_USERS['l3ho'] = bcrypt.hashSync(process.env.L3HO_PASSWORD, 12);
+    }
+  }
 };
+initAdminUsers();
 
 app.get('/login', isNotAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
