@@ -44,10 +44,14 @@ const securityHeaders = helmet({
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
-      connectSrc: ["'self'"]
+      connectSrc: ["'self'", "https:"],
+      frameSrc: ["'self'", "https:", "http:"],
+      childSrc: ["'self'", "https:", "http:"]
     }
   },
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false
 });
 
 function generateCSRFToken() {
