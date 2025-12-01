@@ -5,6 +5,8 @@ This project provides a professional, real-time scraping API for multiple footba
 
 **NEW (Nov 2025):** The API is now fully compatible with Termux on Android devices, allowing users to run the entire football data API directly on their smartphones with automatic IP detection and easy deployment.
 
+**NEW (Dec 2025):** Implemented professional session-based authentication system with L3HO Interactive branding. Secure login page with bcrypt password hashing, rate limiting, CSRF protection, and automatic session management. Protected dashboard requires authentication while API endpoints remain functional.
+
 ## User Preferences
 I prefer clear and concise information. When making changes, prioritize modularity and scalability. I value detailed explanations for complex architectural decisions. Do not make changes to the `replit.nix` file.
 
@@ -24,9 +26,24 @@ The project is built on Node.js 20 with Express 4.21, designed for high performa
 *   **Mejores Momentos (NEW - Oct 2025):** YouTube highlights scraping for all leagues (Premier League, La Liga, Serie A, Bundesliga, Ligue 1) with categorized content (mejores momentos, highlights, resúmenes, repeticiones), returning up to 50 recent videos per league with complete metadata (title, description, channel, thumbnail, duration, views, publish date, URLs).
 *   **Logo Integration (Liga MX):** Provides high-quality team logos in multiple sizes from ESPN's CDN.
 *   **Transmisiones System with Team Logos (NEW - Nov 2025):** Comprehensive sports streaming system with 5 independent sources (rereyano.ru, dp.mycraft.click, e1link.link, ftvhd.com, donromans.com) providing international sports events coverage. All transmissions endpoints now include automatic team logo extraction using intelligent name parsing, supporting multiple sports (football, basketball, hockey, tennis, etc.) and international competitions. The system features base64 decoding for streaming links, proxy URL generation, country flags, and multi-channel support with cache management. The newest source (donromans.com) uses a WordPress API to provide organized events by league with multiple link types (urls_list, SpecialLinks, channels, servers) including replay support and platform compatibility indicators.
+*   **Secure Authentication System (NEW - Dec 2025):** Session-based authentication using Express.js with bcrypt password hashing, rate limiting, CSRF protection, and HTTP-only secure cookies. Admin panel protected with automatic timeout (30 minutes) and security headers. Credentials managed via environment variables (ADMIN_PASSWORD, L3HO_PASSWORD) for production security.
 
 **UI/UX Decisions:**
-*   While this is a backend API, future considerations for client-side applications would prioritize a clean, responsive design with intuitive data presentation.
+*   Professional dark-themed dashboard with L3HO Interactive branding and gradient design
+*   Login page features cyan-to-purple gradient, security badges, and password visibility toggle
+*   Responsive design works on desktop and mobile devices
+*   Floating particle animations and grid overlay for visual polish
+*   User information display in header with logout button
+
+**Security Features:**
+*   **Password Security:** bcryptjs hashing with salt rounds of 12
+*   **Session Management:** Express-session with 24-hour maximum age and HTTP-only cookies
+*   **Rate Limiting:** Login endpoint limited to 5 attempts per 15-minute window
+*   **CSRF Protection:** Token-based protection on all POST requests
+*   **Security Headers:** Helmet.js with Content Security Policy
+*   **Access Logging:** All requests logged with IP address and user agent
+*   **Session Timeout:** Automatic logout after 30 minutes of inactivity
+*   **Password Delay:** 1-second delay on failed login attempts to prevent brute force
 
 **Feature Specifications:**
 *   **League Data:** Comprehensive standings, top scorers, and news for all supported leagues.
@@ -38,6 +55,13 @@ The project is built on Node.js 20 with Express 4.21, designed for high performa
 *   **Match Lineups (NEW - Nov 2025):** Complete lineup information for all leagues with detailed player data including names, positions, jersey numbers, photos, and tactical formations. Features automatic photo enrichment from multiple sources, smart detection of lineup availability (with helpful messages when lineups aren't published yet), and endpoints for individual leagues (`/alineaciones`, `/premier/alineaciones`, etc.), all leagues combined (`/alineaciones/todas-las-ligas`), and specific matches by event ID (`/alineaciones/partido/:eventId`). Includes separation of starters and substitutes, captain indicators, and live match statistics when available.
 *   **Sports Transmissions (NEW - Nov 2025):** Five comprehensive streaming endpoints (`/transmisiones`, `/transmisiones2`, `/transmisiones3`, `/transmisiones4`, `/transmisiones5`) aggregating live sports broadcasts from multiple international sources. Features include automatic team logo extraction and display, country flags, base64 link decoding, proxy URL generation for golazotvhd.com integration, multi-channel support, and coverage of global sports events from countries including Peru, Brazil, Chile, Colombia, Mexico, Bolivia, and international leagues (NBA, NHL, UEFA). The newest endpoint (`/transmisiones5`) uses the donromans.com WordPress API to provide structured events organized by league, time, and country, with support for replay viewing, platform compatibility (web/app), and multiple link sources (urls_list, SpecialLinks, channels, servers). Each transmission includes team names, logos, event times, streaming options, and real-time status indicators.
 
+## Authentication Routes
+*   `GET /login` - Login page (redirects authenticated users to home)
+*   `POST /auth/login` - Submit login credentials (rate limited to 5 attempts per 15 minutes)
+*   `GET /logout` - Logout and destroy session
+*   `GET /auth/status` - Check current authentication status
+*   `GET /` - Protected dashboard (requires authentication)
+
 ## External Dependencies
 *   **Node.js 20:** JavaScript runtime environment.
 *   **Express 4.21:** Web application framework for Node.js.
@@ -45,6 +69,11 @@ The project is built on Node.js 20 with Express 4.21, designed for high performa
 *   **Cheerio 1.1:** Fast, flexible, and lean implementation of core jQuery specifically designed for the server, used for HTML parsing.
 *   **node-cron 4.2:** Library for scheduling tasks in Node.js.
 *   **googleapis:** Google APIs client for Node.js, specifically used for interacting with YouTube (though web scraping is used for video data to avoid quota limits).
+*   **bcryptjs 2.4:** Password hashing library for secure credential storage.
+*   **express-session 1.17:** Session middleware for Express.js.
+*   **express-rate-limit:** Rate limiting middleware to prevent brute force attacks.
+*   **helmet:** Security middleware providing HTTP headers protection.
+*   **crypto-js:** Cryptographic utility library.
 *   **ESPN, Mediotiempo, BBC Sport, FlashScore, TheSportsDB:** Primary data sources for football statistics, news, and player imagery.
 
 ## Deployment Options
@@ -57,3 +86,10 @@ The API now includes full Termux compatibility for running on Android devices:
 *   **Auto-start Capability:** Optional configuration for automatic server startup when Termux opens
 *   **Public IP Display:** Server startup shows the complete API URL with public IP for direct use in web projects
 *   **Full Documentation:** `TERMUX_INSTALACION.md` provides comprehensive installation guide with troubleshooting and remote access options (ngrok, localtunnel)
+
+### Production Deployment
+For production deployment, set the following environment variables:
+*   `ADMIN_PASSWORD` - Secure password for admin user
+*   `L3HO_PASSWORD` - Secure password for l3ho user
+*   `NODE_ENV` - Set to 'production' for secure cookies
+*   `SESSION_SECRET` - Random string for session encryption
