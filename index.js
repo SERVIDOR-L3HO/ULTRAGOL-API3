@@ -1858,7 +1858,9 @@ app.get("/glz", async (req, res) => {
               matchLower.includes('histats') || matchLower.includes('admedia') ||
               matchLower.includes('nunush') || matchLower.includes('lalavita') ||
               matchLower.includes('awistats') || matchLower.includes('amung.us') ||
-              matchLower.includes('zoneid')) {
+              matchLower.includes('zoneid') || matchLower.includes('falcobipod') ||
+              matchLower.includes('loijtoottuleringv') || matchLower.includes('sandbox') ||
+              (matchLower.includes('append') && matchLower.includes('iframe') && !matchLower.includes('clappr'))) {
             return '';
           }
           return match;
@@ -1883,6 +1885,8 @@ app.get("/glz", async (req, res) => {
           if (isBlockedDomain(src) || 
               content.includes('aclib') || content.includes('runPop') ||
               content.includes('admedia') || content.includes('zoneId') ||
+              content.includes('falcobipod') || content.includes('loijtoottuleringv') ||
+              (content.includes('append') && content.includes('iframe') && content.includes('sandbox')) ||
               classAttr.includes('nunush') || src.includes('awistats') ||
               src.includes('deb.js')) {
             $iframe(elem).remove();
