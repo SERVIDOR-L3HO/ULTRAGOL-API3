@@ -2,7 +2,7 @@ const cheerio = require("cheerio");
 const axios = require("axios");
 const { extraerEquiposYLogos } = require("../utils/logoHelper");
 
-const GLZ_PROXY = "https://glzdeportes.com/glz.php?get=";
+const GLZ_PROXY = "https://cmrroto01.blogspot.com/p/aldoblock.html?get=";
 
 async function scrapTransmisiones2() {
   try {

@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const GLZ_PROXY = "https://glzdeportes.com/glz.php?get=";
+const GLZ_PROXY = "https://cmrroto01.blogspot.com/p/aldoblock.html?get=";
 
 async function getScheduleData(scheduleId = null) {
   try {
