@@ -1,5 +1,7 @@
 const axios = require("axios");
 
+const GLZ_PROXY = "https://glzdeportes.com/glz.php?get=";
+
 async function getScheduleData(scheduleId = null) {
   try {
     const url = scheduleId 
@@ -22,6 +24,9 @@ async function getScheduleData(scheduleId = null) {
 
 function applyGolazoProxy(url) {
   if (!url || typeof url !== 'string') return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return GLZ_PROXY + encodeURIComponent(url);
+  }
   return url;
 }
 

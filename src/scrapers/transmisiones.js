@@ -3,6 +3,8 @@ const { fetchWithRetry } = require("../utils/scraper");
 const { scrapCalendario } = require("./calendario");
 const { extraerEquiposYLogos } = require("../utils/logoHelper");
 
+const GLZ_PROXY = "https://glzdeportes.com/glz.php?get=";
+
 function normalizarNombreEquipo(nombre) {
   const normalizaciones = {
     "america": ["américa", "america", "club américa"],
@@ -173,9 +175,9 @@ async function scrapTransmisiones() {
             numero: numeroCanal,
             nombre: nombreCanal,
             links: {
-              hoca: linkHoca || null,
-              caster: linkCaster || null,
-              wigi: linkWigi || null
+              hoca: linkHoca ? GLZ_PROXY + encodeURIComponent(linkHoca) : null,
+              caster: linkCaster ? GLZ_PROXY + encodeURIComponent(linkCaster) : null,
+              wigi: linkWigi ? GLZ_PROXY + encodeURIComponent(linkWigi) : null
             }
           });
         }

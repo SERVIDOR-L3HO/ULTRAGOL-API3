@@ -2,6 +2,8 @@ const cheerio = require("cheerio");
 const axios = require("axios");
 const { extraerEquiposYLogos } = require("../utils/logoHelper");
 
+const GLZ_PROXY = "https://glzdeportes.com/glz.php?get=";
+
 async function scrapTransmisiones3() {
   try {
     const url = "https://e1link.link/";
@@ -126,8 +128,8 @@ async function scrapTransmisiones3() {
           estado = "Por comenzar";
         }
         
-        const urlConPrefijo = enlaces[0];
-        const enlacesConPrefijo = enlaces;
+        const urlConPrefijo = GLZ_PROXY + encodeURIComponent(enlaces[0]);
+        const enlacesConPrefijo = enlaces.map(e => GLZ_PROXY + encodeURIComponent(e));
         const equiposLogos = extraerEquiposYLogos(titulo);
         
         transmisiones.push({

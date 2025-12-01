@@ -2,6 +2,8 @@ const cheerio = require("cheerio");
 const axios = require("axios");
 const { extraerEquiposYLogos } = require("../utils/logoHelper");
 
+const GLZ_PROXY = "https://glzdeportes.com/glz.php?get=";
+
 async function scrapTransmisiones2() {
   try {
     const url = "https://dp.mycraft.click/home.html";
@@ -100,7 +102,7 @@ async function scrapTransmisiones2() {
             equipo2: equiposLogos.equipo2,
             logo1: equiposLogos.logo1,
             logo2: equiposLogos.logo2,
-            url: enlace,
+            url: GLZ_PROXY + encodeURIComponent(enlace),
             estado: tituloCompleto.includes("●") || tituloCompleto.includes("stopdot") ? "En vivo" : 
                     tituloCompleto.includes("◉") || tituloCompleto.includes("readydot") ? "Por comenzar" : 
                     "Programado"

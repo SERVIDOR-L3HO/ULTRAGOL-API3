@@ -1,6 +1,8 @@
 const axios = require("axios");
 const { extraerEquiposYLogos } = require("../utils/logoHelper");
 
+const GLZ_PROXY = "https://glzdeportes.com/glz.php?get=";
+
 function decodificarBase64(str) {
   try {
     return Buffer.from(str, 'base64').toString('utf-8');
@@ -114,7 +116,7 @@ async function scrapTransmisiones4() {
             if (urlProxy) {
               canales.push({
                 nombre: nombreCanal,
-                url: urlProxy
+                url: GLZ_PROXY + encodeURIComponent(urlProxy)
               });
             }
           }
