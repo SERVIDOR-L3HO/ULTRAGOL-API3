@@ -300,11 +300,11 @@ app.get("/", (req, res) => {
         endpoint: "/transmisiones5",
         descripcion: "🆕 NUEVO 🆕 Transmisiones deportivas de donromans.com - API de WordPress con eventos deportivos organizados por liga, hora, país, incluye múltiples enlaces de transmisión (urls_list, SpecialLinks, canales, servidores) con compatibilidad y modo replay"
       },
-      glz: {
-        endpoint: "/glz",
+      "ultragol-l3ho": {
+        endpoint: "/ultragol-l3ho",
         parametro: "?get=URL_DEL_STREAM",
         descripcion: "🛡️ Proxy bloqueador de anuncios para streams - Limpia HTML, elimina scripts maliciosos, bloquea dominios de ads y extrae solo el reproductor de video",
-        ejemplo: "/glz?get=https://ejemplo.com/player",
+        ejemplo: "/ultragol-l3ho?get=https://ejemplo.com/player",
         caracteristicas: {
           bloqueoAds: "Filtra dominios de publicidad conocidos",
           limpiezaHTML: "Elimina scripts, popups, overlays y elementos de anuncios",
@@ -1682,7 +1682,7 @@ function filterM3u8Content(content, baseUrl, proxyBaseUrl) {
           fullUrl = base + trimmed;
         }
       }
-      filtered.push(`${proxyBaseUrl}/glz?get=${encodeURIComponent(fullUrl)}`);
+      filtered.push(`${proxyBaseUrl}/ultragol-l3ho?get=${encodeURIComponent(fullUrl)}`);
     } else {
       filtered.push(line);
     }
@@ -1691,10 +1691,10 @@ function filterM3u8Content(content, baseUrl, proxyBaseUrl) {
   return filtered.join('\n');
 }
 
-app.get("/glz", (req, res) => {
+app.get("/ultragol-l3ho", (req, res) => {
   const targetUrl = req.query.get;
   
-  console.log(`🛡️ GLZ Proxy solicitado para: ${targetUrl || '(sin URL)'}`);
+  console.log(`🛡️ Ultragol-l3ho Proxy solicitado para: ${targetUrl || '(sin URL)'}`);
   
   // Generar HTML del reproductor
   const generatePlayerHtml = (url) => {
@@ -1807,7 +1807,7 @@ app.get("/glz", (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.send(html);
   
-  console.log(`✅ GLZ Proxy completado para: ${targetUrl || '(sin URL)'}`);
+  console.log(`✅ Ultragol-l3ho Proxy completado para: ${targetUrl || '(sin URL)'}`);
 });
 
 updateAllData();
