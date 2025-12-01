@@ -80,6 +80,11 @@ const app = express();
 
 app.use(cors());
 app.use('/attached_assets', express.static(path.join(__dirname, 'attached_assets')));
+app.use('/public', express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+  }
+}));
 
 async function updateAllData() {
   console.log("🔄 Actualizando datos de Liga MX...");
@@ -167,12 +172,16 @@ async function updateMarcadores() {
 }
 
 app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get("/api", (req, res) => {
   res.json({
     nombre: "Multi-League Football API",
     version: "3.4.0",
     descripcion: "API con scraping en tiempo real de múltiples ligas de fútbol + Marcadores en vivo desde ESPN",
     actualizacion: "Datos actualizados automáticamente cada 20 minutos",
-    novedades: "🔔 NUEVO: Sistema inteligente de notificaciones con detección automática de GOLES, INICIO DE PARTIDO y FIN DEL PRIMER TIEMPO en tiempo real",
+    novedades: "Sistema inteligente de notificaciones con detección automática de GOLES, INICIO DE PARTIDO y FIN DEL PRIMER TIEMPO en tiempo real",
     ligas_disponibles: {
       ligaMx: {
         nombre: "Liga MX",
@@ -184,8 +193,8 @@ app.get("/", (req, res) => {
           logos: "/logos",
           videos: "/videos",
           calendario: "/calendario",
-          marcadores: "/marcadores (⚽ NUEVO - Tiempo Real)",
-          alineaciones: "/alineaciones (⚽ NUEVO - Multi-fuente con fotos)",
+          marcadores: "/marcadores",
+          alineaciones: "/alineaciones",
           todo: "/todo"
         }
       },
@@ -196,8 +205,8 @@ app.get("/", (req, res) => {
           noticias: "/premier/noticias",
           goleadores: "/premier/goleadores",
           calendario: "/premier/calendario",
-          marcadores: "/premier/marcadores (⚽ NUEVO - Tiempo Real)",
-          alineaciones: "/premier/alineaciones (⚽ NUEVO)",
+          marcadores: "/premier/marcadores",
+          alineaciones: "/premier/alineaciones",
           mejoresMomentos: "/premier/mejores-momentos"
         }
       },
@@ -208,8 +217,8 @@ app.get("/", (req, res) => {
           noticias: "/laliga/noticias",
           goleadores: "/laliga/goleadores",
           calendario: "/laliga/calendario",
-          marcadores: "/laliga/marcadores (⚽ NUEVO - Tiempo Real)",
-          alineaciones: "/laliga/alineaciones (⚽ NUEVO)",
+          marcadores: "/laliga/marcadores",
+          alineaciones: "/laliga/alineaciones",
           mejoresMomentos: "/laliga/mejores-momentos"
         }
       },
@@ -220,8 +229,8 @@ app.get("/", (req, res) => {
           noticias: "/seriea/noticias",
           goleadores: "/seriea/goleadores",
           calendario: "/seriea/calendario",
-          marcadores: "/seriea/marcadores (⚽ NUEVO - Tiempo Real)",
-          alineaciones: "/seriea/alineaciones (⚽ NUEVO)",
+          marcadores: "/seriea/marcadores",
+          alineaciones: "/seriea/alineaciones",
           mejoresMomentos: "/seriea/mejores-momentos"
         }
       },
@@ -232,8 +241,8 @@ app.get("/", (req, res) => {
           noticias: "/bundesliga/noticias",
           goleadores: "/bundesliga/goleadores",
           calendario: "/bundesliga/calendario",
-          marcadores: "/bundesliga/marcadores (⚽ NUEVO - Tiempo Real)",
-          alineaciones: "/bundesliga/alineaciones (⚽ NUEVO)",
+          marcadores: "/bundesliga/marcadores",
+          alineaciones: "/bundesliga/alineaciones",
           mejoresMomentos: "/bundesliga/mejores-momentos"
         }
       },
@@ -244,8 +253,8 @@ app.get("/", (req, res) => {
           noticias: "/ligue1/noticias",
           goleadores: "/ligue1/goleadores",
           calendario: "/ligue1/calendario",
-          marcadores: "/ligue1/marcadores (⚽ NUEVO - Tiempo Real)",
-          alineaciones: "/ligue1/alineaciones (⚽ NUEVO)",
+          marcadores: "/ligue1/marcadores",
+          alineaciones: "/ligue1/alineaciones",
           mejoresMomentos: "/ligue1/mejores-momentos"
         }
       }
@@ -253,8 +262,8 @@ app.get("/", (req, res) => {
     endpoints_especiales: {
       todas_las_ligas: {
         calendario: "/calendario/todas-las-ligas",
-        marcadores: "/marcadores/todas-las-ligas (⚽ NUEVO)",
-        alineaciones: "/alineaciones/todas-las-ligas (⚽ NUEVO - Multi-fuente)",
+        marcadores: "/marcadores/todas-las-ligas",
+        alineaciones: "/alineaciones/todas-las-ligas",
         descripcion: "Calendario, marcadores y alineaciones completas de todas las ligas"
       },
       alineaciones_especificas: {
@@ -269,10 +278,10 @@ app.get("/", (req, res) => {
         incluye: "Cache hit rate, tasa de enriquecimiento de fotos, fuentes de datos utilizadas"
       },
       notificaciones: {
-        todas: "/notificaciones (🔔 ACTUALIZADO)",
+        todas: "/notificaciones",
         porLiga: "/notificaciones/:liga",
         estadisticas: "/notificaciones/stats",
-        descripcion: "Sistema inteligente de notificaciones - Detecta GOLES en tiempo real ⚽, INICIO DE PARTIDO 🏁, FIN DEL PRIMER TIEMPO ⏸️, partidos en vivo, próximos a iniciar (15min, 30min, 1h, 2h) y partidos del día",
+        descripcion: "Sistema inteligente de notificaciones - Detecta GOLES en tiempo real, INICIO DE PARTIDO, FIN DEL PRIMER TIEMPO, partidos en vivo, próximos a iniciar (15min, 30min, 1h, 2h) y partidos del día",
         caracteristicas: {
           detectaGoles: "Notificación instantánea cuando un equipo anota",
           detectaInicioPartido: "Notificación al comenzar el partido",
@@ -292,20 +301,20 @@ app.get("/", (req, res) => {
       },
       transmisiones3: {
         endpoint: "/transmisiones3",
-        descripcion: "✨ NUEVO ✨ Transmisiones deportivas de e1link.link - Fuente alternativa con HOCKEY, FOOTBALL/SOCCER, BASKETBALL, AMERICAN FOOTBALL, MOTORSPORT. Incluye canal, ID y enlaces directos"
+        descripcion: "Transmisiones deportivas de e1link.link - Fuente alternativa con HOCKEY, FOOTBALL/SOCCER, BASKETBALL, AMERICAN FOOTBALL, MOTORSPORT. Incluye canal, ID y enlaces directos"
       },
       transmisiones4: {
         endpoint: "/transmisiones4",
-        descripcion: "🌎 NUEVO 🌎 Transmisiones deportivas de ftvhd.com - Eventos internacionales con logos de equipos, país, banderas, múltiples opciones de canales y enlaces proxy listos para usar"
+        descripcion: "Transmisiones deportivas de ftvhd.com - Eventos internacionales con logos de equipos, país, banderas, múltiples opciones de canales y enlaces proxy listos para usar"
       },
       transmisiones5: {
         endpoint: "/transmisiones5",
-        descripcion: "🆕 NUEVO 🆕 Transmisiones deportivas de donromans.com - API de WordPress con eventos deportivos organizados por liga, hora, país, incluye múltiples enlaces de transmisión (urls_list, SpecialLinks, canales, servidores) con compatibilidad y modo replay"
+        descripcion: "Transmisiones deportivas de donromans.com - API de WordPress con eventos deportivos organizados por liga, hora, país, incluye múltiples enlaces de transmisión (urls_list, SpecialLinks, canales, servidores) con compatibilidad y modo replay"
       },
       "ultragol-l3ho": {
         endpoint: "/ultragol-l3ho",
         parametro: "?get=URL_DEL_STREAM",
-        descripcion: "🛡️ Proxy bloqueador de anuncios para streams - Limpia HTML, elimina scripts maliciosos, bloquea dominios de ads y extrae solo el reproductor de video",
+        descripcion: "Proxy bloqueador de anuncios para streams - Limpia HTML, elimina scripts maliciosos, bloquea dominios de ads y extrae solo el reproductor de video",
         ejemplo: "/ultragol-l3ho?get=https://ejemplo.com/player",
         caracteristicas: {
           bloqueoAds: "Filtra dominios de publicidad conocidos",
@@ -320,7 +329,7 @@ app.get("/", (req, res) => {
         descripcion: "Obtener marcadores de una fecha específica en formato YYYYMMDD"
       }
     },
-    estado: "✅ Activo",
+    estado: "Activo",
     proxima_actualizacion: "20 minutos"
   });
 });
