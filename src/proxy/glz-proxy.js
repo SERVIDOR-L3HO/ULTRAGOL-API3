@@ -109,7 +109,7 @@ function generatePlayerHtml(url, logoUrl = null) {
     <iframe 
       src="${url}" 
       allowfullscreen="true"
-      sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+      sandbox="allow-same-origin allow-scripts"
       allow="autoplay; fullscreen; encrypted-media"
     ></iframe>
   </div>
