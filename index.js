@@ -4,6 +4,21 @@ const cron = require("node-cron");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const cache = require("./src/cache/dataCache");
+const bcrypt = require("bcryptjs");
+
+const {
+  sessionConfig,
+  loginLimiter,
+  apiLimiter,
+  securityHeaders,
+  isAuthenticated,
+  isNotAuthenticated,
+  validatePassword,
+  createSession,
+  destroySession,
+  sessionTimeout,
+  logAccess
+} = require("./src/middleware/auth");
 const { scrapTabla } = require("./src/scrapers/tabla");
 const { scrapNoticias } = require("./src/scrapers/noticias");
 const { scrapGoleadores } = require("./src/scrapers/goleadores");
@@ -78,13 +93,85 @@ const {
 const path = require("path");
 const app = express();
 
-app.use(cors());
+app.set('trust proxy', 1);
+
+app.use(securityHeaders);
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(sessionConfig);
+app.use(sessionTimeout(30 * 60 * 1000));
+app.use(logAccess);
+
 app.use('/attached_assets', express.static(path.join(__dirname, 'attached_assets')));
 app.use('/public', express.static(path.join(__dirname, 'public'), {
   setHeaders: (res) => {
     res.setHeader('Cache-Control', 'no-cache');
   }
 }));
+
+const ADMIN_USERS = {
+  'admin': bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'L3HO2025!', 12),
+  'l3ho': bcrypt.hashSync(process.env.L3HO_PASSWORD || 'Interactive@2025', 12)
+};
+
+app.get('/login', isNotAuthenticated, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.post('/auth/login', loginLimiter, async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+    }
+    
+    const userHash = ADMIN_USERS[username.toLowerCase()];
+    
+    if (!userHash) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    
+    const isValid = await bcrypt.compare(password, userHash);
+    
+    if (!isValid) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    
+    createSession(req, { username: username.toLowerCase() });
+    console.log(`🔐 Login exitoso: ${username} desde IP ${req.ip}`);
+    
+    res.json({ success: true, message: 'Inicio de sesión exitoso' });
+  } catch (error) {
+    console.error('Error en login:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.get('/logout', (req, res) => {
+  const username = req.session?.user?.username || 'Unknown';
+  destroySession(req, () => {
+    console.log(`🔓 Logout: ${username}`);
+    res.redirect('/login');
+  });
+});
+
+app.get('/auth/status', (req, res) => {
+  if (req.session && req.session.authenticated) {
+    res.json({ 
+      authenticated: true, 
+      user: req.session.user?.username 
+    });
+  } else {
+    res.json({ authenticated: false });
+  }
+});
 
 async function updateAllData() {
   console.log("🔄 Actualizando datos de Liga MX...");
@@ -171,7 +258,7 @@ async function updateMarcadores() {
   }
 }
 
-app.get("/", (req, res) => {
+app.get("/", isAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 

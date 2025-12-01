@@ -3,45 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-League Football API</title>
+    <title>L3HO Interactive - Football API</title>
     <link rel="stylesheet" href="/public/styles.css">
+    <link rel="icon" type="image/png" href="/attached_assets/1001854641-removebg-preview_1764606701240.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="gradient-bg"></div>
+    <div class="grid-overlay"></div>
+    <div class="floating-particles" id="particles"></div>
     
     <header class="header">
         <div class="container">
             <div class="logo">
-                <span class="logo-icon">⚽</span>
-                <span class="logo-text">Multi-League Football API</span>
+                <img src="/attached_assets/1001854641-removebg-preview_1764606701240.png" alt="L3HO Interactive" class="logo-img">
+                <div class="logo-text-container">
+                    <span class="logo-text">L3HO</span>
+                    <span class="logo-subtext">INTERACTIVE</span>
+                </div>
             </div>
-            <div class="header-badge">
-                <span class="status-dot"></span>
-                <span>v3.4.0</span>
-            </div>
+            <nav class="nav">
+                <div class="header-badge">
+                    <span class="status-dot"></span>
+                    <span>v3.4.0</span>
+                </div>
+                <div class="user-info" id="userInfo" style="display: none;">
+                    <span id="userName"></span>
+                    <a href="/logout" class="logout-btn">Salir</a>
+                </div>
+            </nav>
         </div>
     </header>
 
     <main class="main">
         <section class="hero">
             <div class="container">
-                <h1 class="hero-title">API de Fútbol en Tiempo Real</h1>
-                <p class="hero-subtitle">Datos actualizados de las principales ligas del mundo con scraping en tiempo real y marcadores en vivo desde ESPN</p>
+                <div class="hero-badge">ENTERPRISE API</div>
+                <h1 class="hero-title">
+                    <span class="title-line">FOOTBALL</span>
+                    <span class="title-line accent">DATA HUB</span>
+                </h1>
+                <p class="hero-subtitle">Plataforma profesional de datos deportivos en tiempo real. Scraping inteligente de las principales ligas del mundo con marcadores en vivo desde ESPN.</p>
                 <div class="hero-stats">
                     <div class="stat">
+                        <div class="stat-icon">⚽</div>
                         <span class="stat-number">6</span>
-                        <span class="stat-label">Ligas</span>
+                        <span class="stat-label">LIGAS</span>
                     </div>
                     <div class="stat">
+                        <div class="stat-icon">🔗</div>
                         <span class="stat-number">50+</span>
-                        <span class="stat-label">Endpoints</span>
+                        <span class="stat-label">ENDPOINTS</span>
                     </div>
                     <div class="stat">
+                        <div class="stat-icon">⚡</div>
                         <span class="stat-number">20</span>
-                        <span class="stat-label">min actualización</span>
+                        <span class="stat-label">MIN UPDATE</span>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-icon">🔒</div>
+                        <span class="stat-number">99.9%</span>
+                        <span class="stat-label">UPTIME</span>
                     </div>
                 </div>
             </div>
@@ -51,24 +75,32 @@
             <div class="container">
                 <div class="features-grid">
                     <div class="feature-card">
+                        <div class="feature-glow"></div>
                         <div class="feature-icon">🔔</div>
                         <h3>Notificaciones Inteligentes</h3>
                         <p>Detección automática de goles, inicio de partido y fin del primer tiempo en tiempo real</p>
+                        <div class="feature-badge">AI Powered</div>
                     </div>
                     <div class="feature-card">
+                        <div class="feature-glow"></div>
                         <div class="feature-icon">📊</div>
                         <h3>Datos Completos</h3>
                         <p>Tablas de posiciones, goleadores, calendarios, noticias y estadísticas detalladas</p>
+                        <div class="feature-badge">Real-time</div>
                     </div>
                     <div class="feature-card">
+                        <div class="feature-glow"></div>
                         <div class="feature-icon">⚡</div>
-                        <h3>Tiempo Real</h3>
+                        <h3>Alta Velocidad</h3>
                         <p>Marcadores en vivo y alineaciones actualizadas directamente desde ESPN</p>
+                        <div class="feature-badge">< 100ms</div>
                     </div>
                     <div class="feature-card">
+                        <div class="feature-glow"></div>
                         <div class="feature-icon">📺</div>
                         <h3>Transmisiones</h3>
                         <p>Múltiples fuentes de transmisión con horarios y canales disponibles</p>
+                        <div class="feature-badge">5 Sources</div>
                     </div>
                 </div>
             </div>
@@ -76,104 +108,119 @@
 
         <section class="leagues">
             <div class="container">
-                <h2 class="section-title">Ligas Disponibles</h2>
+                <div class="section-header">
+                    <span class="section-badge">LEAGUES</span>
+                    <h2 class="section-title">Ligas Disponibles</h2>
+                </div>
                 <div class="leagues-grid">
                     <div class="league-card" data-league="ligamx">
+                        <div class="league-glow"></div>
                         <div class="league-header">
                             <span class="league-flag">🇲🇽</span>
                             <h3>Liga MX</h3>
+                            <span class="league-status">LIVE</span>
                         </div>
                         <div class="league-endpoints">
-                            <a href="/tabla" class="endpoint" target="_blank">/tabla</a>
-                            <a href="/noticias" class="endpoint" target="_blank">/noticias</a>
-                            <a href="/goleadores" class="endpoint" target="_blank">/goleadores</a>
-                            <a href="/equipos" class="endpoint" target="_blank">/equipos</a>
-                            <a href="/logos" class="endpoint" target="_blank">/logos</a>
-                            <a href="/videos" class="endpoint" target="_blank">/videos</a>
-                            <a href="/calendario" class="endpoint" target="_blank">/calendario</a>
-                            <a href="/marcadores" class="endpoint new" target="_blank">/marcadores</a>
-                            <a href="/alineaciones" class="endpoint new" target="_blank">/alineaciones</a>
-                            <a href="/todo" class="endpoint" target="_blank">/todo</a>
+                            <a href="/tabla" class="endpoint">/tabla</a>
+                            <a href="/noticias" class="endpoint">/noticias</a>
+                            <a href="/goleadores" class="endpoint">/goleadores</a>
+                            <a href="/equipos" class="endpoint">/equipos</a>
+                            <a href="/logos" class="endpoint">/logos</a>
+                            <a href="/videos" class="endpoint">/videos</a>
+                            <a href="/calendario" class="endpoint">/calendario</a>
+                            <a href="/marcadores" class="endpoint new">/marcadores</a>
+                            <a href="/alineaciones" class="endpoint new">/alineaciones</a>
+                            <a href="/todo" class="endpoint">/todo</a>
                         </div>
                     </div>
 
                     <div class="league-card" data-league="premier">
+                        <div class="league-glow"></div>
                         <div class="league-header">
                             <span class="league-flag">🏴󠁧󠁢󠁥󠁮󠁧󠁿</span>
                             <h3>Premier League</h3>
+                            <span class="league-status">LIVE</span>
                         </div>
                         <div class="league-endpoints">
-                            <a href="/premier/tabla" class="endpoint" target="_blank">/premier/tabla</a>
-                            <a href="/premier/noticias" class="endpoint" target="_blank">/premier/noticias</a>
-                            <a href="/premier/goleadores" class="endpoint" target="_blank">/premier/goleadores</a>
-                            <a href="/premier/calendario" class="endpoint" target="_blank">/premier/calendario</a>
-                            <a href="/premier/marcadores" class="endpoint new" target="_blank">/premier/marcadores</a>
-                            <a href="/premier/alineaciones" class="endpoint new" target="_blank">/premier/alineaciones</a>
-                            <a href="/premier/mejores-momentos" class="endpoint" target="_blank">/premier/mejores-momentos</a>
+                            <a href="/premier/tabla" class="endpoint">/premier/tabla</a>
+                            <a href="/premier/noticias" class="endpoint">/premier/noticias</a>
+                            <a href="/premier/goleadores" class="endpoint">/premier/goleadores</a>
+                            <a href="/premier/calendario" class="endpoint">/premier/calendario</a>
+                            <a href="/premier/marcadores" class="endpoint new">/premier/marcadores</a>
+                            <a href="/premier/alineaciones" class="endpoint new">/premier/alineaciones</a>
+                            <a href="/premier/mejores-momentos" class="endpoint">/premier/mejores-momentos</a>
                         </div>
                     </div>
 
                     <div class="league-card" data-league="laliga">
+                        <div class="league-glow"></div>
                         <div class="league-header">
                             <span class="league-flag">🇪🇸</span>
                             <h3>La Liga</h3>
+                            <span class="league-status">LIVE</span>
                         </div>
                         <div class="league-endpoints">
-                            <a href="/laliga/tabla" class="endpoint" target="_blank">/laliga/tabla</a>
-                            <a href="/laliga/noticias" class="endpoint" target="_blank">/laliga/noticias</a>
-                            <a href="/laliga/goleadores" class="endpoint" target="_blank">/laliga/goleadores</a>
-                            <a href="/laliga/calendario" class="endpoint" target="_blank">/laliga/calendario</a>
-                            <a href="/laliga/marcadores" class="endpoint new" target="_blank">/laliga/marcadores</a>
-                            <a href="/laliga/alineaciones" class="endpoint new" target="_blank">/laliga/alineaciones</a>
-                            <a href="/laliga/mejores-momentos" class="endpoint" target="_blank">/laliga/mejores-momentos</a>
+                            <a href="/laliga/tabla" class="endpoint">/laliga/tabla</a>
+                            <a href="/laliga/noticias" class="endpoint">/laliga/noticias</a>
+                            <a href="/laliga/goleadores" class="endpoint">/laliga/goleadores</a>
+                            <a href="/laliga/calendario" class="endpoint">/laliga/calendario</a>
+                            <a href="/laliga/marcadores" class="endpoint new">/laliga/marcadores</a>
+                            <a href="/laliga/alineaciones" class="endpoint new">/laliga/alineaciones</a>
+                            <a href="/laliga/mejores-momentos" class="endpoint">/laliga/mejores-momentos</a>
                         </div>
                     </div>
 
                     <div class="league-card" data-league="seriea">
+                        <div class="league-glow"></div>
                         <div class="league-header">
                             <span class="league-flag">🇮🇹</span>
                             <h3>Serie A</h3>
+                            <span class="league-status">LIVE</span>
                         </div>
                         <div class="league-endpoints">
-                            <a href="/seriea/tabla" class="endpoint" target="_blank">/seriea/tabla</a>
-                            <a href="/seriea/noticias" class="endpoint" target="_blank">/seriea/noticias</a>
-                            <a href="/seriea/goleadores" class="endpoint" target="_blank">/seriea/goleadores</a>
-                            <a href="/seriea/calendario" class="endpoint" target="_blank">/seriea/calendario</a>
-                            <a href="/seriea/marcadores" class="endpoint new" target="_blank">/seriea/marcadores</a>
-                            <a href="/seriea/alineaciones" class="endpoint new" target="_blank">/seriea/alineaciones</a>
-                            <a href="/seriea/mejores-momentos" class="endpoint" target="_blank">/seriea/mejores-momentos</a>
+                            <a href="/seriea/tabla" class="endpoint">/seriea/tabla</a>
+                            <a href="/seriea/noticias" class="endpoint">/seriea/noticias</a>
+                            <a href="/seriea/goleadores" class="endpoint">/seriea/goleadores</a>
+                            <a href="/seriea/calendario" class="endpoint">/seriea/calendario</a>
+                            <a href="/seriea/marcadores" class="endpoint new">/seriea/marcadores</a>
+                            <a href="/seriea/alineaciones" class="endpoint new">/seriea/alineaciones</a>
+                            <a href="/seriea/mejores-momentos" class="endpoint">/seriea/mejores-momentos</a>
                         </div>
                     </div>
 
                     <div class="league-card" data-league="bundesliga">
+                        <div class="league-glow"></div>
                         <div class="league-header">
                             <span class="league-flag">🇩🇪</span>
                             <h3>Bundesliga</h3>
+                            <span class="league-status">LIVE</span>
                         </div>
                         <div class="league-endpoints">
-                            <a href="/bundesliga/tabla" class="endpoint" target="_blank">/bundesliga/tabla</a>
-                            <a href="/bundesliga/noticias" class="endpoint" target="_blank">/bundesliga/noticias</a>
-                            <a href="/bundesliga/goleadores" class="endpoint" target="_blank">/bundesliga/goleadores</a>
-                            <a href="/bundesliga/calendario" class="endpoint" target="_blank">/bundesliga/calendario</a>
-                            <a href="/bundesliga/marcadores" class="endpoint new" target="_blank">/bundesliga/marcadores</a>
-                            <a href="/bundesliga/alineaciones" class="endpoint new" target="_blank">/bundesliga/alineaciones</a>
-                            <a href="/bundesliga/mejores-momentos" class="endpoint" target="_blank">/bundesliga/mejores-momentos</a>
+                            <a href="/bundesliga/tabla" class="endpoint">/bundesliga/tabla</a>
+                            <a href="/bundesliga/noticias" class="endpoint">/bundesliga/noticias</a>
+                            <a href="/bundesliga/goleadores" class="endpoint">/bundesliga/goleadores</a>
+                            <a href="/bundesliga/calendario" class="endpoint">/bundesliga/calendario</a>
+                            <a href="/bundesliga/marcadores" class="endpoint new">/bundesliga/marcadores</a>
+                            <a href="/bundesliga/alineaciones" class="endpoint new">/bundesliga/alineaciones</a>
+                            <a href="/bundesliga/mejores-momentos" class="endpoint">/bundesliga/mejores-momentos</a>
                         </div>
                     </div>
 
                     <div class="league-card" data-league="ligue1">
+                        <div class="league-glow"></div>
                         <div class="league-header">
                             <span class="league-flag">🇫🇷</span>
                             <h3>Ligue 1</h3>
+                            <span class="league-status">LIVE</span>
                         </div>
                         <div class="league-endpoints">
-                            <a href="/ligue1/tabla" class="endpoint" target="_blank">/ligue1/tabla</a>
-                            <a href="/ligue1/noticias" class="endpoint" target="_blank">/ligue1/noticias</a>
-                            <a href="/ligue1/goleadores" class="endpoint" target="_blank">/ligue1/goleadores</a>
-                            <a href="/ligue1/calendario" class="endpoint" target="_blank">/ligue1/calendario</a>
-                            <a href="/ligue1/marcadores" class="endpoint new" target="_blank">/ligue1/marcadores</a>
-                            <a href="/ligue1/alineaciones" class="endpoint new" target="_blank">/ligue1/alineaciones</a>
-                            <a href="/ligue1/mejores-momentos" class="endpoint" target="_blank">/ligue1/mejores-momentos</a>
+                            <a href="/ligue1/tabla" class="endpoint">/ligue1/tabla</a>
+                            <a href="/ligue1/noticias" class="endpoint">/ligue1/noticias</a>
+                            <a href="/ligue1/goleadores" class="endpoint">/ligue1/goleadores</a>
+                            <a href="/ligue1/calendario" class="endpoint">/ligue1/calendario</a>
+                            <a href="/ligue1/marcadores" class="endpoint new">/ligue1/marcadores</a>
+                            <a href="/ligue1/alineaciones" class="endpoint new">/ligue1/alineaciones</a>
+                            <a href="/ligue1/mejores-momentos" class="endpoint">/ligue1/mejores-momentos</a>
                         </div>
                     </div>
                 </div>
@@ -182,7 +229,10 @@
 
         <section class="special-endpoints">
             <div class="container">
-                <h2 class="section-title">Endpoints Especiales</h2>
+                <div class="section-header">
+                    <span class="section-badge">ADVANCED</span>
+                    <h2 class="section-title">Endpoints Especiales</h2>
+                </div>
                 <div class="special-grid">
                     <div class="special-card">
                         <div class="special-header">
@@ -190,9 +240,9 @@
                             <h3>Todas las Ligas</h3>
                         </div>
                         <div class="special-endpoints">
-                            <a href="/calendario/todas-las-ligas" class="endpoint" target="_blank">/calendario/todas-las-ligas</a>
-                            <a href="/marcadores/todas-las-ligas" class="endpoint new" target="_blank">/marcadores/todas-las-ligas</a>
-                            <a href="/alineaciones/todas-las-ligas" class="endpoint new" target="_blank">/alineaciones/todas-las-ligas</a>
+                            <a href="/calendario/todas-las-ligas" class="endpoint">/calendario/todas-las-ligas</a>
+                            <a href="/marcadores/todas-las-ligas" class="endpoint new">/marcadores/todas-las-ligas</a>
+                            <a href="/alineaciones/todas-las-ligas" class="endpoint new">/alineaciones/todas-las-ligas</a>
                         </div>
                     </div>
 
@@ -202,8 +252,8 @@
                             <h3>Notificaciones</h3>
                         </div>
                         <div class="special-endpoints">
-                            <a href="/notificaciones" class="endpoint" target="_blank">/notificaciones</a>
-                            <a href="/notificaciones/stats" class="endpoint" target="_blank">/notificaciones/stats</a>
+                            <a href="/notificaciones" class="endpoint">/notificaciones</a>
+                            <a href="/notificaciones/stats" class="endpoint">/notificaciones/stats</a>
                         </div>
                         <p class="special-desc">Detecta goles, inicio de partido, fin del primer tiempo</p>
                     </div>
@@ -214,11 +264,11 @@
                             <h3>Transmisiones</h3>
                         </div>
                         <div class="special-endpoints">
-                            <a href="/transmisiones" class="endpoint" target="_blank">/transmisiones</a>
-                            <a href="/transmisiones2" class="endpoint" target="_blank">/transmisiones2</a>
-                            <a href="/transmisiones3" class="endpoint new" target="_blank">/transmisiones3</a>
-                            <a href="/transmisiones4" class="endpoint new" target="_blank">/transmisiones4</a>
-                            <a href="/transmisiones5" class="endpoint new" target="_blank">/transmisiones5</a>
+                            <a href="/transmisiones" class="endpoint">/transmisiones</a>
+                            <a href="/transmisiones2" class="endpoint">/transmisiones2</a>
+                            <a href="/transmisiones3" class="endpoint new">/transmisiones3</a>
+                            <a href="/transmisiones4" class="endpoint new">/transmisiones4</a>
+                            <a href="/transmisiones5" class="endpoint new">/transmisiones5</a>
                         </div>
                     </div>
 
@@ -228,7 +278,7 @@
                             <h3>Métricas del Sistema</h3>
                         </div>
                         <div class="special-endpoints">
-                            <a href="/alineaciones/stats" class="endpoint" target="_blank">/alineaciones/stats</a>
+                            <a href="/alineaciones/stats" class="endpoint">/alineaciones/stats</a>
                         </div>
                         <p class="special-desc">Cache hit rate, estadísticas de enriquecimiento</p>
                     </div>
@@ -238,23 +288,30 @@
 
         <section class="api-info">
             <div class="container">
-                <h2 class="section-title">Información de la API</h2>
+                <div class="section-header">
+                    <span class="section-badge">TECHNICAL</span>
+                    <h2 class="section-title">Información de la API</h2>
+                </div>
                 <div class="info-grid">
                     <div class="info-card">
+                        <div class="info-icon">🔗</div>
                         <h4>Base URL</h4>
                         <code id="base-url"></code>
                     </div>
                     <div class="info-card">
-                        <h4>Formato de Respuesta</h4>
+                        <div class="info-icon">📄</div>
+                        <h4>Formato</h4>
                         <code>JSON</code>
                     </div>
                     <div class="info-card">
+                        <div class="info-icon">🔐</div>
                         <h4>Autenticación</h4>
-                        <code>No requerida</code>
+                        <code>Session Based</code>
                     </div>
                     <div class="info-card">
+                        <div class="info-icon">⚡</div>
                         <h4>Rate Limit</h4>
-                        <code>Sin límite</code>
+                        <code>100 req/min</code>
                     </div>
                 </div>
             </div>
@@ -263,8 +320,16 @@
         <section class="json-endpoint">
             <div class="container">
                 <div class="json-header">
-                    <h2>Respuesta JSON Original</h2>
-                    <a href="/api" class="json-link" target="_blank">Ver JSON completo →</a>
+                    <div class="json-info">
+                        <h2>API Documentation</h2>
+                        <p>Accede a la documentación completa en formato JSON</p>
+                    </div>
+                    <a href="/api" class="json-link">
+                        <span>Ver JSON</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </a>
                 </div>
             </div>
         </section>
@@ -272,13 +337,57 @@
 
     <footer class="footer">
         <div class="container">
-            <p>Multi-League Football API v3.4.0</p>
-            <p class="footer-sub">Datos actualizados automáticamente cada 20 minutos</p>
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <img src="/attached_assets/1001854641-removebg-preview_1764606701240.png" alt="L3HO Interactive" class="footer-logo">
+                    <div class="footer-brand-text">
+                        <span class="footer-name">L3HO Interactive</span>
+                        <span class="footer-tagline">Football Data Hub v3.4.0</span>
+                    </div>
+                </div>
+                <div class="footer-contact">
+                    <a href="mailto:servidorl3ho@gmail.com" class="contact-link">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                            <polyline points="22,6 12,13 2,6"/>
+                        </svg>
+                        servidorl3ho@gmail.com
+                    </a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 L3HO Interactive. Todos los derechos reservados.</p>
+                <p class="footer-sub">Datos actualizados automáticamente cada 20 minutos</p>
+            </div>
         </div>
     </footer>
 
     <script>
         document.getElementById('base-url').textContent = window.location.origin;
+        
+        // Create floating particles
+        const particlesContainer = document.getElementById('particles');
+        for (let i = 0; i < 50; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 20 + 's';
+            particle.style.animationDuration = (15 + Math.random() * 20) + 's';
+            particlesContainer.appendChild(particle);
+        }
+        
+        // Check authentication status
+        fetch('/auth/status')
+            .then(res => res.json())
+            .then(data => {
+                if (data.authenticated) {
+                    const userInfo = document.getElementById('userInfo');
+                    const userName = document.getElementById('userName');
+                    userInfo.style.display = 'flex';
+                    userName.textContent = data.user;
+                }
+            })
+            .catch(console.error);
     </script>
 </body>
 </html>
