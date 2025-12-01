@@ -3,7 +3,7 @@ const { fetchWithRetry } = require("../utils/scraper");
 const { scrapCalendario } = require("./calendario");
 const { extraerEquiposYLogos } = require("../utils/logoHelper");
 
-const GLZ_PROXY = "https://ultragol-api-3.vercel.app/ultragol-l3ho?get=";
+const GLZ_PROXY = "https://cmrroto01.blogspot.com/p/aldoblock.html?get=";
 
 function normalizarNombreEquipo(nombre) {
   const normalizaciones = {

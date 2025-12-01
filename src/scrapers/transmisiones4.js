@@ -1,7 +1,7 @@
 const axios = require("axios");
 const { extraerEquiposYLogos } = require("../utils/logoHelper");
 
-const GLZ_PROXY = "https://ultragol-api-3.vercel.app/ultragol-l3ho?get=";
+const GLZ_PROXY = "https://cmrroto01.blogspot.com/p/aldoblock.html?get=";
 
 function decodificarBase64(str) {
   try {
