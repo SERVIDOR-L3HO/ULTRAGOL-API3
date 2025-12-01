@@ -11,15 +11,19 @@
  * 4. Si no hay URL, muestra "Canal no disponible"
  */
 
+const L3HO_LOGO = "https://1decf535-8568-4d5b-a465-49c57f29158d-00-zsdyil03tw7a.worf.replit.dev/attached_assets/1001854641-removebg-preview_1764572556092.png";
+
 /**
  * Genera el HTML del reproductor
  * @param {string} url - URL a cargar en el iframe (o null si no hay)
  * @param {string} logoUrl - URL del logo (opcional)
+ * @param {string} baseUrl - URL base del servidor (opcional)
  * @returns {string} - HTML completo de la página
  */
-function generatePlayerHtml(url, logoUrl = null) {
+function generatePlayerHtml(url, logoUrl = null, baseUrl = null) {
   const defaultLogo = "https://www.appcreator24.com/srv/imgs/gen/2022196_fondo.png";
   const logo = logoUrl || defaultLogo;
+  const errorLogo = baseUrl ? `${baseUrl}/attached_assets/1001854641-removebg-preview_1764572556092.png` : L3HO_LOGO;
   
   if (!url) {
     return `<!DOCTYPE html>
@@ -27,7 +31,7 @@ function generatePlayerHtml(url, logoUrl = null) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reproductor de Video</title>
+  <title>Canal no disponible - L3HO Interactive</title>
   <style>
     html, body {
       margin: 0;
@@ -36,18 +40,48 @@ function generatePlayerHtml(url, logoUrl = null) {
       width: 100%;
       height: 100%;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+    }
+    .logo {
+      width: 150px;
+      max-width: 80%;
+      margin-bottom: 20px;
     }
     h2 {
       color: red;
-      text-align: center;
-      font-family: Arial, sans-serif;
+      margin: 10px 0;
+      font-size: 1.5em;
+    }
+    .contact {
+      color: #aaaaaa;
+      font-size: 0.9em;
+      margin-top: 15px;
+    }
+    .email {
+      color: #4da6ff;
+      text-decoration: none;
+    }
+    .email:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
-  <h2>Canal no disponible.</h2>
+  <div class="container">
+    <img src="${errorLogo}" alt="L3HO Interactive" class="logo">
+    <h2>Canal no disponible.</h2>
+    <p class="contact">En caso de que detecte problemas<br>Contacte a este correo: <a href="mailto:servidorl3ho@gmail.com" class="email">servidorl3ho@gmail.com</a></p>
+  </div>
 </body>
 </html>`;
   }

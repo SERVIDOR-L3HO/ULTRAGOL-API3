@@ -75,9 +75,11 @@ const {
   clearPhotoCache
 } = require("./src/scrapers/alineaciones");
 
+const path = require("path");
 const app = express();
 
 app.use(cors());
+app.use('/attached_assets', express.static(path.join(__dirname, 'attached_assets')));
 
 async function updateAllData() {
   console.log("🔄 Actualizando datos de Liga MX...");
@@ -1704,7 +1706,7 @@ app.get("/ultragol-l3ho", (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reproductor de Video</title>
+  <title>Canal no disponible - L3HO Interactive</title>
   <style>
     html, body {
       margin: 0;
@@ -1713,18 +1715,48 @@ app.get("/ultragol-l3ho", (req, res) => {
       width: 100%;
       height: 100%;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+    }
+    .logo {
+      width: 150px;
+      max-width: 80%;
+      margin-bottom: 20px;
     }
     h2 {
       color: red;
-      text-align: center;
-      font-family: Arial, sans-serif;
+      margin: 10px 0;
+      font-size: 1.5em;
+    }
+    .contact {
+      color: #aaaaaa;
+      font-size: 0.9em;
+      margin-top: 15px;
+    }
+    .email {
+      color: #4da6ff;
+      text-decoration: none;
+    }
+    .email:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
-  <h2>Canal no disponible.</h2>
+  <div class="container">
+    <img src="/attached_assets/1001854641-removebg-preview_1764572556092.png" alt="L3HO Interactive" class="logo">
+    <h2>Canal no disponible.</h2>
+    <p class="contact">En caso de que detecte problemas<br>Contacte a este correo: <a href="mailto:servidorl3ho@gmail.com" class="email">servidorl3ho@gmail.com</a></p>
+  </div>
 </body>
 </html>`;
     }
