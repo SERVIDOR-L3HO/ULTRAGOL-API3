@@ -1968,7 +1968,7 @@ app.get("/ultragol-l3ho", (req, res) => {
       const iframe = document.createElement('iframe');
       iframe.src = url;
       iframe.allowFullscreen = true;
-      iframe.referrerPolicy = "no-referrer";
+      iframe.sandbox = "allow-same-origin allow-scripts";
       document.getElementById('videoPlayer').appendChild(iframe);
     } else {
       document.getElementById('videoPlayer').innerHTML = "<h2 style='color:red;text-align:center;'>Canal no disponible.</h2>";
