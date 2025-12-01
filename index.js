@@ -1959,8 +1959,9 @@ app.get("/ultragol-l3ho", (req, res) => {
     <iframe 
       src="${decodedUrl}" 
       allowfullscreen="true"
-      sandbox="allow-same-origin allow-scripts"
-      allow="autoplay; fullscreen; encrypted-media"
+      sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-modals"
+      allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+      referrerpolicy="no-referrer-when-downgrade"
     ></iframe>
   </div>
 </body>
