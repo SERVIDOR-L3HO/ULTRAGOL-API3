@@ -1884,6 +1884,7 @@ app.get("/ultragol-l3ho", (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
   <title>Reproductor de Video Sin Publicidad - ULTRAGOL</title>
   <style>
     html, body {
@@ -1967,7 +1968,7 @@ app.get("/ultragol-l3ho", (req, res) => {
       const iframe = document.createElement('iframe');
       iframe.src = url;
       iframe.allowFullscreen = true;
-      iframe.sandbox = "allow-same-origin allow-scripts";
+      iframe.referrerPolicy = "no-referrer";
       document.getElementById('videoPlayer').appendChild(iframe);
     } else {
       document.getElementById('videoPlayer').innerHTML = "<h2 style='color:red;text-align:center;'>Canal no disponible.</h2>";
