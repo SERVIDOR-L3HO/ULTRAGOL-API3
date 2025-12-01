@@ -97,3 +97,10 @@ externalPort = 3002
 [deployment]
 deploymentTarget = "autoscale"
 run = ["node", "index.js"]
+
+[userenv]
+
+[userenv.shared]
+ADMIN_PASSWORD = "L3HO2025!Secure"
+L3HO_PASSWORD = "Interactive@Admin2025"
+NODE_ENV = "production"
