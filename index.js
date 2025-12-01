@@ -1959,9 +1959,8 @@ app.get("/ultragol-l3ho", (req, res) => {
     <iframe 
       src="${decodedUrl}" 
       allowfullscreen="true"
-      sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-modals"
       allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-      referrerpolicy="no-referrer-when-downgrade"
+      referrerpolicy="no-referrer"
     ></iframe>
   </div>
 </body>
@@ -1974,6 +1973,7 @@ app.get("/ultragol-l3ho", (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('X-Frame-Options', 'ALLOWALL');
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Referrer-Policy', 'no-referrer');
   res.send(html);
   
   console.log(`✅ Ultragol-l3ho Proxy completado para: ${targetUrl || '(sin URL)'}`);
