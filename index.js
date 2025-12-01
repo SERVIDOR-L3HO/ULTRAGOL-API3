@@ -1955,14 +1955,24 @@ app.get("/ultragol-l3ho", (req, res) => {
   <a href="https://ultragol-l3ho.com.mx/index2.html" target="_blank" id="logo-link">
     <img src="/attached_assets/1001854642-removebg-preview_1764574041344.png" alt="ULTRAGOL" id="logo">
   </a>
-  <div id="videoPlayer">
-    <iframe 
-      src="${decodedUrl}" 
-      allowfullscreen="true"
-      allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-      referrerpolicy="no-referrer"
-    ></iframe>
-  </div>
+  <div id="videoPlayer"></div>
+
+  <script>
+    // Obtener el valor del parámetro get= (igual que cmrroto01)
+    const params = new URLSearchParams(window.location.search);
+    const url = params.get("get");
+
+    // Validar y cargar el iframe si existe la URL
+    if (url) {
+      const iframe = document.createElement('iframe');
+      iframe.src = url;
+      iframe.allowFullscreen = true;
+      iframe.sandbox = "allow-same-origin allow-scripts";
+      document.getElementById('videoPlayer').appendChild(iframe);
+    } else {
+      document.getElementById('videoPlayer').innerHTML = "<h2 style='color:red;text-align:center;'>Canal no disponible.</h2>";
+    }
+  </script>
 </body>
 </html>`;
   };
