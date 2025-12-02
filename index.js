@@ -1990,6 +1990,156 @@ app.get("/ultragol-l3ho", (req, res) => {
   console.log(`✅ Ultragol-l3ho Proxy completado para: ${targetUrl || '(sin URL)'}`);
 });
 
+app.get("/l3ho-links", isAuthenticated, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'l3ho-links.html'));
+});
+
+app.get("/api/l3ho-links", async (req, res) => {
+  try {
+    console.log("📡 Recopilando todos los links de transmisiones...");
+    
+    const [trans1, trans2, trans3, trans4, trans5] = await Promise.all([
+      scrapTransmisiones().catch(err => { console.error("Error trans1:", err.message); return null; }),
+      scrapTransmisiones2().catch(err => { console.error("Error trans2:", err.message); return null; }),
+      scrapTransmisiones3().catch(err => { console.error("Error trans3:", err.message); return null; }),
+      scrapTransmisiones4().catch(err => { console.error("Error trans4:", err.message); return null; }),
+      scrapTransmisiones5().catch(err => { console.error("Error trans5:", err.message); return null; })
+    ]);
+    
+    const allLinks = [];
+    const seenUrls = new Set();
+    
+    const addLink = (name, url, source) => {
+      if (!url || !name) return;
+      const cleanUrl = url.trim();
+      if (seenUrls.has(cleanUrl)) return;
+      seenUrls.add(cleanUrl);
+      allLinks.push({
+        name: name.trim(),
+        url: cleanUrl,
+        source: source
+      });
+    };
+    
+    if (trans1 && trans1.transmisiones) {
+      trans1.transmisiones.forEach(t => {
+        if (t.canales && Array.isArray(t.canales)) {
+          t.canales.forEach(canal => {
+            const nombre = `${t.evento} - ${canal.nombre}`;
+            if (canal.links) {
+              if (canal.links.hoca) addLink(nombre + " (Hoca)", canal.links.hoca, "Rereyano");
+              if (canal.links.caster) addLink(nombre + " (Caster)", canal.links.caster, "Rereyano");
+              if (canal.links.wigi) addLink(nombre + " (Wigi)", canal.links.wigi, "Rereyano");
+            }
+          });
+        }
+      });
+    }
+    
+    if (trans2 && trans2.transmisiones) {
+      trans2.transmisiones.forEach(t => {
+        if (t.link) {
+          const nombre = t.evento || t.liga || "Transmision";
+          addLink(nombre, t.link, "Mycraft");
+        }
+      });
+    }
+    
+    if (trans3 && trans3.transmisiones) {
+      trans3.transmisiones.forEach(t => {
+        if (t.enlace) {
+          const nombre = t.evento || t.canal || "Transmision";
+          addLink(nombre, t.enlace, "E1Link");
+        }
+        if (t.enlaces && Array.isArray(t.enlaces)) {
+          t.enlaces.forEach((enlace, i) => {
+            const nombre = `${t.evento || t.canal || "Transmision"} - Opcion ${i + 1}`;
+            addLink(nombre, enlace, "E1Link");
+          });
+        }
+      });
+    }
+    
+    if (trans4 && trans4.transmisiones) {
+      trans4.transmisiones.forEach(t => {
+        if (t.enlace) {
+          const nombre = t.evento || t.equipos || t.canal || "Transmision";
+          addLink(nombre, t.enlace, "FTVHD");
+        }
+        if (t.canales && Array.isArray(t.canales)) {
+          t.canales.forEach(canal => {
+            if (canal.enlace) {
+              const nombre = `${t.evento || t.equipos || "Transmision"} - ${canal.nombre || canal.canal || "Canal"}`;
+              addLink(nombre, canal.enlace, "FTVHD");
+            }
+          });
+        }
+      });
+    }
+    
+    if (trans5 && trans5.matches) {
+      trans5.matches.forEach(match => {
+        if (match.links && Array.isArray(match.links)) {
+          match.links.forEach(linkGroup => {
+            if (linkGroup.data) {
+              if (Array.isArray(linkGroup.data)) {
+                linkGroup.data.forEach((link, i) => {
+                  if (typeof link === 'string') {
+                    const nombre = `${match.title || "Transmision"} - ${linkGroup.type || ""} ${i + 1}`;
+                    addLink(nombre, link, "DonRomans");
+                  } else if (link && link.url) {
+                    const nombre = `${match.title || "Transmision"} - ${link.name || linkGroup.type || ""} ${i + 1}`;
+                    addLink(nombre, link.url, "DonRomans");
+                  } else if (link && typeof link === 'object') {
+                    Object.values(link).forEach((v, j) => {
+                      if (typeof v === 'string' && v.startsWith('http')) {
+                        const nombre = `${match.title || "Transmision"} - ${linkGroup.type || ""} ${i + 1}.${j + 1}`;
+                        addLink(nombre, v, "DonRomans");
+                      }
+                    });
+                  }
+                });
+              } else if (typeof linkGroup.data === 'object') {
+                Object.entries(linkGroup.data).forEach(([key, value]) => {
+                  if (typeof value === 'string' && value.startsWith('http')) {
+                    const nombre = `${match.title || "Transmision"} - ${key}`;
+                    addLink(nombre, value, "DonRomans");
+                  } else if (Array.isArray(value)) {
+                    value.forEach((v, i) => {
+                      if (typeof v === 'string' && v.startsWith('http')) {
+                        const nombre = `${match.title || "Transmision"} - ${key} ${i + 1}`;
+                        addLink(nombre, v, "DonRomans");
+                      }
+                    });
+                  }
+                });
+              }
+            }
+          });
+        }
+      });
+    }
+    
+    allLinks.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+    
+    console.log(`✅ L3HO Links: ${allLinks.length} links unicos recopilados`);
+    
+    res.json({
+      success: true,
+      total: allLinks.length,
+      actualizado: new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" }),
+      links: allLinks
+    });
+  } catch (error) {
+    console.error("Error en /api/l3ho-links:", error.message);
+    res.status(500).json({ 
+      success: false,
+      error: "No se pudieron obtener los links",
+      detalles: error.message 
+    });
+  }
+});
+
 updateAllData();
 updateMarcadores();
 
