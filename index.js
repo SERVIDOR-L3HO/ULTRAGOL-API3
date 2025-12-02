@@ -272,7 +272,7 @@ async function updateMarcadores() {
   }
 }
 
-app.get("/", isAuthenticated, (req, res) => {
+app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
@@ -1990,7 +1990,7 @@ app.get("/ultragol-l3ho", (req, res) => {
   console.log(`✅ Ultragol-l3ho Proxy completado para: ${targetUrl || '(sin URL)'}`);
 });
 
-app.get("/l3ho-links", isAuthenticated, (req, res) => {
+app.get("/l3ho-links", (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'l3ho-links.html'));
 });
 
