@@ -13,23 +13,23 @@
         }
 
         :root {
-            --primary: #00f0ff;
-            --primary-dark: #00c4d4;
-            --secondary: #8b5cf6;
-            --accent: #ff006e;
-            --bg-dark: #050810;
-            --bg-card: rgba(15, 23, 42, 0.8);
-            --bg-card-hover: rgba(30, 41, 59, 0.9);
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            --border: rgba(0, 240, 255, 0.2);
-            --glow: rgba(0, 240, 255, 0.4);
+            --gold: #ffd700;
+            --gold-light: #ffe44d;
+            --gold-dark: #ccac00;
+            --black: #000000;
+            --black-light: #0a0a0a;
+            --black-card: #111111;
+            --black-hover: #1a1a1a;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --text-muted: #707070;
+            --border: rgba(255, 215, 0, 0.2);
+            --glow: rgba(255, 215, 0, 0.4);
         }
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-dark);
+            background: var(--black);
             color: var(--text-primary);
             line-height: 1.6;
             min-height: 100vh;
@@ -43,10 +43,9 @@
             width: 100%;
             height: 100%;
             background: 
-                radial-gradient(ellipse at 10% 10%, rgba(0, 240, 255, 0.15) 0%, transparent 40%),
-                radial-gradient(ellipse at 90% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 40%),
-                radial-gradient(ellipse at 50% 80%, rgba(255, 0, 110, 0.1) 0%, transparent 40%),
-                linear-gradient(180deg, #050810 0%, #0a1628 50%, #050810 100%);
+                radial-gradient(ellipse at 20% 0%, rgba(255, 215, 0, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(255, 215, 0, 0.05) 0%, transparent 50%),
+                linear-gradient(180deg, #000000 0%, #050505 50%, #000000 100%);
             z-index: -3;
         }
 
@@ -57,38 +56,10 @@
             width: 100%;
             height: 100%;
             background-image: 
-                linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
+                linear-gradient(rgba(255, 215, 0, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 215, 0, 0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
             z-index: -2;
-        }
-
-        .floating-particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            overflow: hidden;
-            pointer-events: none;
-        }
-
-        .particle {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: var(--primary);
-            border-radius: 50%;
-            opacity: 0.3;
-            animation: float-up linear infinite;
-        }
-
-        @keyframes float-up {
-            0% { transform: translateY(100vh) scale(0); opacity: 0; }
-            10% { opacity: 0.3; }
-            90% { opacity: 0.3; }
-            100% { transform: translateY(-100vh) scale(1); opacity: 0; }
         }
 
         .container {
@@ -98,10 +69,9 @@
         }
 
         .header {
-            padding: 20px 0;
+            padding: 24px 0;
             border-bottom: 1px solid var(--border);
-            backdrop-filter: blur(20px);
-            background: rgba(5, 8, 16, 0.9);
+            background: rgba(0, 0, 0, 0.95);
             position: sticky;
             top: 0;
             z-index: 100;
@@ -109,7 +79,7 @@
 
         .header .container {
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
         }
 
@@ -121,55 +91,33 @@
         }
 
         .logo-img {
-            width: 50px;
-            height: 50px;
+            width: 55px;
+            height: 55px;
             object-fit: contain;
-            filter: drop-shadow(0 0 10px var(--glow));
+            filter: drop-shadow(0 0 15px var(--glow));
         }
 
         .logo-text-container {
             display: flex;
             flex-direction: column;
+            align-items: center;
         }
 
         .logo-text {
             font-family: 'Orbitron', sans-serif;
-            font-size: 24px;
-            font-weight: 800;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            letter-spacing: 4px;
+            font-size: 32px;
+            font-weight: 900;
+            color: var(--gold);
+            letter-spacing: 6px;
+            text-shadow: 0 0 20px var(--glow);
         }
 
         .logo-subtext {
             font-family: 'Orbitron', sans-serif;
-            font-size: 10px;
-            font-weight: 500;
+            font-size: 11px;
+            font-weight: 600;
             color: var(--text-secondary);
-            letter-spacing: 6px;
-        }
-
-        .back-btn {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 20px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            color: var(--text-primary);
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .back-btn:hover {
-            border-color: var(--primary);
-            color: var(--primary);
-            transform: translateX(-5px);
+            letter-spacing: 8px;
         }
 
         .hero {
@@ -180,56 +128,57 @@
         .hero-badge {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 28px;
-            background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(139, 92, 246, 0.2));
+            gap: 12px;
+            padding: 12px 32px;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05));
             border: 1px solid var(--border);
-            border-radius: 30px;
+            border-radius: 4px;
             font-family: 'Orbitron', sans-serif;
-            font-size: 12px;
-            font-weight: 600;
-            letter-spacing: 3px;
-            color: var(--primary);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            color: var(--gold);
             margin-bottom: 30px;
+            text-transform: uppercase;
         }
 
         .live-dot {
-            width: 10px;
-            height: 10px;
-            background: #00ff88;
+            width: 8px;
+            height: 8px;
+            background: var(--gold);
             border-radius: 50%;
             animation: pulse 2s infinite;
-            box-shadow: 0 0 10px #00ff88;
+            box-shadow: 0 0 10px var(--gold);
         }
 
         @keyframes pulse {
             0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(0.8); }
+            50% { opacity: 0.5; transform: scale(0.8); }
         }
 
         .hero-title {
             font-family: 'Orbitron', sans-serif;
-            font-size: clamp(32px, 6vw, 56px);
+            font-size: clamp(36px, 7vw, 64px);
             font-weight: 900;
-            letter-spacing: 6px;
+            letter-spacing: 8px;
             margin-bottom: 16px;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 50%, var(--accent) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: var(--gold);
+            text-shadow: 0 0 30px var(--glow);
         }
 
         .hero-subtitle {
-            font-size: 16px;
+            font-size: 15px;
             color: var(--text-secondary);
-            max-width: 600px;
-            margin: 0 auto 30px;
+            max-width: 550px;
+            margin: 0 auto 40px;
+            font-weight: 400;
+            letter-spacing: 0.5px;
         }
 
         .stats-row {
             display: flex;
             justify-content: center;
-            gap: 40px;
+            gap: 50px;
             flex-wrap: wrap;
         }
 
@@ -237,30 +186,31 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 16px 24px;
-            background: var(--bg-card);
+            padding: 20px 40px;
+            background: var(--black-card);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 4px;
         }
 
         .stat-number {
             font-family: 'Orbitron', sans-serif;
-            font-size: 32px;
-            font-weight: 800;
-            color: var(--primary);
+            font-size: 42px;
+            font-weight: 900;
+            color: var(--gold);
             text-shadow: 0 0 20px var(--glow);
         }
 
         .stat-label {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-secondary);
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-muted);
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 3px;
+            margin-top: 4px;
         }
 
         .search-section {
-            padding: 20px 0 40px;
+            padding: 30px 0 50px;
         }
 
         .search-container {
@@ -271,20 +221,20 @@
 
         .search-input {
             width: 100%;
-            padding: 16px 24px 16px 50px;
-            background: var(--bg-card);
-            border: 2px solid var(--border);
-            border-radius: 16px;
+            padding: 18px 24px 18px 54px;
+            background: var(--black-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
             color: var(--text-primary);
-            font-size: 16px;
+            font-size: 15px;
             font-family: 'Inter', sans-serif;
             transition: all 0.3s ease;
         }
 
         .search-input:focus {
             outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 30px rgba(0, 240, 255, 0.2);
+            border-color: var(--gold);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.15);
         }
 
         .search-input::placeholder {
@@ -293,30 +243,30 @@
 
         .search-icon {
             position: absolute;
-            left: 18px;
+            left: 20px;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--text-muted);
-            font-size: 20px;
+            color: var(--gold);
+            font-size: 18px;
         }
 
         .links-section {
-            padding: 20px 0 80px;
+            padding: 20px 0 100px;
         }
 
         .links-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 20px;
         }
 
         .link-card {
             position: relative;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 20px;
+            background: var(--black-card);
+            border: 1px solid rgba(255, 215, 0, 0.1);
+            border-radius: 4px;
             padding: 24px;
-            transition: all 0.4s ease;
+            transition: all 0.3s ease;
             overflow: hidden;
         }
 
@@ -326,8 +276,8 @@
             top: 0;
             left: 0;
             width: 100%;
-            height: 4px;
-            background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+            height: 3px;
+            background: var(--gold);
             opacity: 0;
             transition: opacity 0.3s ease;
         }
@@ -337,80 +287,55 @@
         }
 
         .link-card:hover {
-            transform: translateY(-8px);
-            border-color: var(--primary);
-            box-shadow: 0 20px 60px rgba(0, 240, 255, 0.15);
-        }
-
-        .link-card-glow {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle at 50% 0%, var(--glow) 0%, transparent 60%);
-            opacity: 0;
-            transition: opacity 0.4s ease;
-            pointer-events: none;
-        }
-
-        .link-card:hover .link-card-glow {
-            opacity: 0.2;
+            border-color: var(--gold);
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(255, 215, 0, 0.1);
         }
 
         .link-source {
             display: inline-block;
-            padding: 4px 12px;
-            background: rgba(139, 92, 246, 0.2);
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            border-radius: 8px;
-            font-size: 10px;
-            font-weight: 700;
-            color: var(--secondary);
-            letter-spacing: 1px;
+            padding: 5px 14px;
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 800;
+            color: var(--gold);
+            letter-spacing: 2px;
             text-transform: uppercase;
-            margin-bottom: 16px;
-            position: relative;
-            z-index: 1;
+            margin-bottom: 14px;
         }
 
         .link-name {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 18px;
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
             font-weight: 600;
             color: var(--text-primary);
-            margin-bottom: 12px;
-            line-height: 1.4;
-            position: relative;
-            z-index: 1;
+            margin-bottom: 14px;
+            line-height: 1.5;
         }
 
         .link-url-container {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(0, 240, 255, 0.1);
-            border-radius: 10px;
-            padding: 12px 16px;
-            margin-bottom: 16px;
-            position: relative;
-            z-index: 1;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+            padding: 12px 14px;
+            margin-bottom: 18px;
         }
 
         .link-url {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-muted);
             word-break: break-all;
-            line-height: 1.5;
-            max-height: 50px;
+            line-height: 1.6;
+            max-height: 45px;
             overflow: hidden;
-            text-overflow: ellipsis;
         }
 
         .link-actions {
             display: flex;
-            gap: 12px;
-            position: relative;
-            z-index: 1;
+            gap: 10px;
         }
 
         .btn-watch {
@@ -420,37 +345,39 @@
             justify-content: center;
             gap: 10px;
             padding: 14px 20px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            background: var(--gold);
             border: none;
-            border-radius: 12px;
-            color: var(--bg-dark);
-            font-size: 14px;
-            font-weight: 700;
+            border-radius: 3px;
+            color: var(--black);
+            font-size: 12px;
+            font-weight: 800;
             font-family: 'Orbitron', sans-serif;
             text-decoration: none;
             cursor: pointer;
             transition: all 0.3s ease;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
         }
 
         .btn-watch:hover {
-            transform: scale(1.02);
-            box-shadow: 0 10px 30px rgba(0, 240, 255, 0.4);
+            background: var(--gold-light);
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
+            transform: translateY(-2px);
         }
 
         .btn-copy {
-            padding: 14px 18px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
+            padding: 14px 16px;
+            background: var(--black-hover);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 3px;
             color: var(--text-secondary);
             cursor: pointer;
             transition: all 0.3s ease;
         }
 
         .btn-copy:hover {
-            border-color: var(--primary);
-            color: var(--primary);
+            border-color: var(--gold);
+            color: var(--gold);
         }
 
         .btn-copy.copied {
@@ -463,14 +390,14 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 80px 20px;
+            padding: 100px 20px;
         }
 
         .loading-spinner {
-            width: 60px;
-            height: 60px;
-            border: 3px solid var(--border);
-            border-top-color: var(--primary);
+            width: 50px;
+            height: 50px;
+            border: 2px solid rgba(255, 215, 0, 0.1);
+            border-top-color: var(--gold);
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin-bottom: 20px;
@@ -482,32 +409,34 @@
 
         .loading-text {
             font-family: 'Orbitron', sans-serif;
-            font-size: 14px;
-            color: var(--text-secondary);
-            letter-spacing: 2px;
+            font-size: 12px;
+            color: var(--text-muted);
+            letter-spacing: 3px;
+            text-transform: uppercase;
         }
 
         .no-results {
             text-align: center;
-            padding: 60px 20px;
+            padding: 80px 20px;
         }
 
         .no-results-icon {
-            font-size: 64px;
+            font-size: 56px;
             margin-bottom: 20px;
-            opacity: 0.5;
+            opacity: 0.4;
         }
 
         .no-results-text {
             font-family: 'Orbitron', sans-serif;
-            font-size: 18px;
-            color: var(--text-secondary);
+            font-size: 14px;
+            color: var(--text-muted);
+            letter-spacing: 2px;
         }
 
         .footer {
-            padding: 40px 0;
+            padding: 50px 0;
             border-top: 1px solid var(--border);
-            background: rgba(5, 8, 16, 0.95);
+            background: rgba(0, 0, 0, 0.95);
             text-align: center;
         }
 
@@ -515,55 +444,49 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 12px;
+            gap: 14px;
             margin-bottom: 16px;
         }
 
         .footer-logo img {
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             filter: drop-shadow(0 0 10px var(--glow));
         }
 
         .footer-logo span {
             font-family: 'Orbitron', sans-serif;
-            font-size: 20px;
-            font-weight: 700;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--gold);
+            letter-spacing: 4px;
         }
 
         .footer p {
             color: var(--text-muted);
-            font-size: 13px;
+            font-size: 12px;
+            letter-spacing: 1px;
         }
 
         @media (max-width: 768px) {
-            .header .container {
-                flex-direction: column;
-                gap: 16px;
-            }
-
             .hero {
                 padding: 40px 0 30px;
             }
 
             .hero-title {
-                letter-spacing: 3px;
+                letter-spacing: 4px;
             }
 
             .stats-row {
-                gap: 16px;
+                gap: 20px;
             }
 
             .stat-item {
-                padding: 12px 16px;
+                padding: 16px 30px;
             }
 
             .stat-number {
-                font-size: 24px;
+                font-size: 32px;
             }
 
             .links-grid {
@@ -573,29 +496,26 @@
             .link-card {
                 padding: 20px;
             }
+
+            .logo-text {
+                font-size: 26px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="gradient-bg"></div>
     <div class="grid-overlay"></div>
-    <div class="floating-particles" id="particles"></div>
 
     <header class="header">
         <div class="container">
-            <a href="/" class="logo">
+            <div class="logo">
                 <img src="/attached_assets/1001854641-removebg-preview_1764606701240.png" alt="L3HO" class="logo-img">
                 <div class="logo-text-container">
                     <span class="logo-text">L3HO</span>
-                    <span class="logo-subtext">LINKS</span>
+                    <span class="logo-subtext">STREAMING</span>
                 </div>
-            </a>
-            <a href="/" class="back-btn">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5M12 19l-7-7 7-7"/>
-                </svg>
-                Volver al Inicio
-            </a>
+            </div>
         </div>
     </header>
 
@@ -604,14 +524,14 @@
             <div class="container">
                 <div class="hero-badge">
                     <div class="live-dot"></div>
-                    TRANSMISIONES EN VIVO
+                    EN VIVO
                 </div>
-                <h1 class="hero-title">L3HO LINKS</h1>
-                <p class="hero-subtitle">Todas las transmisiones deportivas en un solo lugar. Sin duplicados, ordenadas alfabeticamente.</p>
+                <h1 class="hero-title">TRANSMISIONES</h1>
+                <p class="hero-subtitle">Directorio unificado de transmisiones deportivas. Enlaces verificados y ordenados alfabeticamente.</p>
                 <div class="stats-row">
                     <div class="stat-item">
                         <span class="stat-number" id="total-links">-</span>
-                        <span class="stat-label">Links Unicos</span>
+                        <span class="stat-label">Enlaces</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-number" id="total-sources">5</span>
@@ -624,8 +544,8 @@
         <section class="search-section">
             <div class="container">
                 <div class="search-container">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" class="search-input" id="search-input" placeholder="Buscar transmision...">
+                    <span class="search-icon">&#9906;</span>
+                    <input type="text" class="search-input" id="search-input" placeholder="Buscar evento deportivo...">
                 </div>
             </div>
         </section>
@@ -635,7 +555,7 @@
                 <div class="links-grid" id="links-grid">
                     <div class="loading-container">
                         <div class="loading-spinner"></div>
-                        <p class="loading-text">Cargando transmisiones...</p>
+                        <p class="loading-text">Cargando</p>
                     </div>
                 </div>
             </div>
@@ -646,27 +566,13 @@
         <div class="container">
             <div class="footer-logo">
                 <img src="/attached_assets/1001854641-removebg-preview_1764606701240.png" alt="L3HO">
-                <span>L3HO INTERACTIVE</span>
+                <span>L3HO</span>
             </div>
-            <p>Transmisiones deportivas en tiempo real</p>
+            <p>SISTEMA DE TRANSMISIONES</p>
         </div>
     </footer>
 
     <script>
-        function createParticles() {
-            const container = document.getElementById('particles');
-            for (let i = 0; i < 30; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
-                particle.style.animationDelay = Math.random() * 10 + 's';
-                container.appendChild(particle);
-            }
-        }
-
-        createParticles();
-
         let allLinks = [];
 
         async function loadLinks() {
@@ -679,7 +585,7 @@
                     document.getElementById('total-links').textContent = data.total;
                     renderLinks(allLinks);
                 } else {
-                    showError('Error al cargar los links');
+                    showError('Error al cargar');
                 }
             } catch (error) {
                 showError('Error de conexion');
@@ -692,8 +598,8 @@
             if (links.length === 0) {
                 grid.innerHTML = `
                     <div class="no-results" style="grid-column: 1 / -1;">
-                        <div class="no-results-icon">📡</div>
-                        <p class="no-results-text">No se encontraron transmisiones</p>
+                        <div class="no-results-icon">&#9888;</div>
+                        <p class="no-results-text">Sin resultados</p>
                     </div>
                 `;
                 return;
@@ -701,7 +607,6 @@
 
             grid.innerHTML = links.map((link, index) => `
                 <div class="link-card" data-index="${index}">
-                    <div class="link-card-glow"></div>
                     <span class="link-source">${link.source}</span>
                     <h3 class="link-name">${link.name}</h3>
                     <div class="link-url-container">
@@ -709,13 +614,13 @@
                     </div>
                     <div class="link-actions">
                         <a href="${link.url}" target="_blank" class="btn-watch">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M8 5v14l11-7z"/>
                             </svg>
-                            VER TRANSMISION
+                            VER
                         </a>
                         <button class="btn-copy" onclick="copyLink(this, '${link.url.replace(/'/g, "\\'")}')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                             </svg>
@@ -729,14 +634,14 @@
             navigator.clipboard.writeText(url).then(() => {
                 button.classList.add('copied');
                 button.innerHTML = `
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="20 6 9 17 4 12"></polyline>
                     </svg>
                 `;
                 setTimeout(() => {
                     button.classList.remove('copied');
                     button.innerHTML = `
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                         </svg>
@@ -749,7 +654,7 @@
             const grid = document.getElementById('links-grid');
             grid.innerHTML = `
                 <div class="no-results" style="grid-column: 1 / -1;">
-                    <div class="no-results-icon">❌</div>
+                    <div class="no-results-icon">&#9888;</div>
                     <p class="no-results-text">${message}</p>
                 </div>
             `;
