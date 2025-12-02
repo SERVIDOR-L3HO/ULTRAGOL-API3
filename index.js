@@ -276,6 +276,22 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.get("/l3ho-links", (req, res) => {
+  res.setHeader('X-Frame-Options', 'ALLOWALL');
+  res.setHeader('Content-Security-Policy', "frame-ancestors *");
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.sendFile(path.join(__dirname, 'public', 'l3ho-links.html'));
+});
+
+app.get("/embed/l3ho-links", (req, res) => {
+  res.setHeader('X-Frame-Options', 'ALLOWALL');
+  res.setHeader('Content-Security-Policy', "frame-ancestors *");
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.sendFile(path.join(__dirname, 'public', 'l3ho-links.html'));
+});
+
 app.get("/api", (req, res) => {
   res.json({
     nombre: "Multi-League Football API",
@@ -1990,11 +2006,11 @@ app.get("/ultragol-l3ho", (req, res) => {
   console.log(`✅ Ultragol-l3ho Proxy completado para: ${targetUrl || '(sin URL)'}`);
 });
 
-app.get("/l3ho-links", (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'l3ho-links.html'));
-});
-
 app.get("/api/l3ho-links", async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('X-Frame-Options', 'ALLOWALL');
+  res.setHeader('Content-Security-Policy', "frame-ancestors *");
+  
   try {
     console.log("📡 Recopilando todos los links de transmisiones...");
     

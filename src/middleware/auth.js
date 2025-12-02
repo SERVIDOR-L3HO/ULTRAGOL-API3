@@ -46,12 +46,14 @@ const securityHeaders = helmet({
       scriptSrc: ["'self'", "'unsafe-inline'"],
       connectSrc: ["'self'", "https:"],
       frameSrc: ["'self'", "https:", "http:"],
-      childSrc: ["'self'", "https:", "http:"]
+      childSrc: ["'self'", "https:", "http:"],
+      frameAncestors: ["*"]
     }
   },
   crossOriginEmbedderPolicy: false,
   crossOriginOpenerPolicy: false,
-  crossOriginResourcePolicy: false
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  xFrameOptions: false
 });
 
 function generateCSRFToken() {
