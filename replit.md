@@ -7,6 +7,8 @@ This project provides a professional, real-time scraping API for multiple footba
 
 **NEW (Dec 2025):** Implemented professional session-based authentication system with L3HO Interactive branding. Secure login page with bcrypt password hashing, rate limiting, CSRF protection, and automatic session management. Protected dashboard requires authentication while API endpoints remain functional.
 
+**NEW (Dec 2025):** Added L3HO Links endpoint (`/l3ho-links`) - A unified streaming links aggregator that collects all transmission links from all 5 sources, removes duplicates, and displays them alphabetically in a creative professional interface with L3HO branding, search functionality, and quick access buttons.
+
 ## User Preferences
 I prefer clear and concise information. When making changes, prioritize modularity and scalability. I value detailed explanations for complex architectural decisions. Do not make changes to the `replit.nix` file.
 
