@@ -90,6 +90,12 @@ const {
   clearPhotoCache
 } = require("./src/scrapers/alineaciones");
 
+const {
+  scrapDataFactoryLiga,
+  scrapTodasLasLigasDataFactory,
+  DATAFACTORY_URLS
+} = require("./src/scrapers/datafactory");
+
 const path = require("path");
 const app = express();
 
@@ -993,6 +999,95 @@ app.get("/ligue1/mejores-momentos", async (req, res) => {
     console.error("Error en /ligue1/mejores-momentos:", error.message);
     res.status(500).json({ error: "Impossible d'obtenir les meilleurs moments de Ligue 1", detalles: error.message });
   }
+});
+
+app.get("/todo-todas-las-ligas", async (req, res) => {
+  try {
+    console.log("🌎 Obteniendo TODO de TODAS las ligas de DataFactory...");
+    
+    let data = cache.get("datafactory_todas");
+    
+    if (!data) {
+      data = await scrapTodasLasLigasDataFactory();
+      cache.set("datafactory_todas", data, 600000);
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /todo-todas-las-ligas:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los datos de todas las ligas",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/datafactory/:pais", async (req, res) => {
+  try {
+    const pais = req.params.pais.toLowerCase();
+    const paisesDisponibles = Object.keys(DATAFACTORY_URLS);
+    
+    if (!paisesDisponibles.includes(pais)) {
+      return res.status(400).json({
+        error: "País no disponible",
+        paisesDisponibles: paisesDisponibles,
+        ejemplo: "/datafactory/ecuador"
+      });
+    }
+    
+    console.log(`⚽ Obteniendo datos de DataFactory ${pais.toUpperCase()}...`);
+    
+    let data = cache.get(`datafactory_${pais}`);
+    
+    if (!data) {
+      data = await scrapDataFactoryLiga(pais);
+      cache.set(`datafactory_${pais}`, data, 300000);
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error(`Error en /datafactory/${req.params.pais}:`, error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los datos",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/datafactory", (req, res) => {
+  res.json({
+    nombre: "DataFactory API",
+    descripcion: "Scraping completo de ligas de fútbol de Latinoamérica desde DataFactory",
+    version: "1.0.0",
+    endpoints: {
+      todasLasLigas: {
+        url: "/todo-todas-las-ligas",
+        descripcion: "Obtiene datos completos de TODAS las ligas disponibles"
+      },
+      porPais: {
+        url: "/datafactory/:pais",
+        descripcion: "Obtiene datos de una liga específica por país",
+        ejemplo: "/datafactory/ecuador"
+      }
+    },
+    paisesDisponibles: Object.keys(DATAFACTORY_URLS).map(pais => ({
+      codigo: pais,
+      url: `/datafactory/${pais}`
+    })),
+    datosIncluidos: [
+      "Partidos completos con marcadores",
+      "Equipos locales y visitantes con logos",
+      "Jornadas organizadas",
+      "Árbitros de cada partido",
+      "Fechas y horarios",
+      "Estados de partidos (Finalizado, En Vivo, Programado)",
+      "Tabla de posiciones calculada",
+      "Estadísticas completas (goles, victorias, empates, derrotas)",
+      "Análisis de goleadas",
+      "Porcentajes de rendimiento"
+    ],
+    actualizacion: new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" })
+  });
 });
 
 app.get("/calendario/todas-las-ligas", async (req, res) => {
