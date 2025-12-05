@@ -23,7 +23,8 @@ The project is built on Node.js 20 with Express 4.21, emphasizing high performan
 *   **Automated Updates:** `node-cron` schedules data refreshes every 20 minutes for general data and 15 minutes for lineup cache invalidation.
 *   **Anti-detection Mechanisms:** Employs User-Agent rotation, realistic HTTP headers, random delays, exponential backoff, and rate limit handling to prevent blocking.
 *   **Modular Scraper Architecture:** Scrapers are organized by league and data type, with source adapters coordinated through a multi-source scraper utility.
-*   **Endpoint Design:** Offers 43+ operational endpoints across 6 leagues, including detailed calendar endpoints with live countdowns and unified endpoints for all leagues.
+*   **Endpoint Design:** Offers 50+ operational endpoints across 6 leagues, including detailed calendar endpoints with live countdowns, unified endpoints for all leagues, and comprehensive real-time statistics endpoints.
+*   **Statistics System:** Real-time match statistics from ESPN API including team-level stats (possession, shots, passes, cards, fouls, corners) and player-level stats, with support for live matches, finished matches, and historical data via date parameter.
 *   **Video Integration:** Dedicated endpoints scrape YouTube for Liga MX highlight videos and "Mejores Momentos" for all 5 European leagues, categorizing and caching content.
 *   **Transmisiones System with Team Logos:** Comprehensive sports streaming system aggregating live broadcasts from five independent sources, featuring automatic team logo extraction, country flags, base64 link decoding, proxy URL generation, and multi-channel support. The latest iteration uses a WordPress API for structured event data with replay and platform compatibility.
 *   **Secure Authentication System:** Session-based authentication using Express.js with bcrypt password hashing, rate limiting, CSRF protection, and HTTP-only secure cookies. Includes an admin panel with automatic timeout and security headers.
@@ -37,6 +38,7 @@ The project is built on Node.js 20 with Express 4.21, emphasizing high performan
 *   **Calendar with Matchdays:** Detailed fixture lists with matchday numbers, teams, dates, times, and live countdowns.
 *   **Unified Calendar Endpoint:** Aggregated view of all fixtures across all 6 leagues.
 *   **Match Lineups:** Complete lineup information with player data, photos, tactical formations, and availability detection.
+*   **Real-Time Match Statistics:** Comprehensive live statistics for all matches including possession, shots (total, on target, blocked), passes (total, completed, accuracy), cards (yellow/red with player and minute), goals (scorer, assist, type), corners, fouls, offsides, substitutions, and individual player stats.
 *   **Sports Transmissions:** Aggregated live sports broadcasts from multiple international sources.
 *   **L3HO Links Aggregator:** Collects, de-duplicates, and displays streaming links from 5 sources alphabetically with search and quick access buttons.
 
