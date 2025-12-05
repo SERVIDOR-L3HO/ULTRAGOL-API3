@@ -96,6 +96,17 @@ const {
   DATAFACTORY_URLS
 } = require("./src/scrapers/datafactory");
 
+const {
+  scrapEstadisticasLigaMX,
+  scrapEstadisticasPremier,
+  scrapEstadisticasLaLiga,
+  scrapEstadisticasSerieA,
+  scrapEstadisticasBundesliga,
+  scrapEstadisticasLigue1,
+  scrapEstadisticasTodasLasLigas,
+  scrapEstadisticasPartido
+} = require("./src/scrapers/estadisticas");
+
 const path = require("path");
 const app = express();
 
@@ -301,10 +312,10 @@ app.get("/embed/l3ho-links", (req, res) => {
 app.get("/api", (req, res) => {
   res.json({
     nombre: "Multi-League Football API",
-    version: "3.4.0",
-    descripcion: "API con scraping en tiempo real de múltiples ligas de fútbol + Marcadores en vivo desde ESPN",
+    version: "3.5.0",
+    descripcion: "API con scraping en tiempo real de múltiples ligas de fútbol + Marcadores en vivo desde ESPN + Estadísticas detalladas en tiempo real",
     actualizacion: "Datos actualizados automáticamente cada 20 minutos",
-    novedades: "Sistema inteligente de notificaciones con detección automática de GOLES, INICIO DE PARTIDO y FIN DEL PRIMER TIEMPO en tiempo real",
+    novedades: "NUEVO: Endpoint de estadísticas en tiempo real - Tarjetas, goles, pases, posesión, tiros, corners, faltas y más para cada partido",
     ligas_disponibles: {
       ligaMx: {
         nombre: "Liga MX",
@@ -318,6 +329,7 @@ app.get("/api", (req, res) => {
           calendario: "/calendario",
           marcadores: "/marcadores",
           alineaciones: "/alineaciones",
+          estadisticas: "/estadisticas",
           todo: "/todo"
         }
       },
@@ -330,6 +342,7 @@ app.get("/api", (req, res) => {
           calendario: "/premier/calendario",
           marcadores: "/premier/marcadores",
           alineaciones: "/premier/alineaciones",
+          estadisticas: "/premier/estadisticas",
           mejoresMomentos: "/premier/mejores-momentos"
         }
       },
@@ -342,6 +355,7 @@ app.get("/api", (req, res) => {
           calendario: "/laliga/calendario",
           marcadores: "/laliga/marcadores",
           alineaciones: "/laliga/alineaciones",
+          estadisticas: "/laliga/estadisticas",
           mejoresMomentos: "/laliga/mejores-momentos"
         }
       },
@@ -354,6 +368,7 @@ app.get("/api", (req, res) => {
           calendario: "/seriea/calendario",
           marcadores: "/seriea/marcadores",
           alineaciones: "/seriea/alineaciones",
+          estadisticas: "/seriea/estadisticas",
           mejoresMomentos: "/seriea/mejores-momentos"
         }
       },
@@ -366,6 +381,7 @@ app.get("/api", (req, res) => {
           calendario: "/bundesliga/calendario",
           marcadores: "/bundesliga/marcadores",
           alineaciones: "/bundesliga/alineaciones",
+          estadisticas: "/bundesliga/estadisticas",
           mejoresMomentos: "/bundesliga/mejores-momentos"
         }
       },
@@ -378,6 +394,7 @@ app.get("/api", (req, res) => {
           calendario: "/ligue1/calendario",
           marcadores: "/ligue1/marcadores",
           alineaciones: "/ligue1/alineaciones",
+          estadisticas: "/ligue1/estadisticas",
           mejoresMomentos: "/ligue1/mejores-momentos"
         }
       }
@@ -387,7 +404,28 @@ app.get("/api", (req, res) => {
         calendario: "/calendario/todas-las-ligas",
         marcadores: "/marcadores/todas-las-ligas",
         alineaciones: "/alineaciones/todas-las-ligas",
-        descripcion: "Calendario, marcadores y alineaciones completas de todas las ligas"
+        estadisticas: "/estadisticas/todas-las-ligas",
+        descripcion: "Calendario, marcadores, alineaciones y estadísticas completas de todas las ligas"
+      },
+      estadisticas_detalladas: {
+        todasLasLigas: "/estadisticas/todas-las-ligas",
+        porPartido: "/estadisticas/partido/:eventId",
+        descripcion: "Estadísticas detalladas en tiempo real de cada partido",
+        parametros: "?date=YYYYMMDD (opcional)",
+        ejemplo: "/estadisticas/partido/12345",
+        caracteristicas: {
+          tarjetas: "Tarjetas amarillas y rojas con jugador, minuto y motivo",
+          goles: "Goles con anotador, asistencia, minuto y tipo (penal, autogol, etc)",
+          posesion: "Porcentaje de posesión por equipo",
+          tiros: "Tiros totales, a portería, fuera y bloqueados",
+          pases: "Pases totales, completados y precisión porcentual",
+          corners: "Corners por equipo",
+          faltas: "Faltas cometidas",
+          fuerasDeJuego: "Offsides detectados",
+          cambios: "Sustituciones con jugador que entra y sale",
+          estadisticasJugadores: "Stats individuales de cada jugador (minutos, tiros, pases, etc)",
+          comparativa: "Comparación lado a lado de estadísticas entre equipos"
+        }
       },
       alineaciones_especificas: {
         porPartido: "/alineaciones/partido/:eventId",
@@ -2246,6 +2284,138 @@ app.get("/api/l3ho-links", async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: "No se pudieron obtener los links",
+      detalles: error.message 
+    });
+  }
+});
+
+// ============================================
+// ENDPOINTS DE ESTADISTICAS EN TIEMPO REAL
+// ============================================
+
+// Estadísticas Liga MX
+app.get("/estadisticas", async (req, res) => {
+  try {
+    const { date } = req.query;
+    console.log("📊 Obteniendo estadísticas de Liga MX...");
+    const data = await scrapEstadisticasLigaMX(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /estadisticas:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las estadísticas",
+      detalles: error.message 
+    });
+  }
+});
+
+// Estadísticas Premier League
+app.get("/premier/estadisticas", async (req, res) => {
+  try {
+    const { date } = req.query;
+    console.log("📊 Obteniendo estadísticas de Premier League...");
+    const data = await scrapEstadisticasPremier(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /premier/estadisticas:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las estadísticas",
+      detalles: error.message 
+    });
+  }
+});
+
+// Estadísticas La Liga
+app.get("/laliga/estadisticas", async (req, res) => {
+  try {
+    const { date } = req.query;
+    console.log("📊 Obteniendo estadísticas de La Liga...");
+    const data = await scrapEstadisticasLaLiga(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /laliga/estadisticas:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las estadísticas",
+      detalles: error.message 
+    });
+  }
+});
+
+// Estadísticas Serie A
+app.get("/seriea/estadisticas", async (req, res) => {
+  try {
+    const { date } = req.query;
+    console.log("📊 Obteniendo estadísticas de Serie A...");
+    const data = await scrapEstadisticasSerieA(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /seriea/estadisticas:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las estadísticas",
+      detalles: error.message 
+    });
+  }
+});
+
+// Estadísticas Bundesliga
+app.get("/bundesliga/estadisticas", async (req, res) => {
+  try {
+    const { date } = req.query;
+    console.log("📊 Obteniendo estadísticas de Bundesliga...");
+    const data = await scrapEstadisticasBundesliga(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /bundesliga/estadisticas:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las estadísticas",
+      detalles: error.message 
+    });
+  }
+});
+
+// Estadísticas Ligue 1
+app.get("/ligue1/estadisticas", async (req, res) => {
+  try {
+    const { date } = req.query;
+    console.log("📊 Obteniendo estadísticas de Ligue 1...");
+    const data = await scrapEstadisticasLigue1(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /ligue1/estadisticas:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las estadísticas",
+      detalles: error.message 
+    });
+  }
+});
+
+// Estadísticas de TODAS las ligas
+app.get("/estadisticas/todas-las-ligas", async (req, res) => {
+  try {
+    const { date } = req.query;
+    console.log("📊 Obteniendo estadísticas de TODAS las ligas...");
+    const data = await scrapEstadisticasTodasLasLigas(date);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /estadisticas/todas-las-ligas:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las estadísticas",
+      detalles: error.message 
+    });
+  }
+});
+
+// Estadísticas de un partido específico
+app.get("/estadisticas/partido/:eventId", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    console.log(`📊 Obteniendo estadísticas del partido ${eventId}...`);
+    const data = await scrapEstadisticasPartido(eventId);
+    res.json(data);
+  } catch (error) {
+    console.error(`Error en /estadisticas/partido/${req.params.eventId}:`, error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las estadísticas del partido",
       detalles: error.message 
     });
   }
