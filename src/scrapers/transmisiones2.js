@@ -6,7 +6,7 @@ const GLZ_PROXY = "https://cmrroto01.blogspot.com/p/aldoblock.html?get=";
 
 async function scrapTransmisiones2() {
   try {
-    const url = "https://dp.mycraft.click/home.html";
+    const url = "https://supereventos2025.blogspot.com/p/super-eventos1.html?m=1";
     
     // Estrategia con múltiples reintentos y headers mejorados
     let html = null;
@@ -126,7 +126,7 @@ async function scrapTransmisiones2() {
     return {
       total: transmisiones.length,
       actualizado: new Date().toISOString(),
-      fuente: "dp.mycraft.click",
+      fuente: "supereventos2025.blogspot.com",
       deportes: deportes,
       deportesDisponibles: Object.keys(deportes),
       transmisiones: transmisiones
@@ -137,14 +137,14 @@ async function scrapTransmisiones2() {
     
     // Si el error es 403 (bloqueado), retornar mensaje informativo
     if (error.message.includes("403") || error.message.includes("Acceso bloqueado")) {
-      console.log("⚠️ El sitio dp.mycraft.click está bloqueando las peticiones desde este servidor");
+      console.log("⚠️ El sitio supereventos2025.blogspot.com está bloqueando las peticiones desde este servidor");
       console.log("💡 Sugerencia: Los datos se cachean por 30 minutos. Si necesitas acceso más frecuente, considera usar un proxy.");
       
       return {
         total: 0,
         actualizado: new Date().toISOString(),
-        fuente: "dp.mycraft.click",
-        error: "Acceso bloqueado por el sitio web. El sitio está bloqueando peticiones desde servidores de hosting. Los datos se cachean por 30 minutos cuando están disponibles.",
+        fuente: "supereventos2025.blogspot.com",
+        error: "Acceso bloqueado por el sitio web. Los datos se cachean por 30 minutos cuando están disponibles.",
         sugerencia: "Considera usar un servicio de proxy o consultar el endpoint en horarios de menor tráfico.",
         deportes: {},
         deportesDisponibles: [],
@@ -152,7 +152,7 @@ async function scrapTransmisiones2() {
       };
     }
     
-    throw new Error(`No se pudieron obtener las transmisiones de dp.mycraft.click: ${error.message}`);
+    throw new Error(`No se pudieron obtener las transmisiones de supereventos2025.blogspot.com: ${error.message}`);
   }
 }
 
