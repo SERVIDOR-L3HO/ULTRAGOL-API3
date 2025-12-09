@@ -758,6 +758,13 @@
         let allLinks = [];
         let currentLinks = [];
         let selectedLinks = new Map();
+        
+        const oldPrefix = 'https://cmrroto01.blogspot.com/p/aldoblock.html?get=';
+        const newPrefix = 'https://ultragol-api-3.vercel.app/ultragol-l3ho?get=';
+        
+        function convertUrl(url) {
+            return url.replace(oldPrefix, newPrefix);
+        }
 
         async function loadLinks() {
             try {
@@ -792,7 +799,9 @@
                 return;
             }
 
-            grid.innerHTML = links.map((link, index) => `
+            grid.innerHTML = links.map((link, index) => {
+                const convertedUrl = convertUrl(link.url);
+                return `
                 <div class="link-card ${selectedLinks.has(link.url) ? 'selected' : ''}" data-url="${encodeURIComponent(link.url)}" data-name="${encodeURIComponent(link.name)}">
                     <div class="link-checkbox-container">
                         <input type="checkbox" class="link-checkbox" 
@@ -802,16 +811,16 @@
                     <span class="link-source">${link.source}</span>
                     <h3 class="link-name">${link.name}</h3>
                     <div class="link-url-container">
-                        <p class="link-url">${link.url}</p>
+                        <p class="link-url">${convertedUrl}</p>
                     </div>
                     <div class="link-actions">
-                        <a href="${link.url}" target="_blank" class="btn-watch">
+                        <a href="${convertedUrl}" target="_blank" class="btn-watch">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M8 5v14l11-7z"/>
                             </svg>
                             VER
                         </a>
-                        <button class="btn-copy" onclick="copyLink(this, '${link.url.replace(/'/g, "\\'")}')">
+                        <button class="btn-copy" onclick="copyLink(this, '${convertedUrl.replace(/'/g, "\\'")}')">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -819,7 +828,7 @@
                         </button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
             
             updateSelectionBar();
         }
@@ -867,13 +876,10 @@
         function copySelectedLinks() {
             if (selectedLinks.size === 0) return;
             
-            const oldPrefix = 'https://cmrroto01.blogspot.com/p/aldoblock.html?get=';
-            const newPrefix = 'https://ultragol-api-3.vercel.app/ultragol-l3ho?get=';
-            
             const header = `🔴 ULTRAGOL LIVE - Links de Transmisiones\n🌐 Sitio oficial: https://ultragol-l3ho.com.mx/ULTRA/index.html\n\n📺 Enlaces seleccionados:\n`;
             let optionNumber = 1;
             const urlsList = Array.from(selectedLinks.entries()).map(([url, name]) => {
-                const convertedUrl = url.replace(oldPrefix, newPrefix);
+                const convertedUrl = convertUrl(url);
                 const result = `Opción ${optionNumber}: ${name}\n${convertedUrl}`;
                 optionNumber++;
                 return result;
