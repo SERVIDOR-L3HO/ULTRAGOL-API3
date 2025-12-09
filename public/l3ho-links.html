@@ -757,7 +757,7 @@
     <script>
         let allLinks = [];
         let currentLinks = [];
-        let selectedUrls = new Set();
+        let selectedLinks = new Map();
 
         async function loadLinks() {
             try {
@@ -793,11 +793,11 @@
             }
 
             grid.innerHTML = links.map((link, index) => `
-                <div class="link-card ${selectedUrls.has(link.url) ? 'selected' : ''}" data-url="${encodeURIComponent(link.url)}">
+                <div class="link-card ${selectedLinks.has(link.url) ? 'selected' : ''}" data-url="${encodeURIComponent(link.url)}" data-name="${encodeURIComponent(link.name)}">
                     <div class="link-checkbox-container">
                         <input type="checkbox" class="link-checkbox" 
-                            ${selectedUrls.has(link.url) ? 'checked' : ''} 
-                            onchange="toggleSelection('${encodeURIComponent(link.url)}', this.checked)">
+                            ${selectedLinks.has(link.url) ? 'checked' : ''} 
+                            onchange="toggleSelection('${encodeURIComponent(link.url)}', '${encodeURIComponent(link.name)}', this.checked)">
                     </div>
                     <span class="link-source">${link.source}</span>
                     <h3 class="link-name">${link.name}</h3>
@@ -824,15 +824,16 @@
             updateSelectionBar();
         }
 
-        function toggleSelection(encodedUrl, isChecked) {
+        function toggleSelection(encodedUrl, encodedName, isChecked) {
             const url = decodeURIComponent(encodedUrl);
+            const name = decodeURIComponent(encodedName);
             const card = document.querySelector(`[data-url="${encodedUrl}"]`);
             
             if (isChecked) {
-                selectedUrls.add(url);
+                selectedLinks.set(url, name);
                 if (card) card.classList.add('selected');
             } else {
-                selectedUrls.delete(url);
+                selectedLinks.delete(url);
                 if (card) card.classList.remove('selected');
             }
             
@@ -841,13 +842,13 @@
 
         function selectAll() {
             currentLinks.forEach(link => {
-                selectedUrls.add(link.url);
+                selectedLinks.set(link.url, link.name);
             });
             renderLinks(currentLinks);
         }
 
         function deselectAll() {
-            selectedUrls.clear();
+            selectedLinks.clear();
             renderLinks(currentLinks);
         }
 
@@ -855,29 +856,32 @@
             const bar = document.getElementById('selection-bar');
             const count = document.getElementById('selection-count');
             
-            if (selectedUrls.size > 0) {
+            if (selectedLinks.size > 0) {
                 bar.classList.add('visible');
-                count.textContent = `${selectedUrls.size} seleccionado${selectedUrls.size > 1 ? 's' : ''}`;
+                count.textContent = `${selectedLinks.size} seleccionado${selectedLinks.size > 1 ? 's' : ''}`;
             } else {
                 bar.classList.remove('visible');
             }
         }
 
         function copySelectedLinks() {
-            if (selectedUrls.size === 0) return;
+            if (selectedLinks.size === 0) return;
             
             const oldPrefix = 'https://cmrroto01.blogspot.com/p/aldoblock.html?get=';
             const newPrefix = 'https://ultragol-api-3.vercel.app/ultragol-l3ho?get=';
             
             const header = `🔴 ULTRAGOL LIVE - Links de Transmisiones\n🌐 Sitio oficial: https://ultragol-l3ho.com.mx/ULTRA/index.html\n\n📺 Enlaces seleccionados:\n`;
-            const urlsList = Array.from(selectedUrls).map((url) => {
+            let optionNumber = 1;
+            const urlsList = Array.from(selectedLinks.entries()).map(([url, name]) => {
                 const convertedUrl = url.replace(oldPrefix, newPrefix);
-                return `• ${convertedUrl}`;
-            }).join('\n');
+                const result = `Opción ${optionNumber}: ${name}\n${convertedUrl}`;
+                optionNumber++;
+                return result;
+            }).join('\n\n');
             const urlsText = header + urlsList;
             
             navigator.clipboard.writeText(urlsText).then(() => {
-                showToast(`${selectedUrls.size} ENLACE${selectedUrls.size > 1 ? 'S' : ''} COPIADO${selectedUrls.size > 1 ? 'S' : ''}`);
+                showToast(`${selectedLinks.size} ENLACE${selectedLinks.size > 1 ? 'S' : ''} COPIADO${selectedLinks.size > 1 ? 'S' : ''}`);
             }).catch(() => {
                 const textarea = document.createElement('textarea');
                 textarea.value = urlsText;
@@ -885,7 +889,7 @@
                 textarea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textarea);
-                showToast(`${selectedUrls.size} ENLACE${selectedUrls.size > 1 ? 'S' : ''} COPIADO${selectedUrls.size > 1 ? 'S' : ''}`);
+                showToast(`${selectedLinks.size} ENLACE${selectedLinks.size > 1 ? 'S' : ''} COPIADO${selectedLinks.size > 1 ? 'S' : ''}`);
             });
         }
 
