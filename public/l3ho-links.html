@@ -407,26 +407,53 @@
 
         .selection-bar {
             position: fixed;
-            bottom: 30px;
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
             align-items: center;
-            gap: 16px;
-            padding: 16px 28px;
-            background: rgba(17, 17, 17, 0.98);
-            border: 1px solid var(--gold);
+            gap: 12px;
+            padding: 14px 20px;
+            background: #111111;
+            border: 2px solid var(--gold);
             border-radius: 8px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(255, 215, 0, 0.15);
-            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(255, 215, 0, 0.3);
+            z-index: 9999;
             opacity: 0;
             visibility: hidden;
             transition: all 0.3s ease;
+            max-width: 95vw;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         .selection-bar.visible {
             opacity: 1;
             visibility: visible;
+        }
+
+        @media (max-width: 768px) {
+            .selection-bar {
+                bottom: 10px;
+                padding: 12px 16px;
+                gap: 8px;
+                flex-direction: column;
+                width: 90vw;
+            }
+            
+            .selection-count {
+                font-size: 12px !important;
+            }
+            
+            .selection-btn {
+                width: 100%;
+                padding: 12px 16px;
+                font-size: 11px;
+            }
+            
+            .selection-btn.primary {
+                order: -1;
+            }
         }
 
         .selection-count {
