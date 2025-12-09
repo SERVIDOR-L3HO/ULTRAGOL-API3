@@ -866,7 +866,9 @@
         function copySelectedLinks() {
             if (selectedUrls.size === 0) return;
             
-            const urlsText = Array.from(selectedUrls).join('\n');
+            const header = `🔴 ULTRAGOL LIVE - Links de Transmisiones\n🌐 Sitio oficial: https://ultragol-l3ho.com.mx/ULTRA/index.html\n\n📺 Enlaces seleccionados:\n`;
+            const urlsList = Array.from(selectedUrls).map((url, i) => `• ${url}`).join('\n');
+            const urlsText = header + urlsList;
             
             navigator.clipboard.writeText(urlsText).then(() => {
                 showToast(`${selectedUrls.size} ENLACE${selectedUrls.size > 1 ? 'S' : ''} COPIADO${selectedUrls.size > 1 ? 'S' : ''}`);
