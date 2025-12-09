@@ -2187,9 +2187,9 @@ app.get("/api/l3ho-links", async (req, res) => {
     
     if (trans2 && trans2.transmisiones) {
       trans2.transmisiones.forEach(t => {
-        if (t.link) {
-          const nombre = t.evento || t.liga || "Transmision";
-          addLink(nombre, t.link, "Mycraft");
+        if (t.url) {
+          const nombre = t.evento || t.titulo || t.liga || "Transmision";
+          addLink(nombre, t.url, "Mycraft");
         }
       });
     }
