@@ -385,6 +385,149 @@
             color: #00ff88;
         }
 
+        .link-checkbox-container {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 10;
+        }
+
+        .link-checkbox {
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            accent-color: var(--gold);
+            transform: scale(1.2);
+        }
+
+        .link-card.selected {
+            border-color: var(--gold);
+            background: rgba(255, 215, 0, 0.05);
+        }
+
+        .selection-bar {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 28px;
+            background: rgba(17, 17, 17, 0.98);
+            border: 1px solid var(--gold);
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(255, 215, 0, 0.15);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .selection-bar.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .selection-count {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            color: var(--gold);
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .selection-btn {
+            padding: 10px 20px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .selection-btn:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        .selection-btn.primary {
+            background: var(--gold);
+            color: var(--black);
+            border-color: var(--gold);
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 1px;
+        }
+
+        .selection-btn.primary:hover {
+            background: var(--gold-light);
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .selection-btn.danger {
+            border-color: rgba(255, 100, 100, 0.3);
+            color: #ff6464;
+        }
+
+        .selection-btn.danger:hover {
+            border-color: #ff6464;
+        }
+
+        .select-all-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 20px;
+            gap: 12px;
+        }
+
+        .select-all-btn {
+            padding: 10px 20px;
+            background: transparent;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .select-all-btn:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        .toast {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            padding: 14px 28px;
+            background: rgba(0, 255, 136, 0.15);
+            border: 1px solid #00ff88;
+            border-radius: 4px;
+            color: #00ff88;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 2000;
+        }
+
+        .toast.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+
         .loading-container {
             display: flex;
             flex-direction: column;
@@ -552,6 +695,10 @@
 
         <section class="links-section">
             <div class="container">
+                <div class="select-all-container" id="select-controls" style="display: none;">
+                    <button class="select-all-btn" onclick="selectAll()">Seleccionar todos</button>
+                    <button class="select-all-btn" onclick="deselectAll()">Deseleccionar todos</button>
+                </div>
                 <div class="links-grid" id="links-grid">
                     <div class="loading-container">
                         <div class="loading-spinner"></div>
@@ -561,6 +708,14 @@
             </div>
         </section>
     </main>
+
+    <div class="selection-bar" id="selection-bar">
+        <span class="selection-count" id="selection-count">0 seleccionados</span>
+        <button class="selection-btn primary" onclick="copySelectedLinks()">COPIAR SELECCIONADOS</button>
+        <button class="selection-btn danger" onclick="deselectAll()">Cancelar</button>
+    </div>
+
+    <div class="toast" id="toast">ENLACES COPIADOS</div>
 
     <footer class="footer">
         <div class="container">
@@ -574,6 +729,8 @@
 
     <script>
         let allLinks = [];
+        let currentLinks = [];
+        let selectedUrls = new Set();
 
         async function loadLinks() {
             try {
@@ -582,7 +739,9 @@
                 
                 if (data.success) {
                     allLinks = data.links;
+                    currentLinks = allLinks;
                     document.getElementById('total-links').textContent = data.total;
+                    document.getElementById('select-controls').style.display = 'flex';
                     renderLinks(allLinks);
                 } else {
                     showError('Error al cargar');
@@ -593,6 +752,7 @@
         }
 
         function renderLinks(links) {
+            currentLinks = links;
             const grid = document.getElementById('links-grid');
             
             if (links.length === 0) {
@@ -606,7 +766,12 @@
             }
 
             grid.innerHTML = links.map((link, index) => `
-                <div class="link-card" data-index="${index}">
+                <div class="link-card ${selectedUrls.has(link.url) ? 'selected' : ''}" data-url="${encodeURIComponent(link.url)}">
+                    <div class="link-checkbox-container">
+                        <input type="checkbox" class="link-checkbox" 
+                            ${selectedUrls.has(link.url) ? 'checked' : ''} 
+                            onchange="toggleSelection('${encodeURIComponent(link.url)}', this.checked)">
+                    </div>
                     <span class="link-source">${link.source}</span>
                     <h3 class="link-name">${link.name}</h3>
                     <div class="link-url-container">
@@ -628,6 +793,74 @@
                     </div>
                 </div>
             `).join('');
+            
+            updateSelectionBar();
+        }
+
+        function toggleSelection(encodedUrl, isChecked) {
+            const url = decodeURIComponent(encodedUrl);
+            const card = document.querySelector(`[data-url="${encodedUrl}"]`);
+            
+            if (isChecked) {
+                selectedUrls.add(url);
+                if (card) card.classList.add('selected');
+            } else {
+                selectedUrls.delete(url);
+                if (card) card.classList.remove('selected');
+            }
+            
+            updateSelectionBar();
+        }
+
+        function selectAll() {
+            currentLinks.forEach(link => {
+                selectedUrls.add(link.url);
+            });
+            renderLinks(currentLinks);
+        }
+
+        function deselectAll() {
+            selectedUrls.clear();
+            renderLinks(currentLinks);
+        }
+
+        function updateSelectionBar() {
+            const bar = document.getElementById('selection-bar');
+            const count = document.getElementById('selection-count');
+            
+            if (selectedUrls.size > 0) {
+                bar.classList.add('visible');
+                count.textContent = `${selectedUrls.size} seleccionado${selectedUrls.size > 1 ? 's' : ''}`;
+            } else {
+                bar.classList.remove('visible');
+            }
+        }
+
+        function copySelectedLinks() {
+            if (selectedUrls.size === 0) return;
+            
+            const urlsText = Array.from(selectedUrls).join('\n');
+            
+            navigator.clipboard.writeText(urlsText).then(() => {
+                showToast(`${selectedUrls.size} ENLACE${selectedUrls.size > 1 ? 'S' : ''} COPIADO${selectedUrls.size > 1 ? 'S' : ''}`);
+            }).catch(() => {
+                const textarea = document.createElement('textarea');
+                textarea.value = urlsText;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showToast(`${selectedUrls.size} ENLACE${selectedUrls.size > 1 ? 'S' : ''} COPIADO${selectedUrls.size > 1 ? 'S' : ''}`);
+            });
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('visible');
+            setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 2500);
         }
 
         function copyLink(button, url) {
