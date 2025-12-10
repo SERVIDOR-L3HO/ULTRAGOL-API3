@@ -2211,15 +2211,15 @@ app.get("/api/l3ho-links", async (req, res) => {
     
     if (trans4 && trans4.transmisiones) {
       trans4.transmisiones.forEach(t => {
-        if (t.enlace) {
+        if (t.enlace || t.url) {
           const nombre = t.evento || t.equipos || t.canal || "Transmision";
-          addLink(nombre, t.enlace, "FTVHD");
+          addLink(nombre, t.enlace || t.url, "FTVHD");
         }
         if (t.canales && Array.isArray(t.canales)) {
           t.canales.forEach(canal => {
-            if (canal.enlace) {
+            if (canal.enlace || canal.url) {
               const nombre = `${t.evento || t.equipos || "Transmision"} - ${canal.nombre || canal.canal || "Canal"}`;
-              addLink(nombre, canal.enlace, "FTVHD");
+              addLink(nombre, canal.enlace || canal.url, "FTVHD");
             }
           });
         }
