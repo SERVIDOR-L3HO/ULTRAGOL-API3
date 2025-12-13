@@ -48,62 +48,55 @@ async function getLineupFromESPN(eventId) {
 
     const data = response.data;
     
-    // Verificar si hay alineaciones disponibles
-    if (!data.boxscore || !data.boxscore.players || data.boxscore.players.length === 0) {
+    // Verificar si hay alineaciones disponibles en rosters
+    if (!data.rosters || data.rosters.length === 0) {
       return null;
     }
 
-    const teams = data.boxscore.players;
+    const rosters = data.rosters;
     const gameInfo = data.gameInfo || {};
     const header = data.header || {};
     const competition = header.competitions?.[0] || {};
     
-    const lineups = await Promise.all(teams.map(async (teamData, index) => {
-      const team = teamData.team;
-      const statistics = teamData.statistics || [];
+    const lineups = await Promise.all(rosters.map(async (rosterData) => {
+      const team = rosterData.team || {};
+      const players = rosterData.roster || [];
+      const formation = rosterData.formation || 'N/A';
       
       const titulares = [];
       const suplentes = [];
-      const entrenador = null;
+      let entrenador = null;
       
-      for (const stat of statistics) {
-        const athletes = stat.athletes || [];
-        for (const athlete of athletes) {
-          let photoUrl = athlete.athlete?.headshot?.href || athlete.athlete?.headshot || null;
-          
-          if (photoUrl) {
-            photoStats.totalRequests++;
-            photoStats.espnProvided++;
-          } else if (athlete.athlete?.displayName) {
-            photoUrl = await getPlayerPhoto(athlete.athlete.displayName, team.displayName);
-          }
-          
-          const player = {
-            id: athlete.athlete?.id || null,
-            nombre: athlete.athlete?.displayName || 'Desconocido',
-            nombreCorto: athlete.athlete?.shortName || '',
-            numero: athlete.athlete?.jersey || '',
-            posicion: athlete.athlete?.position?.abbreviation || athlete.athlete?.position?.name || 'N/A',
-            posicionCompleta: athlete.athlete?.position?.displayName || '',
-            foto: photoUrl,
-            titular: athlete.starter === true,
-            capitan: athlete.captain === true,
-            estadisticas: stat.names && stat.labels ? stat.names.map((name, i) => ({
-              tipo: name,
-              valor: athlete.stats?.[i] || '0'
-            })) : []
-          };
-          
-          if (player.titular) {
-            titulares.push(player);
-          } else {
-            suplentes.push(player);
-          }
+      for (const playerData of players) {
+        const athlete = playerData.athlete || {};
+        let photoUrl = athlete.headshot?.href || athlete.headshot || null;
+        
+        if (photoUrl) {
+          photoStats.totalRequests++;
+          photoStats.espnProvided++;
+        } else if (athlete.displayName) {
+          photoUrl = await getPlayerPhoto(athlete.displayName, team.displayName);
+        }
+        
+        const player = {
+          id: athlete.id || null,
+          nombre: athlete.displayName || athlete.fullName || 'Desconocido',
+          nombreCorto: athlete.shortName || '',
+          numero: playerData.jersey || '',
+          posicion: athlete.position?.abbreviation || athlete.position?.name || 'N/A',
+          posicionCompleta: athlete.position?.displayName || '',
+          foto: photoUrl,
+          titular: playerData.starter === true,
+          capitan: playerData.captain === true,
+          estadisticas: []
+        };
+        
+        if (player.titular) {
+          titulares.push(player);
+        } else {
+          suplentes.push(player);
         }
       }
-      
-      const formacion = data.gameInfo?.attendance ? 
-        (data.rosters?.[index]?.formation || 'N/A') : 'N/A';
       
       return {
         equipo: {
@@ -114,7 +107,7 @@ async function getLineupFromESPN(eventId) {
           color: team.color || null,
           colorAlterno: team.alternateColor || null
         },
-        formacion: formacion,
+        formacion: formation,
         titulares: titulares,
         suplentes: suplentes,
         entrenador: entrenador,
