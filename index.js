@@ -93,7 +93,9 @@ const {
 const {
   scrapDataFactoryLiga,
   scrapTodasLasLigasDataFactory,
-  DATAFACTORY_URLS
+  DATAFACTORY_URLS,
+  ESPN_LEAGUE_IDS,
+  CATEGORIAS_LIGAS
 } = require("./src/scrapers/datafactory");
 
 const {
@@ -400,12 +402,33 @@ app.get("/api", (req, res) => {
       }
     },
     endpoints_especiales: {
+      todo_todas_las_ligas: {
+        endpoint: "/todo-todas-las-ligas",
+        porCategoria: "/todo-todas-las-ligas?categoria=CATEGORIA",
+        ligaEspecifica: "/datafactory/:codigo",
+        listarLigas: "/ligas-disponibles",
+        descripcion: "NUEVO: Endpoint principal con TODAS las ligas del mundo - Sudamérica, Europa, CONCACAF, Asia, África, Mundiales FIFA y Fútbol Femenino",
+        totalLigas: "70+ ligas disponibles",
+        categorias: [
+          "sudamericanas", "copas_conmebol", "europeas_top5", "europeas_otras",
+          "copas_europeas", "uefa", "fifa_mundiales", "concacaf", "ligas_secundarias",
+          "asiaticas", "internacionales", "femenino"
+        ],
+        caracteristicas: {
+          partidos: "Todos los partidos con marcadores, estadio, hora, transmisión",
+          tablaPosiciones: "Tabla de posiciones completa con estadísticas",
+          equipos: "Información de equipos con logos, colores, estadio",
+          estadisticas: "Estadísticas de goles, victorias, empates por liga",
+          filtroPorCategoria: "Filtrar por categoría de liga (sudamericanas, uefa, etc)",
+          ligaIndividual: "Obtener datos de una liga específica por código"
+        }
+      },
       todas_las_ligas: {
         calendario: "/calendario/todas-las-ligas",
         marcadores: "/marcadores/todas-las-ligas",
         alineaciones: "/alineaciones/todas-las-ligas",
         estadisticas: "/estadisticas/todas-las-ligas",
-        descripcion: "Calendario, marcadores, alineaciones y estadísticas completas de todas las ligas"
+        descripcion: "Calendario, marcadores, alineaciones y estadísticas completas de las 6 ligas principales"
       },
       estadisticas_detalladas: {
         todasLasLigas: "/estadisticas/todas-las-ligas",
@@ -2419,6 +2442,69 @@ app.get("/estadisticas/partido/:eventId", async (req, res) => {
       detalles: error.message 
     });
   }
+});
+
+// ====== NUEVO ENDPOINT: TODO TODAS LAS LIGAS ======
+// Endpoint principal que retorna TODA la información de TODAS las ligas del mundo
+app.get("/todo-todas-las-ligas", async (req, res) => {
+  try {
+    const { categoria } = req.query;
+    console.log(`🌍 Obteniendo TODO de TODAS las ligas del mundo${categoria ? ` (categoría: ${categoria})` : ''}...`);
+    const data = await scrapTodasLasLigasDataFactory(categoria);
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /todo-todas-las-ligas:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los datos de todas las ligas",
+      detalles: error.message 
+    });
+  }
+});
+
+// Endpoint para obtener datos de una liga específica por código
+app.get("/datafactory/:liga", async (req, res) => {
+  try {
+    const { liga } = req.params;
+    console.log(`⚽ Obteniendo datos de la liga: ${liga}...`);
+    const data = await scrapDataFactoryLiga(liga);
+    res.json(data);
+  } catch (error) {
+    console.error(`Error en /datafactory/${req.params.liga}:`, error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los datos de la liga",
+      detalles: error.message 
+    });
+  }
+});
+
+// Endpoint para listar todas las ligas disponibles
+app.get("/ligas-disponibles", (req, res) => {
+  const ligasDisponibles = Object.entries(ESPN_LEAGUE_IDS).map(([codigo, info]) => ({
+    codigo,
+    nombre: info.name,
+    pais: info.country,
+    endpoint: `/datafactory/${codigo}`,
+    leagueId: info.id
+  }));
+  
+  const categorias = Object.entries(CATEGORIAS_LIGAS).map(([cat, codigos]) => ({
+    categoria: cat,
+    ligas: codigos.length,
+    endpoint: `/todo-todas-las-ligas?categoria=${cat}`
+  }));
+  
+  res.json({
+    totalLigas: Object.keys(ESPN_LEAGUE_IDS).length,
+    totalCategorias: Object.keys(CATEGORIAS_LIGAS).length,
+    endpoints: {
+      todasLasLigas: "/todo-todas-las-ligas",
+      porCategoria: "/todo-todas-las-ligas?categoria=CATEGORIA",
+      ligaEspecifica: "/datafactory/:codigo"
+    },
+    categorias,
+    ligas: ligasDisponibles,
+    actualizacion: new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" })
+  });
 });
 
 updateAllData();
