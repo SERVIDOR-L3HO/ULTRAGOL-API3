@@ -58,14 +58,31 @@ async function getLineupFromESPN(eventId) {
     const header = data.header || {};
     const competition = header.competitions?.[0] || {};
     
+    // Obtener información del venue desde múltiples fuentes
+    const venue = gameInfo.venue || competition.venue || {};
+    const venueAddress = venue.address || {};
+    const estadioNombre = venue.fullName || venue.displayName || venue.name || 'Por confirmar';
+    const ciudadNombre = venueAddress.city || venueAddress.summary || 'Por confirmar';
+    const paisNombre = venueAddress.country || '';
+    
     const lineups = await Promise.all(rosters.map(async (rosterData) => {
       const team = rosterData.team || {};
       const players = rosterData.roster || [];
-      const formation = rosterData.formation || 'N/A';
+      const formation = rosterData.formation || 'Por confirmar';
       
       const titulares = [];
       const suplentes = [];
       let entrenador = null;
+      
+      // Buscar entrenador en los datos del equipo
+      if (rosterData.coach || rosterData.manager) {
+        const coach = rosterData.coach || rosterData.manager;
+        entrenador = {
+          nombre: coach.displayName || coach.name || 'Por confirmar',
+          nacionalidad: coach.nationality || null,
+          foto: coach.headshot?.href || coach.headshot || null
+        };
+      }
       
       for (const playerData of players) {
         const athlete = playerData.athlete || {};
@@ -75,20 +92,29 @@ async function getLineupFromESPN(eventId) {
           photoStats.totalRequests++;
           photoStats.espnProvided++;
         } else if (athlete.displayName) {
-          photoUrl = await getPlayerPhoto(athlete.displayName, team.displayName);
+          photoUrl = await getPlayerPhoto(athlete.displayName, team.displayName || 'Equipo');
         }
         
+        // Determinar posición con más fuentes
+        const posAbrev = athlete.position?.abbreviation || 
+                         playerData.position?.abbreviation || 
+                         'JUG';
+        const posNombre = athlete.position?.name || 
+                          athlete.position?.displayName || 
+                          playerData.position?.name ||
+                          getPosicionFromAbreviatura(posAbrev);
+        
         const player = {
-          id: athlete.id || null,
-          nombre: athlete.displayName || athlete.fullName || 'Desconocido',
-          nombreCorto: athlete.shortName || '',
-          numero: playerData.jersey || '',
-          posicion: athlete.position?.abbreviation || athlete.position?.name || 'N/A',
-          posicionCompleta: athlete.position?.displayName || '',
-          foto: photoUrl,
+          id: athlete.id || `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          nombre: athlete.displayName || athlete.fullName || 'Jugador',
+          nombreCorto: athlete.shortName || athlete.displayName?.split(' ').pop() || '',
+          numero: playerData.jersey || playerData.number || '-',
+          posicion: posAbrev,
+          posicionCompleta: posNombre,
+          foto: photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(athlete.displayName || 'J')}&size=200&background=random&bold=true`,
           titular: playerData.starter === true,
           capitan: playerData.captain === true,
-          estadisticas: []
+          estadisticas: playerData.stats || []
         };
         
         if (player.titular) {
@@ -100,12 +126,12 @@ async function getLineupFromESPN(eventId) {
       
       return {
         equipo: {
-          id: team.id,
-          nombre: team.displayName,
-          nombreCorto: team.abbreviation,
-          logo: team.logo || team.logos?.[0]?.href || null,
-          color: team.color || null,
-          colorAlterno: team.alternateColor || null
+          id: team.id || `team_${Date.now()}`,
+          nombre: team.displayName || team.name || 'Equipo',
+          nombreCorto: team.abbreviation || team.shortDisplayName || 'EQP',
+          logo: team.logo || team.logos?.[0]?.href || 'https://via.placeholder.com/100x100?text=Team',
+          color: team.color || '333333',
+          colorAlterno: team.alternateColor || 'ffffff'
         },
         formacion: formation,
         titulares: titulares,
@@ -116,13 +142,18 @@ async function getLineupFromESPN(eventId) {
       };
     }));
     
+    const partidoNombre = header.competitions?.[0]?.competitors?.map(c => c.team?.displayName).join(' vs ') || 
+                          lineups.map(l => l.equipo.nombre).join(' vs ') ||
+                          'Partido';
+    
     return {
       eventoId: eventId,
       partido: {
-        nombre: header.competitions?.[0]?.competitors?.map(c => c.team?.displayName).join(' vs ') || 'Partido',
-        fecha: header.competitions?.[0]?.date || null,
-        estadio: competition.venue?.fullName || null,
-        ciudad: competition.venue?.address?.city || null,
+        nombre: partidoNombre,
+        fecha: header.competitions?.[0]?.date || new Date().toISOString(),
+        estadio: estadioNombre,
+        ciudad: ciudadNombre,
+        pais: paisNombre || null,
         estado: header.competitions?.[0]?.status?.type?.description || 'Programado'
       },
       alineaciones: lineups,
@@ -135,6 +166,38 @@ async function getLineupFromESPN(eventId) {
     console.error(`Error obteniendo alineación de ESPN para evento ${eventId}:`, error.message);
     return null;
   }
+}
+
+function getPosicionFromAbreviatura(abrev) {
+  const posiciones = {
+    'GK': 'Portero',
+    'G': 'Portero',
+    'POR': 'Portero',
+    'DF': 'Defensa',
+    'D': 'Defensa',
+    'DEF': 'Defensa',
+    'CB': 'Defensa Central',
+    'LB': 'Lateral Izquierdo',
+    'RB': 'Lateral Derecho',
+    'MF': 'Mediocampista',
+    'M': 'Mediocampista',
+    'MED': 'Mediocampista',
+    'CM': 'Centrocampista',
+    'CDM': 'Mediocampista Defensivo',
+    'CAM': 'Mediocampista Ofensivo',
+    'LM': 'Mediocampista Izquierdo',
+    'RM': 'Mediocampista Derecho',
+    'FW': 'Delantero',
+    'F': 'Delantero',
+    'DEL': 'Delantero',
+    'ST': 'Delantero Centro',
+    'CF': 'Delantero Centro',
+    'LW': 'Extremo Izquierdo',
+    'RW': 'Extremo Derecho',
+    'JUG': 'Jugador',
+    'N/A': 'Por confirmar'
+  };
+  return posiciones[abrev?.toUpperCase()] || 'Jugador';
 }
 
 /**
