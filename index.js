@@ -62,6 +62,7 @@ const { scrapTransmisiones2 } = require("./src/scrapers/transmisiones2");
 const { scrapTransmisiones3 } = require("./src/scrapers/transmisiones3");
 const { scrapTransmisiones4 } = require("./src/scrapers/transmisiones4");
 const { scrapTransmisiones5 } = require("./src/scrapers/transmisiones5");
+const { scrapTransmisiones6 } = require("./src/scrapers/transmisiones6");
 
 const { 
   scrapMarcadoresLigaMX,
@@ -494,6 +495,10 @@ app.get("/api", (req, res) => {
       transmisiones5: {
         endpoint: "/transmisiones5",
         descripcion: "Transmisiones deportivas de donromans.com - API de WordPress con eventos deportivos organizados por liga, hora, país, incluye múltiples enlaces de transmisión (urls_list, SpecialLinks, canales, servidores) con compatibilidad y modo replay"
+      },
+      transmisiones6: {
+        endpoint: "/transmisiones6",
+        descripcion: "API Oficial UltraGol (dp.mycraft.click) - Transmisiones deportivas profesionales de múltiples deportes (fútbol, hockey, baloncesto, etc.) con protección Cloudflare, horarios, ligas y enlaces listos para reproducir"
       },
       "ultragol-l3ho": {
         endpoint: "/ultragol-l3ho",
@@ -1479,6 +1484,41 @@ app.get("/transmisiones5", async (req, res) => {
   }
 });
 
+app.get("/transmisiones6", async (req, res) => {
+  try {
+    let data = cache.get("transmisiones6");
+    
+    if (!data) {
+      console.log("📺 Obteniendo transmisiones desde UltraGol API (dp.mycraft.click) - caché vacío...");
+      try {
+        data = await scrapTransmisiones6();
+        cache.set("transmisiones6", data, 600);
+      } catch (scrapeError) {
+        const staleData = cache.getStale("transmisiones6");
+        if (staleData && staleData.total > 0) {
+          console.log("⚠️ Usando datos en caché (expirados) debido a error en scraping");
+          data = {
+            ...staleData,
+            advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos: " + scrapeError.message,
+            ultimaActualizacion: staleData.actualizado
+          };
+        } else {
+          throw scrapeError;
+        }
+      }
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /transmisiones6:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener las transmisiones deportivas desde UltraGol API",
+      detalles: error.message,
+      sugerencia: "El sitio web podría estar bloqueando las peticiones o Cloudflare está activo. Intenta de nuevo más tarde."
+    });
+  }
+});
+
 app.get("/marcadores", async (req, res) => {
   try {
     const date = req.query.date || null;
@@ -2170,12 +2210,13 @@ app.get("/api/l3ho-links", async (req, res) => {
   try {
     console.log("📡 Recopilando todos los links de transmisiones...");
     
-    const [trans1, trans2, trans3, trans4, trans5] = await Promise.all([
+    const [trans1, trans2, trans3, trans4, trans5, trans6] = await Promise.all([
       scrapTransmisiones().catch(err => { console.error("Error trans1:", err.message); return null; }),
       scrapTransmisiones2().catch(err => { console.error("Error trans2:", err.message); return null; }),
       scrapTransmisiones3().catch(err => { console.error("Error trans3:", err.message); return null; }),
       scrapTransmisiones4().catch(err => { console.error("Error trans4:", err.message); return null; }),
-      scrapTransmisiones5().catch(err => { console.error("Error trans5:", err.message); return null; })
+      scrapTransmisiones5().catch(err => { console.error("Error trans5:", err.message); return null; }),
+      scrapTransmisiones6().catch(err => { console.error("Error trans6:", err.message); return null; })
     ]);
     
     const allLinks = [];
