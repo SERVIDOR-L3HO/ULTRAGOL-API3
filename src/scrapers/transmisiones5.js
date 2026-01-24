@@ -121,11 +121,12 @@ async function scrapTransmisiones5() {
     
     console.log(`📅 Buscando eventos del día: ${today} o ${yesterday}`);
     
-    const url = 'https://donromans.com/wp-json/wp/v2/schedule?per_page=20&orderby=id&order=desc';
+    const url = 'https://donromans.com/wp-json/wp/v2/schedule?_fields=id,title,tags&per_page=20';
     const response = await axios.get(url, {
       timeout: 15000,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://core.donromans.com/'
       }
     });
     
