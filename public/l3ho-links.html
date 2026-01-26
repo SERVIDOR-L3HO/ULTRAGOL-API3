@@ -933,6 +933,30 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        .transmission-modal .modal {
+            max-width: 900px !important;
+            width: 95% !important;
+            padding: 20px;
+        }
+
+        .transmission-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            overflow: hidden;
+            background: #000;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .transmission-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
     </style>
 </head>
 <body>
@@ -1065,6 +1089,18 @@
         </div>
     </div>
 
+    <div class="modal-overlay transmission-modal" id="transmission-modal" onclick="closeTransmissionModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 class="modal-title">TRANSMISIÓN EN VIVO</h3>
+                <button class="modal-close" onclick="closeTransmissionModal()">&times;</button>
+            </div>
+            <div class="transmission-container">
+                <iframe id="transmission-iframe" src="" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+            </div>
+        </div>
+    </div>
+
     <footer class="footer">
         <div class="container">
             <div class="footer-logo">
@@ -1112,6 +1148,23 @@
         function closeSportsModal(event) {
             if (event && event.target !== event.currentTarget) return;
             document.getElementById('sports-modal').classList.remove('visible');
+            document.body.style.overflow = '';
+        }
+
+        function openTransmissionModal(url) {
+            const modal = document.getElementById('transmission-modal');
+            const iframe = document.getElementById('transmission-iframe');
+            iframe.src = url;
+            modal.classList.add('visible');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeTransmissionModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+            const modal = document.getElementById('transmission-modal');
+            const iframe = document.getElementById('transmission-iframe');
+            iframe.src = '';
+            modal.classList.remove('visible');
             document.body.style.overflow = '';
         }
         
@@ -1211,7 +1264,6 @@
                     </div>
                     <div class="link-content">
                         <h3 class="link-name">${link.name}</h3>
-                        <div class="live-badge">En Vivo Ahora</div>
                         <div class="link-preview">
                             <span class="link-preview-placeholder">&#9917;</span>
                         </div>
@@ -1220,9 +1272,9 @@
                         </div>
                     </div>
                     <div class="link-actions">
-                        <a href="${convertedUrl}" target="_blank" class="btn-watch">
-                            Ver Ahora
-                        </a>
+                        <button onclick="openTransmissionModal('${convertedUrl.replace(/'/g, "\\'")}')" class="btn-watch">
+                            Ver Aquí
+                        </button>
                         <button class="btn-copy" onclick="copyLink(this, '${convertedUrl.replace(/'/g, "\\'")}')">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
