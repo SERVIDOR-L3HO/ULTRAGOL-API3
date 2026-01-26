@@ -13,9 +13,10 @@
         }
 
         :root {
-            --gold: #ffd700;
-            --gold-light: #ffe44d;
-            --gold-dark: #ccac00;
+            --orange: #ff8c00;
+            --orange-light: #ffa500;
+            --orange-dark: #e67e00;
+            --green: #2ecc71;
             --black: #000000;
             --black-light: #0a0a0a;
             --black-card: #111111;
@@ -23,8 +24,8 @@
             --text-primary: #ffffff;
             --text-secondary: #b0b0b0;
             --text-muted: #707070;
-            --border: rgba(255, 215, 0, 0.2);
-            --glow: rgba(255, 215, 0, 0.4);
+            --border: rgba(255, 140, 0, 0.2);
+            --glow: rgba(255, 140, 0, 0.4);
         }
 
         body {
@@ -48,7 +49,7 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+            border-bottom: 1px solid rgba(255, 140, 0, 0.1);
         }
 
         .header .container {
@@ -75,7 +76,7 @@
             font-family: 'Orbitron', sans-serif;
             font-size: 20px;
             font-weight: 800;
-            color: var(--gold);
+            color: var(--orange);
             letter-spacing: 3px;
         }
 
@@ -97,7 +98,7 @@
         }
 
         .nav-link:hover {
-            color: var(--gold);
+            color: var(--orange);
         }
 
         .nav-link.active {
@@ -107,9 +108,9 @@
         .btn-elite {
             padding: 8px 20px;
             background: transparent;
-            border: 1px solid var(--gold);
+            border: 1px solid var(--orange);
             border-radius: 4px;
-            color: var(--gold);
+            color: var(--orange);
             font-family: 'Orbitron', sans-serif;
             font-size: 11px;
             font-weight: 700;
@@ -119,7 +120,7 @@
         }
 
         .btn-elite:hover {
-            background: var(--gold);
+            background: var(--orange);
             color: var(--black);
         }
 
@@ -153,7 +154,7 @@
             font-weight: 900;
             letter-spacing: 6px;
             margin-bottom: 16px;
-            color: var(--gold);
+            color: var(--orange);
             text-shadow: 0 0 30px var(--glow);
         }
 
@@ -167,7 +168,7 @@
         .btn-explore {
             display: inline-block;
             padding: 14px 32px;
-            background: var(--gold);
+            background: var(--orange);
             border: none;
             border-radius: 4px;
             color: var(--black);
@@ -182,15 +183,15 @@
         }
 
         .btn-explore:hover {
-            background: var(--gold-light);
-            box-shadow: 0 8px 30px rgba(255, 215, 0, 0.4);
+            background: var(--orange-light);
+            box-shadow: 0 8px 30px rgba(255, 140, 0, 0.4);
             transform: translateY(-2px);
         }
 
         .stats-section {
             padding: 40px 0;
-            border-top: 1px solid rgba(255, 215, 0, 0.1);
-            border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+            border-top: 1px solid rgba(255, 140, 0, 0.1);
+            border-bottom: 1px solid rgba(255, 140, 0, 0.1);
         }
 
         .stats-row {
@@ -206,7 +207,7 @@
             align-items: center;
             padding: 20px 30px;
             background: var(--black-card);
-            border: 1px solid rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 140, 0, 0.1);
             border-radius: 8px;
             min-width: 140px;
         }
@@ -215,13 +216,13 @@
             font-family: 'Orbitron', sans-serif;
             font-size: 36px;
             font-weight: 900;
-            color: var(--gold);
+            color: var(--orange);
             text-shadow: 0 0 20px var(--glow);
         }
 
         .stat-icon {
             font-size: 32px;
-            color: var(--gold);
+            color: var(--orange);
             margin-bottom: 4px;
         }
 
@@ -243,7 +244,7 @@
             text-transform: uppercase;
             margin-bottom: 24px;
             padding-bottom: 16px;
-            border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+            border-bottom: 1px solid rgba(255, 140, 0, 0.1);
         }
 
         .search-section {
@@ -259,7 +260,7 @@
             width: 100%;
             padding: 14px 20px 14px 48px;
             background: var(--black-card);
-            border: 1px solid rgba(255, 215, 0, 0.2);
+            border: 1px solid rgba(255, 140, 0, 0.2);
             border-radius: 6px;
             color: var(--text-primary);
             font-size: 14px;
@@ -269,8 +270,8 @@
 
         .search-input:focus {
             outline: none;
-            border-color: var(--gold);
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.15);
+            border-color: var(--orange);
+            box-shadow: 0 0 20px rgba(255, 140, 0, 0.15);
         }
 
         .search-input::placeholder {
@@ -282,7 +283,7 @@
             left: 16px;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--gold);
+            color: var(--orange);
             font-size: 16px;
         }
 
@@ -299,16 +300,16 @@
         .link-card {
             position: relative;
             background: var(--black-card);
-            border: 1px solid rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 140, 0, 0.1);
             border-radius: 8px;
             overflow: hidden;
             transition: all 0.3s ease;
         }
 
         .link-card:hover {
-            border-color: var(--gold);
+            border-color: var(--orange);
             transform: translateY(-4px);
-            box-shadow: 0 15px 40px rgba(255, 215, 0, 0.1);
+            box-shadow: 0 15px 40px rgba(255, 140, 0, 0.1);
         }
 
         .link-card-header {
@@ -323,11 +324,11 @@
             align-items: center;
             gap: 6px;
             padding: 4px 10px;
-            background: rgba(255, 215, 0, 0.15);
+            background: rgba(255, 140, 0, 0.15);
             border-radius: 4px;
             font-size: 9px;
             font-weight: 800;
-            color: var(--gold);
+            color: var(--orange);
             letter-spacing: 1px;
             text-transform: uppercase;
         }
@@ -336,7 +337,7 @@
             content: '';
             width: 6px;
             height: 6px;
-            background: var(--gold);
+            background: var(--orange);
             border-radius: 50%;
         }
 
@@ -348,12 +349,12 @@
             width: 20px;
             height: 20px;
             cursor: pointer;
-            accent-color: var(--gold);
+            accent-color: var(--orange);
         }
 
         .link-card.selected {
-            border-color: var(--gold);
-            background: rgba(255, 215, 0, 0.05);
+            border-color: var(--orange);
+            background: rgba(255, 140, 0, 0.05);
         }
 
         .link-content {
@@ -451,7 +452,7 @@
             justify-content: center;
             gap: 8px;
             padding: 12px 20px;
-            background: var(--gold);
+            background: var(--orange);
             border: none;
             border-radius: 4px;
             color: var(--black);
@@ -466,14 +467,14 @@
         }
 
         .btn-watch:hover {
-            background: var(--gold-light);
-            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3);
+            background: var(--orange-light);
+            box-shadow: 0 6px 20px rgba(255, 140, 0, 0.3);
         }
 
         .btn-copy {
             padding: 12px 14px;
             background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 215, 0, 0.2);
+            border: 1px solid rgba(255, 140, 0, 0.2);
             border-radius: 4px;
             color: var(--text-secondary);
             cursor: pointer;
@@ -481,13 +482,13 @@
         }
 
         .btn-copy:hover {
-            border-color: var(--gold);
-            color: var(--gold);
+            border-color: var(--orange);
+            color: var(--orange);
         }
 
         .btn-copy.copied {
-            border-color: #00ff88;
-            color: #00ff88;
+            border-color: var(--green);
+            color: var(--green);
         }
 
         .selection-bar {
@@ -500,9 +501,9 @@
             gap: 12px;
             padding: 14px 20px;
             background: #111111;
-            border: 2px solid var(--gold);
+            border: 2px solid var(--orange);
             border-radius: 8px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(255, 215, 0, 0.3);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(255, 140, 0, 0.3);
             z-index: 9999;
             opacity: 0;
             visibility: hidden;
@@ -520,14 +521,14 @@
         .selection-count {
             font-family: 'Orbitron', sans-serif;
             font-size: 13px;
-            color: var(--gold);
+            color: var(--orange);
             font-weight: 700;
             letter-spacing: 1px;
         }
 
         .selection-btn {
             padding: 10px 18px;
-            border: 1px solid rgba(255, 215, 0, 0.3);
+            border: 1px solid rgba(255, 140, 0, 0.3);
             border-radius: 4px;
             background: transparent;
             color: var(--text-secondary);
@@ -539,20 +540,20 @@
         }
 
         .selection-btn:hover {
-            border-color: var(--gold);
-            color: var(--gold);
+            border-color: var(--orange);
+            color: var(--orange);
         }
 
         .selection-btn.primary {
-            background: var(--gold);
+            background: var(--orange);
             color: var(--black);
-            border-color: var(--gold);
+            border-color: var(--orange);
             font-family: 'Orbitron', sans-serif;
             letter-spacing: 1px;
         }
 
         .selection-btn.primary:hover {
-            background: var(--gold-light);
+            background: var(--orange-light);
         }
 
         .selection-btn.danger {
@@ -574,7 +575,7 @@
         .select-all-btn {
             padding: 8px 16px;
             background: transparent;
-            border: 1px solid rgba(255, 215, 0, 0.2);
+            border: 1px solid rgba(255, 140, 0, 0.2);
             border-radius: 4px;
             color: var(--text-secondary);
             font-size: 11px;
@@ -584,8 +585,8 @@
         }
 
         .select-all-btn:hover {
-            border-color: var(--gold);
-            color: var(--gold);
+            border-color: var(--orange);
+            color: var(--orange);
         }
 
         .toast {
@@ -594,10 +595,10 @@
             left: 50%;
             transform: translateX(-50%) translateY(-20px);
             padding: 12px 24px;
-            background: rgba(0, 255, 136, 0.15);
-            border: 1px solid #00ff88;
+            background: rgba(46, 204, 113, 0.15);
+            border: 1px solid var(--green);
             border-radius: 6px;
-            color: #00ff88;
+            color: var(--green);
             font-family: 'Orbitron', sans-serif;
             font-size: 11px;
             font-weight: 600;
@@ -626,8 +627,8 @@
         .loading-spinner {
             width: 40px;
             height: 40px;
-            border: 2px solid rgba(255, 215, 0, 0.1);
-            border-top-color: var(--gold);
+            border: 2px solid rgba(255, 140, 0, 0.1);
+            border-top-color: var(--orange);
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin-bottom: 16px;
@@ -666,7 +667,7 @@
 
         .footer {
             padding: 40px 0;
-            border-top: 1px solid rgba(255, 215, 0, 0.1);
+            border-top: 1px solid rgba(255, 140, 0, 0.1);
             background: rgba(0, 0, 0, 0.95);
         }
 
@@ -693,7 +694,7 @@
             font-family: 'Orbitron', sans-serif;
             font-size: 16px;
             font-weight: 800;
-            color: var(--gold);
+            color: var(--orange);
             letter-spacing: 3px;
         }
 
@@ -718,7 +719,7 @@
         }
 
         .footer-link:hover {
-            color: var(--gold);
+            color: var(--orange);
         }
 
         @media (max-width: 768px) {
@@ -811,7 +812,7 @@
 
         .modal {
             background: var(--black-card);
-            border: 1px solid var(--gold);
+            border: 1px solid var(--orange);
             border-radius: 12px;
             padding: 32px;
             max-width: 500px;
@@ -832,14 +833,14 @@
             align-items: center;
             margin-bottom: 24px;
             padding-bottom: 16px;
-            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+            border-bottom: 1px solid rgba(255, 140, 0, 0.2);
         }
 
         .modal-title {
             font-family: 'Orbitron', sans-serif;
             font-size: 18px;
             font-weight: 700;
-            color: var(--gold);
+            color: var(--orange);
             letter-spacing: 2px;
         }
 
@@ -854,7 +855,7 @@
         }
 
         .modal-close:hover {
-            color: var(--gold);
+            color: var(--orange);
         }
 
         .sports-grid {
@@ -868,8 +869,8 @@
             align-items: center;
             gap: 12px;
             padding: 16px;
-            background: rgba(255, 215, 0, 0.05);
-            border: 1px solid rgba(255, 215, 0, 0.2);
+            background: rgba(255, 140, 0, 0.05);
+            border: 1px solid rgba(255, 140, 0, 0.2);
             border-radius: 8px;
             color: var(--text-primary);
             font-size: 14px;
@@ -879,15 +880,15 @@
         }
 
         .sport-btn:hover {
-            background: rgba(255, 215, 0, 0.15);
-            border-color: var(--gold);
+            background: rgba(255, 140, 0, 0.15);
+            border-color: var(--orange);
             transform: translateY(-2px);
         }
 
         .sport-btn.active {
-            background: var(--gold);
+            background: var(--orange);
             color: var(--black);
-            border-color: var(--gold);
+            border-color: var(--orange);
         }
 
         .sport-icon {
@@ -897,7 +898,7 @@
         .sport-btn-all {
             grid-column: 1 / -1;
             justify-content: center;
-            background: rgba(255, 215, 0, 0.1);
+            background: rgba(255, 140, 0, 0.1);
         }
 
         .active-filter {
@@ -905,10 +906,10 @@
             align-items: center;
             gap: 8px;
             padding: 8px 16px;
-            background: rgba(255, 215, 0, 0.15);
-            border: 1px solid var(--gold);
+            background: rgba(255, 140, 0, 0.15);
+            border: 1px solid var(--orange);
             border-radius: 20px;
-            color: var(--gold);
+            color: var(--orange);
             font-size: 12px;
             font-weight: 600;
             margin-left: 12px;
@@ -921,7 +922,7 @@
         .clear-filter {
             background: none;
             border: none;
-            color: var(--gold);
+            color: var(--orange);
             cursor: pointer;
             font-size: 16px;
             padding: 0;
@@ -938,6 +939,7 @@
             max-width: 900px !important;
             width: 95% !important;
             padding: 20px;
+            border-color: var(--orange);
         }
 
         .transmission-container {
@@ -947,7 +949,7 @@
             overflow: hidden;
             background: #000;
             border-radius: 8px;
-            border: 1px solid rgba(255, 215, 0, 0.3);
+            border: 1px solid rgba(255, 140, 0, 0.3);
         }
 
         .transmission-container iframe {
