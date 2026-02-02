@@ -589,6 +589,41 @@ app.get("/resultados/todas-las-ligas", async (req, res) => {
   }
 });
 
+app.get("/marcadores/todas-las-ligas", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const cacheKey = date ? `marcadores_todas_${date}` : "marcadores_todas_hoy";
+    
+    let data = cache.get(cacheKey);
+    if (!data) {
+      console.log(`⚽ Obteniendo marcadores de todas las ligas ${date ? 'para ' + date : 'de hoy'}...`);
+      
+      const [ligaMx, premier, laLiga, serieA, bundesliga, ligue1] = await Promise.all([
+        scrapMarcadoresLigaMX(date).catch(() => null),
+        scrapMarcadoresPremier(date).catch(() => null),
+        scrapMarcadoresLaLiga(date).catch(() => null),
+        scrapMarcadoresSerieA(date).catch(() => null),
+        scrapMarcadoresBundesliga(date).catch(() => null),
+        scrapMarcadoresLigue1(date).catch(() => null)
+      ]);
+
+      data = {
+        success: true,
+        actualizado: new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }),
+        fecha_consulta: date || 'hoy',
+        ligas: [ligaMx, premier, laLiga, serieA, bundesliga, ligue1].filter(l => l !== null)
+      };
+      
+      cache.set(cacheKey, data, 600);
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /marcadores/todas-las-ligas:", error.message);
+    res.status(500).json({ error: "Error al obtener marcadores", detalles: error.message });
+  }
+});
+
 app.get("/tabla", async (req, res) => {
   try {
     let data = cache.get("tabla");
