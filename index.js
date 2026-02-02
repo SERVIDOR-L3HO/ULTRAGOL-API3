@@ -525,45 +525,64 @@ app.get("/api", (req, res) => {
 
 app.get("/resultados/todas-las-ligas", async (req, res) => {
   try {
-    const date = req.query.date || null;
-    const cacheKey = date ? `resultados_todas_${date}` : "resultados_todas_hoy";
+    const dateQuery = req.query.date;
+    const cacheKey = dateQuery ? `resultados_todas_${dateQuery}` : "resultados_todas_hoy";
     
-    let data = cache.get(cacheKey);
-    if (!data) {
-      console.log(`⚽ Obteniendo últimos resultados de todas las ligas ${date ? 'para ' + date : 'de hoy'}...`);
+    let cachedData = cache.get(cacheKey);
+    if (!cachedData) {
+      console.log(`⚽ Obteniendo resultados de todas las ligas...`);
       
-      const [ligaMx, premier, laLiga, serieA, bundesliga, ligue1] = await Promise.all([
-        scrapMarcadoresLigaMX(date).catch(() => null),
-        scrapMarcadoresPremier(date).catch(() => null),
-        scrapMarcadoresLaLiga(date).catch(() => null),
-        scrapMarcadoresSerieA(date).catch(() => null),
-        scrapMarcadoresBundesliga(date).catch(() => null),
-        scrapMarcadoresLigue1(date).catch(() => null)
-      ]);
+      const datesToFetch = [];
+      if (dateQuery) {
+        datesToFetch.push(dateQuery);
+      } else {
+        // Generar las fechas de la última semana
+        const today = new Date();
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          datesToFetch.push(`${year}${month}${day}`);
+        }
+      }
 
-      const todas = [ligaMx, premier, laLiga, serieA, bundesliga, ligue1].filter(l => l !== null);
-      
-      // Filtrar por partidos finalizados si el usuario quiere "últimos resultados"
-      // Pero devolvemos todo por si acaso, con una sección destacada
-      const resultados = todas.map(liga => ({
-        liga: liga.liga,
-        total: liga.total,
-        finalizados: liga.partidos.filter(p => p.estado.finalizado),
-        en_vivo: liga.partidos.filter(p => p.estado.enVivo),
-        programados: liga.partidos.filter(p => p.estado.programado)
+      const resultsByDate = await Promise.all(datesToFetch.map(async (date) => {
+        const [ligaMx, premier, laLiga, serieA, bundesliga, ligue1] = await Promise.all([
+          scrapMarcadoresLigaMX(date).catch(() => null),
+          scrapMarcadoresPremier(date).catch(() => null),
+          scrapMarcadoresLaLiga(date).catch(() => null),
+          scrapMarcadoresSerieA(date).catch(() => null),
+          scrapMarcadoresBundesliga(date).catch(() => null),
+          scrapMarcadoresLigue1(date).catch(() => null)
+        ]);
+
+        const todas = [ligaMx, premier, laLiga, serieA, bundesliga, ligue1].filter(l => l !== null);
+        
+        return {
+          fecha: date,
+          ligas: todas.map(liga => ({
+            liga: liga.liga,
+            total: liga.total,
+            finalizados: liga.partidos.filter(p => p.estado.finalizado),
+            en_vivo: liga.partidos.filter(p => p.estado.enVivo),
+            programados: liga.partidos.filter(p => p.estado.programado)
+          }))
+        };
       }));
 
-      data = {
+      cachedData = {
         success: true,
         actualizado: new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }),
-        fecha_consulta: date || 'hoy',
-        ligas: resultados
+        periodo: dateQuery ? `Fecha específica: ${dateQuery}` : "Últimos 7 días (Histórico semanal)",
+        resultados: resultsByDate
       };
       
-      cache.set(cacheKey, data, 600); // 10 minutos de caché
+      cache.set(cacheKey, cachedData, 1800); // 30 minutos de caché
     }
     
-    res.json(data);
+    res.json(cachedData);
   } catch (error) {
     console.error("Error en /resultados/todas-las-ligas:", error.message);
     res.status(500).json({ error: "Error al obtener los resultados", detalles: error.message });
