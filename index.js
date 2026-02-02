@@ -523,6 +523,53 @@ app.get("/api", (req, res) => {
   });
 });
 
+app.get("/resultados/todas-las-ligas", async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const cacheKey = date ? `resultados_todas_${date}` : "resultados_todas_hoy";
+    
+    let data = cache.get(cacheKey);
+    if (!data) {
+      console.log(`⚽ Obteniendo últimos resultados de todas las ligas ${date ? 'para ' + date : 'de hoy'}...`);
+      
+      const [ligaMx, premier, laLiga, serieA, bundesliga, ligue1] = await Promise.all([
+        scrapMarcadoresLigaMX(date).catch(() => null),
+        scrapMarcadoresPremier(date).catch(() => null),
+        scrapMarcadoresLaLiga(date).catch(() => null),
+        scrapMarcadoresSerieA(date).catch(() => null),
+        scrapMarcadoresBundesliga(date).catch(() => null),
+        scrapMarcadoresLigue1(date).catch(() => null)
+      ]);
+
+      const todas = [ligaMx, premier, laLiga, serieA, bundesliga, ligue1].filter(l => l !== null);
+      
+      // Filtrar por partidos finalizados si el usuario quiere "últimos resultados"
+      // Pero devolvemos todo por si acaso, con una sección destacada
+      const resultados = todas.map(liga => ({
+        liga: liga.liga,
+        total: liga.total,
+        finalizados: liga.partidos.filter(p => p.estado.finalizado),
+        en_vivo: liga.partidos.filter(p => p.estado.enVivo),
+        programados: liga.partidos.filter(p => p.estado.programado)
+      }));
+
+      data = {
+        success: true,
+        actualizado: new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }),
+        fecha_consulta: date || 'hoy',
+        ligas: resultados
+      };
+      
+      cache.set(cacheKey, data, 600); // 10 minutos de caché
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /resultados/todas-las-ligas:", error.message);
+    res.status(500).json({ error: "Error al obtener los resultados", detalles: error.message });
+  }
+});
+
 app.get("/tabla", async (req, res) => {
   try {
     let data = cache.get("tabla");
