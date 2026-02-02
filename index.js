@@ -63,6 +63,12 @@ const { scrapTransmisiones3 } = require("./src/scrapers/transmisiones3");
 const { scrapTransmisiones4 } = require("./src/scrapers/transmisiones4");
 const { scrapTransmisiones5 } = require("./src/scrapers/transmisiones5");
 const { scrapTransmisiones6 } = require("./src/scrapers/transmisiones6");
+const { 
+  scrapCanales, 
+  scrapCanalesPorPais, 
+  scrapCanalesPorCategoria, 
+  scrapCanalesDeportes 
+} = require("./src/scrapers/canales");
 
 const { 
   scrapMarcadoresLigaMX,
@@ -1616,6 +1622,96 @@ app.get("/transmisiones6", async (req, res) => {
       error: "No se pudieron obtener las transmisiones deportivas desde UltraGol API",
       detalles: error.message,
       sugerencia: "El sitio web podría estar bloqueando las peticiones o Cloudflare está activo. Intenta de nuevo más tarde."
+    });
+  }
+});
+
+// === CANALES (fuente: famelack/IPTV-org) ===
+app.get("/canales", async (req, res) => {
+  try {
+    let data = cache.get("canales");
+    
+    if (!data) {
+      console.log("📺 Obteniendo canales desde IPTV-org (fuente famelack) - caché vacío...");
+      data = await scrapCanales();
+      if (data.success) {
+        cache.set("canales", data, 3600); // Cache 1 hora
+      }
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /canales:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los canales",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/canales/pais/:codigo", async (req, res) => {
+  try {
+    const codigo = req.params.codigo;
+    const cacheKey = `canales_pais_${codigo.toLowerCase()}`;
+    let data = cache.get(cacheKey);
+    
+    if (!data) {
+      data = await scrapCanalesPorPais(codigo);
+      if (data.success) {
+        cache.set(cacheKey, data, 3600);
+      }
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /canales/pais:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los canales del país",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/canales/categoria/:categoria", async (req, res) => {
+  try {
+    const categoria = req.params.categoria;
+    const cacheKey = `canales_cat_${categoria.toLowerCase()}`;
+    let data = cache.get(cacheKey);
+    
+    if (!data) {
+      data = await scrapCanalesPorCategoria(categoria);
+      if (data.success) {
+        cache.set(cacheKey, data, 3600);
+      }
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /canales/categoria:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los canales de la categoría",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/canales/deportes", async (req, res) => {
+  try {
+    let data = cache.get("canales_deportes");
+    
+    if (!data) {
+      data = await scrapCanalesDeportes();
+      if (data.success) {
+        cache.set("canales_deportes", data, 3600);
+      }
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /canales/deportes:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los canales deportivos",
+      detalles: error.message 
     });
   }
 });
