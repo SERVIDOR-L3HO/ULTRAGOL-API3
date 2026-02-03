@@ -26,7 +26,7 @@ The project is built on Node.js 20 with Express 4.21, emphasizing high performan
 *   **Endpoint Design:** Offers 50+ operational endpoints across 6 leagues, including detailed calendar endpoints with live countdowns, unified endpoints for all leagues, and comprehensive real-time statistics endpoints.
 *   **Statistics System:** Real-time match statistics from ESPN API including team-level stats (possession, shots, passes, cards, fouls, corners) and player-level stats, with support for live matches, finished matches, and historical data via date parameter.
 *   **Video Integration:** Dedicated endpoints scrape YouTube for Liga MX highlight videos and "Mejores Momentos" for all 5 European leagues, categorizing and caching content.
-*   **Transmisiones System with Team Logos:** Comprehensive sports streaming system aggregating live broadcasts from five independent sources, featuring automatic team logo extraction, country flags, base64 link decoding, proxy URL generation, and multi-channel support. The latest iteration uses a WordPress API for structured event data with replay and platform compatibility.
+*   **Transmisiones System with Team Logos:** Comprehensive sports streaming system aggregating live broadcasts from five independent sources, featuring automatic team logo extraction, country flags, base64 link decoding, proxy URL generation, and multi-channel support. The latest iteration uses a WordPress API for structured event data with replay and platform compatibility. Includes sources like l1l1.link.
 *   **Secure Authentication System:** Session-based authentication using Express.js with bcrypt password hashing, rate limiting, CSRF protection, and HTTP-only secure cookies. Includes an admin panel with automatic timeout and security headers.
 *   **Full Article Content Extraction:** News endpoints extract and return complete article text from various sources, with intelligent parsing.
 *   **Latin American Coverage:** Integration with ESPN API provides comprehensive data for 13 Latin American leagues and tournaments, including matches, standings, and team info, featuring intelligent caching and parallel requests.
@@ -64,4 +64,4 @@ The project is built on Node.js 20 with Express 4.21, emphasizing high performan
 *   **express-rate-limit:** Rate limiting middleware.
 *   **helmet:** Security middleware.
 *   **crypto-js:** Cryptographic utility library.
-*   **ESPN, Mediotiempo, BBC Sport, FlashScore, TheSportsDB, Soccerway, rereyano.ru, dp.mycraft.click, e1link.link, ftvhd.com, donromans.com:** Primary data and streaming sources.
+*   **ESPN, Mediotiempo, BBC Sport, FlashScore, TheSportsDB, Soccerway, rereyano.ru, dp.mycraft.click, l1l1.link, ftvhd.com, donromans.com:** Primary data and streaming sources.

@@ -492,7 +492,7 @@ app.get("/api", (req, res) => {
       },
       transmisiones3: {
         endpoint: "/transmisiones3",
-        descripcion: "Transmisiones deportivas de e1link.link - Fuente alternativa con HOCKEY, FOOTBALL/SOCCER, BASKETBALL, AMERICAN FOOTBALL, MOTORSPORT. Incluye canal, ID y enlaces directos"
+        descripcion: "Transmisiones deportivas de l1l1.link - Fuente alternativa con HOCKEY, FOOTBALL/SOCCER, BASKETBALL, AMERICAN FOOTBALL, MOTORSPORT. Incluye canal, ID y enlaces directos"
       },
       transmisiones4: {
         endpoint: "/transmisiones4",

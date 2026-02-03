@@ -6,7 +6,7 @@ const GLZ_PROXY = "https://ultragol-api-3.vercel.app/ultragol-l3ho?get=";
 
 async function scrapTransmisiones3() {
   try {
-    const url = "https://e1link.link/";
+    const url = "https://l1l1.link/";
     
     let html = null;
     let lastError = null;
@@ -101,7 +101,7 @@ async function scrapTransmisiones3() {
           
           $details.find('input[value^="https://"]').each((i, input) => {
             const enlace = $(input).attr('value');
-            if (enlace && enlace.includes('e1link.link')) {
+            if (enlace && (enlace.includes('e1link.link') || enlace.includes('l1l1.link'))) {
               enlaces.push(enlace);
             }
           });
@@ -161,13 +161,13 @@ async function scrapTransmisiones3() {
       deportes[t.deporte]++;
     });
     
-    console.log(`📺 Transmisiones3 (e1link.link) procesadas: ${transmisiones.length}`);
+    console.log(`📺 Transmisiones3 (l1l1.link) procesadas: ${transmisiones.length}`);
     console.log(`🏆 Deportes disponibles: ${Object.keys(deportes).join(", ")}`);
     
     return {
       total: transmisiones.length,
       actualizado: new Date().toISOString(),
-      fuente: "e1link.link",
+      fuente: "l1l1.link",
       deportes: deportes,
       deportesDisponibles: Object.keys(deportes),
       transmisiones: transmisiones
@@ -177,12 +177,12 @@ async function scrapTransmisiones3() {
     console.error("❌ Error en scrapTransmisiones3:", error.message);
     
     if (error.message.includes("403") || error.message.includes("Acceso bloqueado")) {
-      console.log("⚠️ El sitio e1link.link está bloqueando las peticiones desde este servidor");
+      console.log("⚠️ El sitio l1l1.link está bloqueando las peticiones desde este servidor");
       
       return {
         total: 0,
         actualizado: new Date().toISOString(),
-        fuente: "e1link.link",
+        fuente: "l1l1.link",
         error: "Acceso bloqueado por el sitio web. El sitio está bloqueando peticiones desde servidores de hosting.",
         sugerencia: "Los datos se cachean por 30 minutos cuando están disponibles.",
         deportes: {},
@@ -191,7 +191,7 @@ async function scrapTransmisiones3() {
       };
     }
     
-    throw new Error(`No se pudieron obtener las transmisiones de e1link.link: ${error.message}`);
+    throw new Error(`No se pudieron obtener las transmisiones de l1l1.link: ${error.message}`);
   }
 }
 
