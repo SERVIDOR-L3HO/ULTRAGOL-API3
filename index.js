@@ -2405,6 +2405,14 @@ app.get("/api/l3ho-links", async (req, res) => {
   res.setHeader('Content-Security-Policy', "frame-ancestors *");
   
   try {
+    const cacheKey = "l3ho_links_api";
+    let cachedData = cache.get(cacheKey);
+    
+    if (cachedData) {
+      console.log("💾 Usando cache para L3HO Links");
+      return res.json(cachedData);
+    }
+
     console.log("📡 Recopilando todos los links de transmisiones...");
     
     const [trans1, trans2, trans3, trans4, trans5, trans6] = await Promise.all([
@@ -2534,12 +2542,15 @@ app.get("/api/l3ho-links", async (req, res) => {
     
     console.log(`✅ L3HO Links: ${allLinks.length} links unicos recopilados`);
     
-    res.json({
+    const responseData = {
       success: true,
       total: allLinks.length,
       actualizado: new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" }),
       links: allLinks
-    });
+    };
+    
+    cache.set(cacheKey, responseData, 60 * 5); // Cache por 5 minutos
+    res.json(responseData);
   } catch (error) {
     console.error("Error en /api/l3ho-links:", error.message);
     res.status(500).json({ 
