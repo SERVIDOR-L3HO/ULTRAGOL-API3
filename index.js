@@ -135,7 +135,7 @@ app.use(logAccess);
 app.use('/attached_assets', express.static(path.join(__dirname, 'attached_assets')));
 app.use('/public', express.static(path.join(__dirname, 'public'), {
   setHeaders: (res) => {
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
   }
 }));
 

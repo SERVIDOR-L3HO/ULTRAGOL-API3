@@ -53,6 +53,8 @@ body {
         linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
     background-size: 50px 50px;
     z-index: -2;
+    pointer-events: none;
+    will-change: transform;
 }
 
 .floating-particles {
@@ -64,6 +66,7 @@ body {
     z-index: -1;
     overflow: hidden;
     pointer-events: none;
+    display: none; /* Desactivado para mejorar rendimiento */
 }
 
 .particle {
