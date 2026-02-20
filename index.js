@@ -1358,27 +1358,45 @@ app.get("/transmisiones4", async (req, res) => {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Transmisiones Deportivas - Sportsonline</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/all.min.css" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
         <style>
-            body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; }
-            .container { max-width: 1000px; margin: 0 auto; }
-            .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #334155; padding-bottom: 20px; }
-            .event-card { background: #1e293b; border-radius: 12px; margin-bottom: 15px; padding: 20px; border-left: 5px solid #3b82f6; transition: transform 0.2s; }
-            .event-card:hover { transform: translateY(-3px); background: #334155; }
-            .time { color: #3b82f6; font-weight: bold; font-size: 1.2em; min-width: 80px; }
-            .event-name { font-size: 1.1em; margin-left: 20px; flex-grow: 1; }
-            .btn-watch { background-color: #3b82f6; color: white; text-decoration: none; padding: 8px 20px; border-radius: 8px; font-weight: 600; float: right; }
-            .btn-watch:hover { background-color: #2563eb; color: white; }
-            .flex-container { display: flex; align-items: center; }
-            .logo { width: 30px; height: 30px; margin-right: 10px; object-fit: contain; }
-            .day-header { background: #3b82f6; padding: 5px 15px; border-radius: 20px; display: inline-block; margin: 20px 0 10px; font-size: 0.9em; font-weight: bold; }
+            body { background-color: #020617; color: #f8fafc; font-family: 'Inter', system-ui, -apple-system, sans-serif; padding: 20px; line-height: 1.5; }
+            .container { max-width: 900px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 40px; padding: 40px 20px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 24px; border: 1px solid #334155; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); }
+            .header h1 { font-weight: 800; letter-spacing: -0.025em; margin-bottom: 12px; background: linear-gradient(to right, #60a5fa, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+            .header p { color: #94a3b8; font-size: 0.95rem; margin: 0; }
+            
+            .day-header { background: rgba(59, 130, 246, 0.1); color: #60a5fa; padding: 8px 20px; border-radius: 99px; display: inline-block; margin: 32px 0 16px; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid rgba(59, 130, 246, 0.2); }
+            
+            .event-card { background: #1e293b; border-radius: 20px; margin-bottom: 12px; padding: 20px; border: 1px solid #334155; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; gap: 20px; }
+            .event-card:hover { transform: scale(1.02); background: #2d3748; border-color: #475569; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); }
+            
+            .time-box { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 85px; padding: 10px; background: #0f172a; border-radius: 16px; border: 1px solid #334155; }
+            .time-box .time { color: #60a5fa; font-weight: 700; font-size: 1.1rem; }
+            .time-box .label { font-size: 0.65rem; color: #64748b; text-transform: uppercase; font-weight: 600; }
+            
+            .event-content { flex-grow: 1; display: flex; align-items: center; gap: 15px; }
+            .event-name { font-size: 1.1rem; font-weight: 600; color: #f1f5f9; display: flex; align-items: center; gap: 12px; }
+            
+            .logo-wrapper { width: 42px; height: 42px; background: white; border-radius: 12px; display: flex; align-items: center; justify-content: center; padding: 6px; flex-shrink: 0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+            .logo { max-width: 100%; max-height: 100%; object-fit: contain; }
+            
+            .btn-watch { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; text-decoration: none !important; padding: 12px 24px; border-radius: 16px; font-weight: 700; font-size: 0.9rem; transition: all 0.2s; border: none; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3); flex-shrink: 0; }
+            .btn-watch:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4); filter: brightness(1.1); color: white; }
+            
+            @media (max-width: 640px) {
+                .event-card { flex-direction: column; text-align: center; gap: 15px; }
+                .event-content { flex-direction: column; }
+                .btn-watch { width: 100%; }
+                .time-box { width: 100%; }
+            }
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header">
-                <h1>📺 Transmisiones en Vivo</h1>
-                <p>Fuente: Sportsonline.st | Actualizado: ${new Date(data.actualizado).toLocaleString()}</p>
+                <h1>⚽ Transmisiones Deportivas</h1>
+                <p>Señal Premium • Sportsonline.st • ${new Date(data.actualizado).toLocaleDateString()} ${new Date(data.actualizado).toLocaleTimeString()}</p>
             </div>
             
             <div class="events-list">
@@ -1393,15 +1411,18 @@ app.get("/transmisiones4", async (req, res) => {
       
       html += `
                 <div class="event-card">
-                    <div class="flex-container">
-                        <div class="time">${item.hora}</div>
-                        <div class="event-name">
-                            ${item.logo1 ? `<img src="${item.logo1}" class="logo" onerror="this.style.display='none'">` : ''}
-                            ${item.evento}
-                            ${item.logo2 ? `<img src="${item.logo2}" class="logo" onerror="this.style.display='none'">` : ''}
-                        </div>
-                        <a href="${item.canales[0].url}" target="_blank" class="btn-watch">VER AHORA</a>
+                    <div class="time-box">
+                        <span class="time">${item.hora}</span>
+                        <span class="label">EN VIVO</span>
                     </div>
+                    
+                    <div class="event-content">
+                        ${item.logo1 ? `<div class="logo-wrapper"><img src="${item.logo1}" class="logo" alt=""></div>` : ''}
+                        <div class="event-name">${item.evento}</div>
+                        ${item.logo2 ? `<div class="logo-wrapper"><img src="${item.logo2}" class="logo" alt=""></div>` : ''}
+                    </div>
+                    
+                    <a href="${item.canales[0].url}" target="_blank" class="btn-watch">VER AHORA</a>
                 </div>
       `;
     });
