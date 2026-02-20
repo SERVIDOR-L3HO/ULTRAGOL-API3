@@ -1,29 +1,18 @@
 const axios = require("axios");
-const cheerio = require("cheerio");
 const { extraerEquiposYLogos } = require("../utils/logoHelper");
 
 const GLZ_PROXY = "https://ultragol-api-3.vercel.app/ultragol-l3ho?get=";
 
-function decodificarBase64(str) {
-  try {
-    return Buffer.from(str, 'base64').toString('utf-8');
-  } catch (error) {
-    return null;
-  }
-}
-
 async function scrapTransmisiones4() {
   try {
-    const url = "https://pelotaalibre.com/agenda.html";
+    const url = "https://sportsonline.st/prog.txt";
     
     const response = await axios.get(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "es-ES,es;q=0.9",
+        "Accept": "*/*",
         "Cache-Control": "no-cache",
-        "Pragma": "no-cache",
-        "Referer": "https://pelotaalibre.com/"
+        "Pragma": "no-cache"
       },
       timeout: 15000
     });
@@ -32,71 +21,64 @@ async function scrapTransmisiones4() {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    const $ = cheerio.load(response.data);
+    const lines = response.data.split('\n');
     const transmisiones = [];
+    let currentDay = "";
     
-    // El formato de pelotaalibre.com/agenda.html es una lista de partidos
-    // Cada partido es un <li> que contiene el nombre del evento y luego los canales
-    $("ul > li").each((i, el) => {
-      const li = $(el);
-      const textoEvento = li.find("a").first().text().trim();
-      if (!textoEvento) return;
+    // Formato esperado: "HH:MM   Equipo 1 x Equipo 2 | https://url"
+    // O "HH:MM   Evento: Detalle | https://url"
+    
+    for (let line of lines) {
+      line = line.trim();
+      if (!line) continue;
 
-      // Extraer hora del texto (ej: "1:15pm")
-      const horaMatch = textoEvento.match(/(\d{1,2}:\d{2}(?:am|pm))/i);
-      const hora = horaMatch ? horaMatch[0] : "N/A";
-      const evento = textoEvento.replace(hora, "").trim().replace(/\\$/, "").trim();
+      // Detectar día
+      if (["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"].includes(line.toUpperCase())) {
+        currentDay = line;
+        continue;
+      }
 
-      const canales = [];
-      li.find("ul li a").each((j, canalEl) => {
-        const a = $(canalEl);
-        const nombreCanal = a.text().trim().replace(/Calidad.*/, "").trim();
-        const href = a.attr("href") || "";
+      // Buscar patrón de evento con URL
+      const match = line.match(/^(\d{2}:\d{2})\s+(.+?)\s*\|\s*(https?:\/\/\S+)/i);
+      if (match) {
+        const [_, hora, eventoFull, streamUrl] = match;
         
-        // Extraer Base64 del parámetro r=
-        const base64Match = href.match(/[\?&]r=([A-Za-z0-9+/=]+)/);
-        if (base64Match) {
-          const urlDecodificada = decodificarBase64(base64Match[1]);
-          if (urlDecodificada) {
-            canales.push({
-              nombre: nombreCanal,
-              url: GLZ_PROXY + encodeURIComponent(urlDecodificada)
-            });
-          }
-        }
-      });
-
-      if (canales.length > 0) {
+        // Limpiar evento
+        let evento = eventoFull.trim();
+        
         const equiposLogos = extraerEquiposYLogos(evento);
         
         transmisiones.push({
           hora: hora,
-          fecha: new Date().toISOString().split('T')[0],
+          fecha: currentDay || new Date().toISOString().split('T')[0],
           evento: evento,
           equipo1: equiposLogos.equipo1,
           equipo2: equiposLogos.equipo2,
           logo1: equiposLogos.logo1,
           logo2: equiposLogos.logo2,
           pais: "Internacional",
-          canales: canales,
-          totalCanales: canales.length,
-          estado: "En vivo" // Simplificado para Pelota Libre
+          canales: [{
+            nombre: "Opción 1",
+            url: GLZ_PROXY + encodeURIComponent(streamUrl)
+          }],
+          totalCanales: 1,
+          estado: "Programado"
         });
       }
-    });
+    }
 
-    console.log(`📺 Transmisiones4 (pelotaalibre.com) procesadas: ${transmisiones.length}`);
+    console.log(`📺 Transmisiones4 (sportsonline.st) procesadas: ${transmisiones.length}`);
     
     return {
       total: transmisiones.length,
       actualizado: new Date().toISOString(),
-      fuente: "pelotaalibre.com",
+      fuente: "sportsonline.st",
       transmisiones: transmisiones
     };
     
   } catch (error) {
-    console.error("❌ Error en scrapTransmisiones4 (Pelota Libre):", error.message);
-    throw new Error(`No se pudieron obtener las transmisiones de pelotaalibre.com: ${error.message}`);
+    console.error("❌ Error en scrapTransmisiones4 (Sportsonline):", error.message);
+    throw new Error(`No se pudieron obtener las transmisiones de sportsonline.st: ${error.message}`);
   }
 }
 

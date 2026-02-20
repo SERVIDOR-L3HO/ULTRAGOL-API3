@@ -1342,6 +1342,83 @@ app.get("/calendario/todas-las-ligas", async (req, res) => {
   }
 });
 
+app.get("/transmisiones4", async (req, res) => {
+  try {
+    let data = cache.get("transmisiones4");
+    if (!data) {
+      data = await scrapTransmisiones4();
+      cache.set("transmisiones4", data, 600); // Cache por 10 minutos
+    }
+    
+    // Renderizado simple con diseño mejorado
+    let html = `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Transmisiones Deportivas - Sportsonline</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/all.min.css" rel="stylesheet">
+        <style>
+            body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; }
+            .container { max-width: 1000px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #334155; padding-bottom: 20px; }
+            .event-card { background: #1e293b; border-radius: 12px; margin-bottom: 15px; padding: 20px; border-left: 5px solid #3b82f6; transition: transform 0.2s; }
+            .event-card:hover { transform: translateY(-3px); background: #334155; }
+            .time { color: #3b82f6; font-weight: bold; font-size: 1.2em; min-width: 80px; }
+            .event-name { font-size: 1.1em; margin-left: 20px; flex-grow: 1; }
+            .btn-watch { background-color: #3b82f6; color: white; text-decoration: none; padding: 8px 20px; border-radius: 8px; font-weight: 600; float: right; }
+            .btn-watch:hover { background-color: #2563eb; color: white; }
+            .flex-container { display: flex; align-items: center; }
+            .logo { width: 30px; height: 30px; margin-right: 10px; object-fit: contain; }
+            .day-header { background: #3b82f6; padding: 5px 15px; border-radius: 20px; display: inline-block; margin: 20px 0 10px; font-size: 0.9em; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>📺 Transmisiones en Vivo</h1>
+                <p>Fuente: Sportsonline.st | Actualizado: ${new Date(data.actualizado).toLocaleString()}</p>
+            </div>
+            
+            <div class="events-list">
+    `;
+    
+    let currentDay = "";
+    data.transmisiones.forEach(item => {
+      if (item.fecha !== currentDay) {
+        currentDay = item.fecha;
+        html += `<div class="day-header">${currentDay}</div>`;
+      }
+      
+      html += `
+                <div class="event-card">
+                    <div class="flex-container">
+                        <div class="time">${item.hora}</div>
+                        <div class="event-name">
+                            ${item.logo1 ? `<img src="${item.logo1}" class="logo" onerror="this.style.display='none'">` : ''}
+                            ${item.evento}
+                            ${item.logo2 ? `<img src="${item.logo2}" class="logo" onerror="this.style.display='none'">` : ''}
+                        </div>
+                        <a href="${item.canales[0].url}" target="_blank" class="btn-watch">VER AHORA</a>
+                    </div>
+                </div>
+      `;
+    });
+    
+    html += `
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+    
+    res.send(html);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/transmisiones", async (req, res) => {
   try {
     let data = cache.get("transmisiones");
