@@ -178,6 +178,13 @@ async function scrapTransmisiones6() {
                 const channelId = channelMatch[1];
                 finalUrl = `https://bolaloca.my/player/2/${channelId}`;
               }
+            } else if (url.includes('bolaloca.my/player/')) {
+               // Si ya es formato player pero no tiene el /2/
+               const playerMatch = url.match(/\/player\/(\d+)/);
+               if (playerMatch && !url.includes('/player/2/')) {
+                 const channelId = playerMatch[1];
+                 finalUrl = `https://bolaloca.my/player/2/${channelId}`;
+               }
             }
 
             transmisiones.push({
@@ -193,7 +200,7 @@ async function scrapTransmisiones6() {
               equipo2: equiposLogos.equipo2,
               logo1: equiposLogos.logo1,
               logo2: equiposLogos.logo2,
-              url: ULTRAGOL_PROXY + encodeURIComponent(finalUrl),
+              url: ULTRAGOL_PROXY + finalUrl,
               urlOriginal: finalUrl,
               estado: estado,
               fuente: "dp.mycraft.click"
