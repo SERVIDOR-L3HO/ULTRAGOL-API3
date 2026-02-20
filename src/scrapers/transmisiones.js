@@ -190,17 +190,23 @@ async function scrapTransmisiones() {
           const numeroBase = numeroCanal.match(/^(\d+)/)?.[1] || numeroCanal;
           const nombreCanal = canalesInfo[numeroBase] || "Canal desconocido";
           
-          const linkHoca = linksReproduccion.hoca ? `${linksReproduccion.hoca.replace(/\/\d+$/, '')}/${numeroBase}` : null;
-          const linkCaster = linksReproduccion.caster ? `${linksReproduccion.caster.replace(/\/\d+$/, '')}/${numeroBase}` : null;
-          const linkWigi = linksReproduccion.wigi ? `${linksReproduccion.wigi.replace(/\/\d+$/, '')}/${numeroBase}` : null;
+          const getFinalLink = (baseLink, numero) => {
+            if (!baseLink) return null;
+            let link = `${baseLink.replace(/\/\d+$/, '')}/${numero}`;
+            if (link.includes('bolaloca.my')) {
+              // Transformar bolaloca.my/live/ID o bolaloca.my/player/ID a bolaloca.my/player/2/ID
+              link = link.replace(/\/(live|player)\/(\d+)/, '/player/2/$2');
+            }
+            return GLZ_PROXY + link;
+          };
           
           canales.push({
             numero: numeroCanal,
             nombre: nombreCanal,
             links: {
-              hoca: linkHoca ? GLZ_PROXY + encodeURIComponent(linkHoca) : null,
-              caster: linkCaster ? GLZ_PROXY + encodeURIComponent(linkCaster) : null,
-              wigi: linkWigi ? GLZ_PROXY + encodeURIComponent(linkWigi) : null
+              hoca: getFinalLink(linksReproduccion.hoca, numeroBase),
+              caster: getFinalLink(linksReproduccion.caster, numeroBase),
+              wigi: getFinalLink(linksReproduccion.wigi, numeroBase)
             }
           });
         }
