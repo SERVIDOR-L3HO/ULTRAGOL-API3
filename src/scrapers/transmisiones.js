@@ -132,7 +132,30 @@ async function scrapTransmisiones() {
     }
     console.log(`🔗 Links de reproducción: hoca=${!!linksReproduccion.hoca}, caster=${!!linksReproduccion.caster}, wigi=${!!linksReproduccion.wigi}`);
     
-    const lineaRegex = /^(\d{2}-\d{2}-\d{4})\s*\((\d{2}:\d{2})\)\s+(.+?)(\s+\(CH.+)?$/;
+    const lineaRegex = /^(\d{2}-\d{2}-\d{4})\s*\((\d{2}:\d{2})\)\s+(.+?)\s+(\(CH[\d\w]+\).*)$/;
+    
+    // Buscar enlaces de reproducción en el HTML crudo si no están en el textarea
+    if (!linksReproduccion.hoca || !linksReproduccion.caster || !linksReproduccion.wigi) {
+      const htmlLower = html.toLowerCase();
+      
+      if (!linksReproduccion.hoca) {
+        const hocaMatch = html.match(/hoca\s*:\s*(https?:\/\/[^\s<"']+)/i);
+        if (hocaMatch) linksReproduccion.hoca = hocaMatch[1];
+      }
+      if (!linksReproduccion.caster) {
+        const casterMatch = html.match(/caster\s*:\s*(https?:\/\/[^\s<"']+)/i);
+        if (casterMatch) linksReproduccion.caster = casterMatch[1];
+      }
+      if (!linksReproduccion.wigi) {
+        const wigiMatch = html.match(/wigi\s*:\s*(https?:\/\/[^\s<"']+)/i);
+        if (wigiMatch) linksReproduccion.wigi = wigiMatch[1];
+      }
+      
+      // Búsqueda fallback más agresiva
+      if (!linksReproduccion.hoca && html.includes("bolaloca.my")) {
+         linksReproduccion.hoca = "https://bolaloca.my/live";
+      }
+    }
     
     console.log("📅 Obteniendo calendario para corregir fechas...");
     let calendario = null;
