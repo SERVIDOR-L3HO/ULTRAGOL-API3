@@ -170,6 +170,16 @@ async function scrapTransmisiones6() {
             
             const equiposLogos = extraerEquiposYLogos(tituloLimpio);
             
+            // Extraer el ID del canal de la URL original si es de bolaloca
+            let finalUrl = url;
+            if (url.includes('bolaloca.my/live/')) {
+              const channelMatch = url.match(/\/live\/(\d+)/);
+              if (channelMatch) {
+                const channelId = channelMatch[1];
+                finalUrl = `https://bolaloca.my/player/2/${channelId}`;
+              }
+            }
+
             transmisiones.push({
               hora: hora,
               fecha: fechaActual || new Date().toDateString(),
@@ -183,8 +193,8 @@ async function scrapTransmisiones6() {
               equipo2: equiposLogos.equipo2,
               logo1: equiposLogos.logo1,
               logo2: equiposLogos.logo2,
-              url: ULTRAGOL_PROXY + encodeURIComponent(url),
-              urlOriginal: url,
+              url: ULTRAGOL_PROXY + encodeURIComponent(finalUrl),
+              urlOriginal: finalUrl,
               estado: estado,
               fuente: "dp.mycraft.click"
             });
