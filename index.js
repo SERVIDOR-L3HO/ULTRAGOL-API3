@@ -2343,23 +2343,23 @@ app.get("/ultragol-l3ho", (req, res) => {
     }
 
     #logo {
-      width: 200px;
-      max-width: 35vw;
+      width: 80px;
+      max-width: 15vw;
       height: auto;
-      opacity: 0.9;
+      opacity: 0.25;
       transition: opacity 0.3s ease, transform 0.2s ease;
-      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+      filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));
     }
 
     #logo:hover {
-      opacity: 1;
+      opacity: 0.55;
       transform: scale(1.05);
     }
 
     @media (max-width: 600px) {
       #logo {
-        width: 140px;
-        max-width: 30vw;
+        width: 55px;
+        max-width: 12vw;
       }
       #logo-link {
         top: 5px;
@@ -2369,7 +2369,7 @@ app.get("/ultragol-l3ho", (req, res) => {
 
     @media (max-width: 400px) {
       #logo {
-        width: 110px;
+        width: 40px;
       }
     }
   </style>
