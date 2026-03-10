@@ -1,170 +1,143 @@
 const axios = require("axios");
-const { extraerEquiposYLogos } = require("../utils/logoHelper");
 
 const GLZ_PROXY = "https://ultragol-api-3.vercel.app/ultragol-l3ho?get=";
 
-const categoriaMap = {
-  'SOCCER': 'Fútbol',
-  'BASKETBALL': 'Baloncesto',
-  'TENNIS': 'Tenis',
-  'HANDBALL': 'Balonmano',
-  'HOCKEY': 'Hockey',
-  'VOLLEYBALL': 'Voleibol',
-  'BASEBALL': 'Béisbol',
-  'BOXING': 'Boxeo',
-  'MMA': 'MMA',
-  'UFC': 'UFC',
-  'FOOTBALL': 'Fútbol Americano',
-  'RUGBY': 'Rugby',
-  'CRICKET': 'Cricket',
-  'GOLF': 'Golf',
-  'MOTORSPORT': 'Automovilismo',
-  'F1': 'Fórmula 1',
-  'NASCAR': 'NASCAR',
-  'CYCLING': 'Ciclismo',
-  'ESPORTS': 'E-Sports'
+const CATEGORIES_MAP = {
+  4:  'Baloncesto',
+  9:  'Fútbol',
+  13: 'Béisbol',
+  14: 'Fútbol Americano',
+  15: 'Automovilismo',
+  16: 'Hockey',
+  17: 'MMA',
+  18: 'Boxeo',
+  19: 'NCAA',
+  20: 'WWE'
 };
 
-function parseTimeToLocal(timeStr) {
-  if (!timeStr) return { hora: "Por confirmar", estado: "Programado" };
-  
-  const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(?:UTC|GMT)?\s*([+-]?\d{1,2})?/i);
-  if (!match) return { hora: timeStr, estado: "Programado" };
-  
-  const hh = parseInt(match[1], 10);
-  const mm = parseInt(match[2], 10);
-  const offset = match[3] ? parseInt(match[3], 10) : 0;
-  
+const API_BASE = "https://backend.streamcenter.live/api";
+const HEADERS = {
+  "Accept": "application/json",
+  "Origin": "https://streamcenter.live",
+  "Referer": "https://streamcenter.live/",
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+};
+
+function parseBeginPartie(isoStr) {
+  if (!isoStr) return { hora: "Por confirmar", estado: "Programado" };
+
+  const eventDate = new Date(isoStr + "Z");
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  
-  const utcHour = hh - offset;
-  const eventUtcMs = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate(), utcHour, mm);
-  const eventDate = new Date(eventUtcMs);
-  
   const diffMs = eventDate.getTime() - now.getTime();
   const diffMins = diffMs / (1000 * 60);
-  
+
   let estado = "Programado";
   if (diffMins <= 0 && diffMins > -180) {
     estado = "En vivo";
   } else if (diffMins > 0 && diffMins <= 30) {
     estado = "Por comenzar";
   }
-  
-  const horaLocal = eventDate.toLocaleTimeString('es-MX', { 
-    hour: '2-digit', 
+
+  const hora = eventDate.toLocaleTimeString('es-MX', {
+    hour: '2-digit',
     minute: '2-digit',
-    hour12: true 
+    hour12: true,
+    timeZone: 'America/Mexico_City'
   });
-  
-  return { hora: horaLocal, estado: estado };
+
+  return { hora, estado };
+}
+
+function parseTeamsFromName(name) {
+  const separadores = [' vs ', ' vs. ', ' - ', ' x ', ' @ '];
+  for (const sep of separadores) {
+    if (name.includes(sep)) {
+      const parts = name.split(sep);
+      return { equipo1: parts[0].trim(), equipo2: parts[1].trim() };
+    }
+  }
+  return { equipo1: name, equipo2: '' };
+}
+
+function parseVideoUrl(rawUrl) {
+  if (!rawUrl) return null;
+  const angleBracket = rawUrl.indexOf('<');
+  if (angleBracket !== -1) {
+    return rawUrl.substring(0, angleBracket).trim();
+  }
+  return rawUrl.trim();
 }
 
 async function scrapTransmisiones2() {
   try {
-    const jsonUrl = "https://locotv1993.github.io/player/voodc.json";
-    
-    let data = null;
-    let lastError = null;
-    
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const response = await axios.get(jsonUrl, {
-          headers: {
-            "Accept": "application/json",
-            "Cache-Control": "no-cache"
-          },
-          timeout: 15000
-        });
-        
-        if (response.status === 200 && response.data) {
-          data = response.data;
-          break;
-        }
-      } catch (error) {
-        lastError = error;
-        if (attempt < 3) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-        }
-      }
+    const response = await axios.get(`${API_BASE}/Parties?pageNumber=1&pageSize=500`, {
+      headers: HEADERS,
+      timeout: 20000
+    });
+
+    if (!response.data || !Array.isArray(response.data)) {
+      throw new Error("Respuesta inesperada de la API de streamcenter.live");
     }
-    
-    if (!data || !data.events) {
-      throw lastError || new Error("No se pudo obtener los eventos del JSON");
-    }
-    
+
+    const events = response.data;
     const transmisiones = [];
-    const events = Array.isArray(data.events) ? data.events : [];
-    
+    const deportes = {};
+
     events.forEach((event, index) => {
       try {
-        const { time, category, info, title, url } = event;
-        
-        if (!title || !url) return;
-        
-        const { hora, estado } = parseTimeToLocal(time);
-        
-        const deporte = categoriaMap[category?.toUpperCase()] || category || 'Deportes';
-        
-        const liga = info || 'N/A';
-        
-        let tituloLimpio = title
-          .replace(/\[english\]/i, '(EN)')
-          .replace(/\[spanish\]/i, '(ES)')
-          .replace(/\[.*?\]/g, '')
-          .trim();
-        
-        const equiposLogos = extraerEquiposYLogos(tituloLimpio);
-        
+        const { id, name, categoryId, logoTeam1, logoTeam2, videoUrl, beginPartie } = event;
+
+        if (!name || !videoUrl) return;
+
+        const streamUrl = parseVideoUrl(videoUrl);
+        if (!streamUrl) return;
+
+        const deporte = CATEGORIES_MAP[categoryId] || 'Deportes';
+        const { hora, estado } = parseBeginPartie(beginPartie);
+        const { equipo1, equipo2 } = parseTeamsFromName(name);
+
+        if (!deportes[deporte]) deportes[deporte] = 0;
+        deportes[deporte]++;
+
         transmisiones.push({
-          hora: hora,
-          deporte: deporte,
-          info: liga,
-          liga: liga,
-          titulo: tituloLimpio,
-          evento: tituloLimpio,
-          equipo1: equiposLogos.equipo1,
-          equipo2: equiposLogos.equipo2,
-          logo1: equiposLogos.logo1,
-          logo2: equiposLogos.logo2,
-          url: GLZ_PROXY + encodeURIComponent(url),
-          urlOriginal: url,
-          estado: estado
+          hora,
+          deporte,
+          info: deporte,
+          liga: deporte,
+          titulo: name,
+          evento: name,
+          equipo1,
+          equipo2,
+          logo1: logoTeam1 || null,
+          logo2: logoTeam2 || null,
+          url: GLZ_PROXY + encodeURIComponent(streamUrl),
+          urlOriginal: streamUrl,
+          estado,
+          id
         });
       } catch (err) {
         console.error(`Error procesando evento ${index}:`, err.message);
       }
     });
-    
-    const deportes = {};
-    transmisiones.forEach(t => {
-      if (!deportes[t.deporte]) {
-        deportes[t.deporte] = 0;
-      }
-      deportes[t.deporte]++;
-    });
-    
-    console.log(`📺 Transmisiones2 procesadas: ${transmisiones.length}`);
+
+    console.log(`📺 Transmisiones2 (streamcenter.live) procesadas: ${transmisiones.length}`);
     console.log(`🏆 Deportes disponibles: ${Object.keys(deportes).join(", ")}`);
-    
+
     return {
       total: transmisiones.length,
       actualizado: new Date().toISOString(),
-      fuente: "supereventos2025.blogspot.com",
-      fuenteJson: "locotv1993.github.io",
-      deportes: deportes,
+      fuente: "streamcenter.live",
+      deportes,
       deportesDisponibles: Object.keys(deportes),
-      transmisiones: transmisiones
+      transmisiones
     };
-    
+
   } catch (error) {
-    console.error("❌ Error en scrapTransmisiones2:", error.message);
-    
+    console.error("❌ Error en scrapTransmisiones2 (streamcenter.live):", error.message);
     return {
       total: 0,
       actualizado: new Date().toISOString(),
-      fuente: "supereventos2025.blogspot.com",
+      fuente: "streamcenter.live",
       error: `Error obteniendo transmisiones: ${error.message}`,
       deportes: {},
       deportesDisponibles: [],
