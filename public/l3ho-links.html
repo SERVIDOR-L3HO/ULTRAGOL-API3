@@ -815,9 +815,43 @@
             }
         }
 
+        .mobile-search {
+            display: none;
+            padding: 10px 16px;
+            background: rgba(8,8,9,0.95);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .mobile-search input {
+            width: 100%;
+            padding: 10px 16px 10px 40px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .mobile-search input:focus { outline: none; border-color: var(--border-orange); }
+        .mobile-search input::placeholder { color: var(--text-3); }
+
+        .mobile-search-wrap { position: relative; }
+
+        .mobile-search-icon {
+            position: absolute;
+            left: 13px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-3);
+            font-size: 14px;
+            pointer-events: none;
+        }
+
         @media (max-width: 480px) {
             .header-search { display: none; }
             .live-count span:last-child { display: none; }
+            .mobile-search { display: block; }
         }
     </style>
 </head>
@@ -845,6 +879,14 @@
         </div>
     </div>
 </header>
+
+<!-- MOBILE SEARCH -->
+<div class="mobile-search">
+    <div class="mobile-search-wrap">
+        <span class="mobile-search-icon">&#9906;</span>
+        <input type="text" id="mobile-search-input" placeholder="Buscar evento, equipo o liga...">
+    </div>
+</div>
 
 <!-- LAYOUT -->
 <div class="layout">
@@ -1386,7 +1428,16 @@
         document.getElementById('sidebar-blocks').classList.add('open');
     }
 
-    document.getElementById('search-input').addEventListener('input', () => applyFilters());
+    document.getElementById('search-input').addEventListener('input', (e) => {
+        const mobileInput = document.getElementById('mobile-search-input');
+        if (mobileInput) mobileInput.value = e.target.value;
+        applyFilters();
+    });
+
+    document.getElementById('mobile-search-input').addEventListener('input', (e) => {
+        document.getElementById('search-input').value = e.target.value;
+        applyFilters();
+    });
 
     loadData();
 </script>
