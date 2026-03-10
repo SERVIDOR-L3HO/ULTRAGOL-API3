@@ -2440,7 +2440,7 @@ app.get("/api/l3ho-links", async (req, res) => {
     const allLinks = [];
     const seenUrls = new Set();
     
-    const addLink = (name, url, source) => {
+    const addLink = (name, url, source, logo1 = null, logo2 = null, deporte = null, estado = null, hora = null) => {
       if (!url || !name) return;
       const cleanUrl = url.trim();
       if (seenUrls.has(cleanUrl)) return;
@@ -2448,7 +2448,12 @@ app.get("/api/l3ho-links", async (req, res) => {
       allLinks.push({
         name: name.trim(),
         url: cleanUrl,
-        source: source
+        source: source,
+        logo1: logo1 || null,
+        logo2: logo2 || null,
+        deporte: deporte || null,
+        estado: estado || null,
+        hora: hora || null
       });
     };
     
@@ -2471,7 +2476,7 @@ app.get("/api/l3ho-links", async (req, res) => {
       trans2.transmisiones.forEach(t => {
         if (t.url) {
           const nombre = t.evento || t.titulo || t.liga || "Transmision";
-          addLink(nombre, t.url, "Mycraft");
+          addLink(nombre, t.url, "StreamCenter", t.logo1, t.logo2, t.deporte, t.estado, t.hora);
         }
       });
     }
@@ -2495,13 +2500,13 @@ app.get("/api/l3ho-links", async (req, res) => {
       trans4.transmisiones.forEach(t => {
         if (t.enlace || t.url) {
           const nombre = t.evento || t.equipos || t.canal || "Transmision";
-          addLink(nombre, t.enlace || t.url, "FTVHD");
+          addLink(nombre, t.enlace || t.url, "SportOnline", t.logo1, t.logo2, t.deporte || t.pais, t.estado, t.hora);
         }
         if (t.canales && Array.isArray(t.canales)) {
           t.canales.forEach(canal => {
             if (canal.enlace || canal.url) {
               const nombre = `${t.evento || t.equipos || "Transmision"} - ${canal.nombre || canal.canal || "Canal"}`;
-              addLink(nombre, canal.enlace || canal.url, "FTVHD");
+              addLink(nombre, canal.enlace || canal.url, "SportOnline", t.logo1, t.logo2, t.deporte || t.pais, t.estado, t.hora);
             }
           });
         }
@@ -2517,15 +2522,18 @@ app.get("/api/l3ho-links", async (req, res) => {
                 linkGroup.data.forEach((link, i) => {
                   if (typeof link === 'string') {
                     const nombre = `${match.title || "Transmision"} - ${linkGroup.type || ""} ${i + 1}`;
-                    addLink(nombre, link, "DonRomans");
+                    addLink(nombre, link, "DonRomans", null, null, match.league, null, match.hour);
+                  } else if (link && link.match_url) {
+                    const nombre = `${match.title || "Transmision"} - ${link.stream_source || linkGroup.type || ""} ${i + 1}`;
+                    addLink(nombre, link.match_url, "DonRomans", null, null, match.league, null, match.hour);
                   } else if (link && link.url) {
                     const nombre = `${match.title || "Transmision"} - ${link.name || linkGroup.type || ""} ${i + 1}`;
-                    addLink(nombre, link.url, "DonRomans");
+                    addLink(nombre, link.url, "DonRomans", null, null, match.league, null, match.hour);
                   } else if (link && typeof link === 'object') {
                     Object.values(link).forEach((v, j) => {
                       if (typeof v === 'string' && v.startsWith('http')) {
                         const nombre = `${match.title || "Transmision"} - ${linkGroup.type || ""} ${i + 1}.${j + 1}`;
-                        addLink(nombre, v, "DonRomans");
+                        addLink(nombre, v, "DonRomans", null, null, match.league, null, match.hour);
                       }
                     });
                   }
@@ -2534,12 +2542,12 @@ app.get("/api/l3ho-links", async (req, res) => {
                 Object.entries(linkGroup.data).forEach(([key, value]) => {
                   if (typeof value === 'string' && value.startsWith('http')) {
                     const nombre = `${match.title || "Transmision"} - ${key}`;
-                    addLink(nombre, value, "DonRomans");
+                    addLink(nombre, value, "DonRomans", null, null, match.league, null, match.hour);
                   } else if (Array.isArray(value)) {
                     value.forEach((v, i) => {
                       if (typeof v === 'string' && v.startsWith('http')) {
                         const nombre = `${match.title || "Transmision"} - ${key} ${i + 1}`;
-                        addLink(nombre, v, "DonRomans");
+                        addLink(nombre, v, "DonRomans", null, null, match.league, null, match.hour);
                       }
                     });
                   }
