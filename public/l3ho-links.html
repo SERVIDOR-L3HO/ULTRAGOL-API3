@@ -1161,15 +1161,18 @@
 
     function matchesSearch(link, q) {
         if (!q) return true;
-        return (link.name + ' ' + (link.source || '') + ' ' + (link.deporte || '')).toLowerCase().includes(q);
+        const hay = [link.name, link.source, link.deporte, link.league, link.team1, link.team2]
+            .filter(Boolean).join(' ').toLowerCase();
+        return q.split(' ').every(word => hay.includes(word));
     }
 
     function applyFilters() {
-        const q = document.getElementById('search-input').value.toLowerCase().trim();
+        const rawQ = document.getElementById('search-input').value.trim();
+        const q = rawQ.toLowerCase();
         const sort = document.getElementById('sort-select').value;
 
         let filtered = allLinks.filter(l =>
-            matchesSport(l) && matchesEstado(l) && matchesSource(l) && matchesSearch(l, q)
+            matchesSport(l) && (rawQ ? true : matchesEstado(l)) && matchesSource(l) && matchesSearch(l, q)
         );
 
         if (sort === 'source') {
