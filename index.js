@@ -2438,15 +2438,18 @@ app.get("/api/l3ho-links", async (req, res) => {
     ]);
     
     const allLinks = [];
-    const seenUrls = new Set();
+    const seenKeys = new Set();
     
     const addLink = (name, url, source, logo1 = null, logo2 = null, deporte = null, estado = null, hora = null) => {
       if (!url || !name) return;
       const cleanUrl = url.trim();
-      if (seenUrls.has(cleanUrl)) return;
-      seenUrls.add(cleanUrl);
+      const cleanName = name.trim();
+      // Deduplicate by name+url so generic shared player URLs don't block different events
+      const key = cleanName + '|' + cleanUrl;
+      if (seenKeys.has(key)) return;
+      seenKeys.add(key);
       allLinks.push({
-        name: name.trim(),
+        name: cleanName,
         url: cleanUrl,
         source: source,
         logo1: logo1 || null,
