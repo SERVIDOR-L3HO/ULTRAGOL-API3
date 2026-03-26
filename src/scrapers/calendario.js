@@ -1,12 +1,11 @@
-const cheerio = require("cheerio");
-const { fetchWithRetry } = require("../utils/scraper");
+const axios = require("axios");
 
-function calcularContador(fechaPartido) {
+function calcularContador(fechaISO) {
   const ahora = new Date();
-  const partido = new Date(fechaPartido);
+  const partido = new Date(fechaISO);
   const diferencia = partido - ahora;
 
-  if (diferencia < 0) {
+  if (diferencia <= 0) {
     return {
       dias: 0,
       horas: 0,
@@ -30,110 +29,120 @@ function calcularContador(fechaPartido) {
   };
 }
 
+function mapearEstado(statusName) {
+  const estados = {
+    'STATUS_SCHEDULED': 'Programado',
+    'STATUS_IN_PROGRESS': 'En vivo',
+    'STATUS_FIRST_HALF': 'Primer tiempo',
+    'STATUS_HALFTIME': 'Medio tiempo',
+    'STATUS_SECOND_HALF': 'Segundo tiempo',
+    'STATUS_END_PERIOD': 'Fin de período',
+    'STATUS_FULL_TIME': 'Finalizado',
+    'STATUS_FINAL': 'Finalizado',
+    'STATUS_POSTPONED': 'Pospuesto',
+    'STATUS_CANCELED': 'Cancelado',
+    'STATUS_SUSPENDED': 'Suspendido'
+  };
+  return estados[statusName] || statusName;
+}
+
 async function scrapCalendario() {
   try {
-    const url = "https://www.mediotiempo.com/futbol/liga-mx/calendario";
-    const html = await fetchWithRetry(url);
-    const $ = cheerio.load(html);
-    
-    const partidos = [];
-    
-    $("table tbody tr").each((i, row) => {
-      try {
-        const cells = $(row).find("td");
-        if (cells.length < 2) return;
-        
-        const fechaHoraText = $(cells[0]).text().trim();
-        const partidoCell = $(cells[1]);
-        
-        const equipoLocalElement = $(partidoCell).find("img").first();
-        const equipoVisitanteElement = $(partidoCell).find("img").last();
-        
-        const equipoLocal = equipoLocalElement.attr("alt") || "";
-        const escudoLocal = equipoLocalElement.attr("src") || null;
-        
-        const equipoVisitante = equipoVisitanteElement.attr("alt") || "";
-        const escudoVisitante = equipoVisitanteElement.attr("src") || null;
-        
-        const enlacePartido = $(partidoCell).find("a").attr("href") || null;
-        const estatusText = $(cells[2]).text().trim();
-        
-        if (!equipoLocal || !equipoVisitante || !fechaHoraText) return;
-        
-        const fechaHoraParts = fechaHoraText.split(/\s+/);
-        if (fechaHoraParts.length < 3) return;
-        
-        const dia = fechaHoraParts[0];
-        const mesAbreviado = fechaHoraParts[1].replace('.', '');
-        const hora24 = fechaHoraParts[2];
-        
-        const meses = {
-          'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3,
-          'may': 4, 'jun': 5, 'jul': 6, 'ago': 7,
-          'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
+    const ahora = new Date();
+    const inicioTemporada = '20260101';
+    const finTemporada = '20260701';
+
+    const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard`;
+    const response = await axios.get(url, {
+      params: {
+        limit: 200,
+        dates: `${inicioTemporada}-${finTemporada}`
+      },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json'
+      },
+      timeout: 10000
+    });
+
+    const data = response.data;
+    const eventos = data.events || [];
+
+    const partidos = eventos.map(event => {
+      const competition = event.competitions[0];
+      const homeTeam = competition.competitors.find(c => c.homeAway === 'home') || competition.competitors[0];
+      const awayTeam = competition.competitors.find(c => c.homeAway === 'away') || competition.competitors[1];
+
+      const statusName = event.status?.type?.name || 'STATUS_SCHEDULED';
+      const esEnVivo = ['STATUS_IN_PROGRESS', 'STATUS_FIRST_HALF', 'STATUS_HALFTIME', 'STATUS_SECOND_HALF', 'STATUS_END_PERIOD'].includes(statusName);
+      const esFinalizado = ['STATUS_FULL_TIME', 'STATUS_FINAL'].includes(statusName);
+
+      let resultado = null;
+      if (esFinalizado || esEnVivo) {
+        const golesLocal = parseInt(homeTeam.score || '0');
+        const golesVisitante = parseInt(awayTeam.score || '0');
+        resultado = {
+          local: golesLocal,
+          visitante: golesVisitante,
+          ganador: golesLocal > golesVisitante ? 'local' :
+                   golesVisitante > golesLocal ? 'visitante' : 'empate'
         };
-        
-        const mes = meses[mesAbreviado.toLowerCase()];
-        if (mes === undefined) return;
-        
-        const ahora = new Date();
-        const año = ahora.getFullYear();
-        
-        const [horas, minutos] = hora24.split(':').map(n => parseInt(n));
-        const fechaPartido = new Date(año, mes, parseInt(dia), horas, minutos, 0);
-        
-        const contador = calcularContador(fechaPartido);
-        
-        let estado = "Programado";
-        let resultado = null;
-        
-        if (estatusText && estatusText.match(/\d+\s*-\s*\d+/)) {
-          estado = "Finalizado";
-          const resultadoMatch = estatusText.match(/(\d+)\s*-\s*\d+/);
-          if (resultadoMatch) {
-            const [golesLocal, golesVisitante] = estatusText.split('-').map(g => parseInt(g.trim()));
-            resultado = {
-              local: golesLocal,
-              visitante: golesVisitante,
-              ganador: golesLocal > golesVisitante ? 'local' : 
-                       golesVisitante > golesLocal ? 'visitante' : 'empate'
-            };
-          }
-        }
-        
-        const partido = {
-          jornada: null,
-          equipoLocal: {
-            nombre: equipoLocal,
-            escudo: escudoLocal,
-            enlace: null
-          },
-          equipoVisitante: {
-            nombre: equipoVisitante,
-            escudo: escudoVisitante,
-            enlace: null
-          },
-          fecha: `${dia} de ${Object.keys(meses).find(key => meses[key] === mes)}`,
-          hora: hora24,
-          fechaCompleta: fechaPartido.toLocaleString("es-MX", { 
-            timeZone: "America/Mexico_City",
-            dateStyle: "full",
-            timeStyle: "short"
-          }),
-          fechaISO: fechaPartido.toISOString(),
-          contador: contador,
-          estado: estado,
-          resultado: resultado,
-          estadio: "Por confirmar",
-          canalesTV: "Por confirmar",
-          apuestas: null,
-          enlacePartido: enlacePartido ? `https://www.mediotiempo.com${enlacePartido}` : null
-        };
-        
-        partidos.push(partido);
-      } catch (error) {
-        console.error(`Error procesando partido en fila ${i}:`, error.message);
       }
+
+      const canalesTV = (competition.broadcasts || [])
+        .flatMap(b => b.names || [])
+        .join(', ') || 'Por confirmar';
+
+      const fechaLocal = new Date(event.date).toLocaleString('es-MX', {
+        timeZone: 'America/Mexico_City',
+        dateStyle: 'full',
+        timeStyle: 'short'
+      });
+
+      const horaLocal = new Date(event.date).toLocaleString('es-MX', {
+        timeZone: 'America/Mexico_City',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+
+      const fechaCorta = new Date(event.date).toLocaleDateString('es-MX', {
+        timeZone: 'America/Mexico_City',
+        day: 'numeric',
+        month: 'short'
+      });
+
+      return {
+        id: event.id,
+        jornada: competition.week?.number || null,
+        equipoLocal: {
+          nombre: homeTeam.team.displayName,
+          abreviacion: homeTeam.team.abbreviation,
+          escudo: homeTeam.team.logo || null,
+          color: homeTeam.team.color ? `#${homeTeam.team.color}` : null,
+          record: homeTeam.records?.[0]?.summary || null
+        },
+        equipoVisitante: {
+          nombre: awayTeam.team.displayName,
+          abreviacion: awayTeam.team.abbreviation,
+          escudo: awayTeam.team.logo || null,
+          color: awayTeam.team.color ? `#${awayTeam.team.color}` : null,
+          record: awayTeam.records?.[0]?.summary || null
+        },
+        fecha: fechaCorta,
+        hora: horaLocal,
+        fechaCompleta: fechaLocal,
+        fechaISO: event.date,
+        contador: calcularContador(event.date),
+        estado: mapearEstado(statusName),
+        estadoTipo: statusName,
+        esEnVivo,
+        resultado,
+        estadio: competition.venue?.fullName || 'Por confirmar',
+        ciudad: competition.venue?.address?.city || null,
+        canalesTV,
+        fuente: 'ESPN'
+      };
     });
 
     return {
@@ -142,7 +151,7 @@ async function scrapCalendario() {
       jornadasTotales: 17,
       liga: "Liga MX",
       pais: "México",
-      fuente: "Mediotiempo",
+      fuente: "ESPN",
       calendario: partidos
     };
   } catch (error) {
