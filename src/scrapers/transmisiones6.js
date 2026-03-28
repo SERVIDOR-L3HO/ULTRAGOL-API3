@@ -96,7 +96,7 @@ async function scrapTransmisiones6() {
           fuentes: (event.sources || []).map(s => ({
             fuente: s.source,
             id: s.id,
-            url: `https://streamed.pk/watch/${s.id}/${s.source}`
+            url: `https://embedsports.top/embed/${s.source}/${s.id}/1&useplayer&m=1`
           })),
           fuente: "streamed.pk"
         };
