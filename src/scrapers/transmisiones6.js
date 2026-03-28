@@ -1,5 +1,7 @@
 const axios = require("axios");
 
+const PROXY = "https://ultragol-api-3.vercel.app/ultragol-l3ho?get=";
+
 const categoriaMap = {
   'football': 'Fútbol',
   'basketball': 'Baloncesto',
@@ -96,7 +98,7 @@ async function scrapTransmisiones6() {
           fuentes: (event.sources || []).map(s => ({
             fuente: s.source,
             id: s.id,
-            url: `https://embedsports.top/embed/${s.source}/${s.id}/1&useplayer&m=1`
+            url: `${PROXY}https://embedsports.top/embed/${s.source}/${s.id}/1&useplayer&m=1`
           })),
           fuente: "streamed.pk"
         };
