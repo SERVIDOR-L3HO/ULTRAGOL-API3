@@ -2,6 +2,7 @@ const axios = require("axios");
 const { extraerEquiposYLogos } = require("../utils/logoHelper");
 
 const API_URL = "https://rokczone.com/get_agenda.php";
+const GLZ_PROXY = "https://ultragol-api-3.vercel.app/ultragol-l3ho?get=";
 
 async function scrapTransmisiones() {
   try {
@@ -24,8 +25,8 @@ async function scrapTransmisiones() {
         nombre: canal.name,
         idioma: canal.language || "",
         links: {
-          principal: canal.links && canal.links[0] ? canal.links[0] : null,
-          backup: canal.oldLinks && canal.oldLinks[0] ? canal.oldLinks[0] : null,
+          principal: canal.links && canal.links[0] ? GLZ_PROXY + canal.links[0] : null,
+          backup: canal.oldLinks && canal.oldLinks[0] ? GLZ_PROXY + canal.oldLinks[0] : null,
           wrapper: `https://rokczone.com/dabac/porid.php?id=${canal.number}`
         }
       }));
