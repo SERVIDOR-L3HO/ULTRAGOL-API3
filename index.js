@@ -63,7 +63,6 @@ const { scrapTransmisiones3 } = require("./src/scrapers/transmisiones3");
 const { scrapTransmisiones4 } = require("./src/scrapers/transmisiones4");
 const { scrapTransmisiones5 } = require("./src/scrapers/transmisiones5");
 const { scrapTransmisiones6 } = require("./src/scrapers/transmisiones6");
-const { scrapTransmisiones6: scrapTransmisiones7 } = require("./src/scrapers/transmisiones6");
 const { 
   scrapCanales, 
   scrapCanalesPorPais, 
@@ -506,10 +505,6 @@ app.get("/api", (req, res) => {
       transmisiones6: {
         endpoint: "/transmisiones6",
         descripcion: "API Oficial UltraGol (dp.mycraft.click) - Transmisiones deportivas profesionales de múltiples deportes (fútbol, hockey, baloncesto, etc.) con protección Cloudflare, horarios, ligas y enlaces listos para reproducir"
-      },
-      transmisiones7: {
-        endpoint: "/transmisiones7",
-        descripcion: "Agenda de transmisiones de futbollibretv.su"
       },
       "ultragol-l3ho": {
         endpoint: "/ultragol-l3ho",
@@ -1640,40 +1635,6 @@ app.get("/transmisiones6", async (req, res) => {
       error: "No se pudieron obtener las transmisiones deportivas desde UltraGol API",
       detalles: error.message,
       sugerencia: "El sitio web podría estar bloqueando las peticiones o Cloudflare está activo. Intenta de nuevo más tarde."
-    });
-  }
-});
-
-app.get("/transmisiones7", async (req, res) => {
-  try {
-    let data = cache.get("transmisiones7");
-    
-    if (!data) {
-      console.log("📺 Obteniendo agenda de futbollibretv.su - caché vacío...");
-      try {
-        data = await scrapTransmisiones7();
-        cache.set("transmisiones7", data, 600);
-      } catch (scrapeError) {
-        const staleData = cache.getStale("transmisiones7");
-        if (staleData && staleData.total > 0) {
-          console.log("⚠️ Usando datos en caché (expirados) debido a error en scraping");
-          data = {
-            ...staleData,
-            advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos: " + scrapeError.message,
-            ultimaActualizacion: staleData.actualizado
-          };
-        } else {
-          throw scrapeError;
-        }
-      }
-    }
-    
-    res.json(data);
-  } catch (error) {
-    console.error("Error en /transmisiones7:", error.message);
-    res.status(500).json({
-      error: "No se pudieron obtener las transmisiones de futbollibretv.su",
-      detalles: error.message
     });
   }
 });
