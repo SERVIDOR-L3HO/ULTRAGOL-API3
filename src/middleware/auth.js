@@ -44,10 +44,12 @@ const securityHeaders = helmet({
       fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net"],
       imgSrc: ["'self'", "data:", "https:", "http:"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-      connectSrc: ["'self'", "https:"],
+      connectSrc: ["'self'", "https:", "http:"],
       frameSrc: ["'self'", "https:", "http:"],
-      childSrc: ["'self'", "https:", "http:"],
-      frameAncestors: ["*"]
+      childSrc: ["'self'", "https:", "http:", "blob:"],
+      frameAncestors: ["*"],
+      mediaSrc: ["'self'", "https:", "http:", "blob:", "data:"],
+      workerSrc: ["'self'", "blob:"]
     }
   },
   crossOriginEmbedderPolicy: false,

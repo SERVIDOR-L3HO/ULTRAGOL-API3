@@ -1690,12 +1690,19 @@ app.get("/transmisiones7", async (req, res) => {
   }
 });
 
+const STREAM7_REFERER = "https://futbollibretv.su/";
+const STREAM7_ALLOWED = ["latamvidz1.com", "esvideofy.com", "envivoslatam.org", "ng0pr.envivoslatam.org"];
+
+function stream7IsAllowed(url) {
+  try {
+    const h = new URL(url).hostname;
+    return STREAM7_ALLOWED.some(d => h === d || h.endsWith("." + d));
+  } catch { return false; }
+}
+
 app.get("/stream7", async (req, res) => {
   const targetUrl = req.query.url;
-
-  if (!targetUrl) {
-    return res.status(400).send("Falta el parámetro ?url=");
-  }
+  if (!targetUrl) return res.status(400).send("Falta el parámetro ?url=");
 
   let decodedUrl;
   try {
@@ -1705,35 +1712,204 @@ app.get("/stream7", async (req, res) => {
     return res.status(400).send("URL inválida");
   }
 
-  const allowed = ["latamvidz1.com", "esvideofy.com"];
-  const hostname = new URL(decodedUrl).hostname;
-  if (!allowed.some(d => hostname.endsWith(d))) {
+  const playerAllowed = ["latamvidz1.com", "esvideofy.com"];
+  if (!playerAllowed.some(d => new URL(decodedUrl).hostname.endsWith(d))) {
     return res.status(403).send("Dominio no permitido");
   }
 
   try {
-    console.log(`🎬 stream7 proxy → ${decodedUrl}`);
+    console.log(`🎬 stream7 → obteniendo player: ${decodedUrl}`);
     const upstream = await axios.get(decodedUrl, {
       timeout: 15000,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://futbollibretv.su/",
+        "Referer": STREAM7_REFERER,
         "Origin": "https://futbollibretv.su",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "es-MX,es;q=0.9"
-      },
-      responseType: "arraybuffer"
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+      }
     });
 
-    const contentType = upstream.headers["content-type"] || "text/html; charset=utf-8";
-    res.set("Content-Type", contentType);
+    const html = upstream.data;
+    const m3u8Match = html.match(/var\s+playbackURL\s*=\s*["']([^"']+\.m3u8[^"']*)["']/);
+    if (!m3u8Match) {
+      return res.status(502).send("No se encontró el stream en la respuesta del servidor.");
+    }
+
+    const m3u8Url = m3u8Match[1];
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const proxiedM3u8 = `${baseUrl}/hls7?url=${encodeURIComponent(m3u8Url)}`;
+
+    const playerPageUrl = `${baseUrl}/stream7?url=${encodeURIComponent(decodedUrl)}`;
+    const playerHtml = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stream en Vivo - L3HO</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#000;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:sans-serif}
+    video{width:100%;height:100%;object-fit:contain}
+    #overlay{display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:#000;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-align:center;padding:20px}
+    #overlay h2{color:#e74c3c;margin-bottom:10px}
+    #overlay p{color:#aaa;margin-bottom:20px}
+    #retryBtn{background:#e74c3c;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:15px;cursor:pointer}
+    #retryBtn:hover{background:#c0392b}
+    #status{position:absolute;top:10px;left:10px;color:#fff;font-size:12px;opacity:0.5}
+  </style>
+</head>
+<body>
+  <span id="status"></span>
+  <video id="video" controls autoplay playsinline></video>
+  <div id="overlay">
+    <h2>Stream no disponible</h2>
+    <p>El partido puede no estar en vivo en este momento.</p>
+    <button id="retryBtn" onclick="location.reload()">Reintentar</button>
+  </div>
+  <script>
+    var src = "${proxiedM3u8}";
+    var video = document.getElementById("video");
+    var overlay = document.getElementById("overlay");
+    var status = document.getElementById("status");
+    var retries = 0;
+    var maxRetries = 3;
+
+    function showError() {
+      video.style.display = "none";
+      overlay.style.display = "flex";
+    }
+
+    function initPlayer() {
+      status.textContent = retries > 0 ? "Reintentando... (" + retries + "/" + maxRetries + ")" : "";
+      if (Hls.isSupported()) {
+        var hls = new Hls({
+          maxBufferLength: 15,
+          liveSyncDurationCount: 3,
+          manifestLoadingMaxRetry: 3,
+          levelLoadingMaxRetry: 3
+        });
+        hls.loadSource(src);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+          status.textContent = "";
+          video.play().catch(function(){});
+        });
+        hls.on(Hls.Events.ERROR, function(e, data) {
+          if (data.fatal) {
+            hls.destroy();
+            if (retries < maxRetries) {
+              retries++;
+              status.textContent = "Error, reintentando en 3s... (" + retries + "/" + maxRetries + ")";
+              setTimeout(initPlayer, 3000);
+            } else {
+              showError();
+            }
+          }
+        });
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = src;
+        video.play().catch(showError);
+      } else {
+        showError();
+      }
+    }
+
+    initPlayer();
+  </script>
+</body>
+</html>`;
+
+    res.set("Content-Type", "text/html; charset=utf-8");
     res.set("Access-Control-Allow-Origin", "*");
     res.set("X-Frame-Options", "ALLOWALL");
     res.set("Cache-Control", "no-cache");
+    res.send(playerHtml);
+  } catch (error) {
+    console.error("❌ stream7 error:", error.message);
+    res.status(502).send(`No se pudo obtener el stream: ${error.message}`);
+  }
+});
+
+app.get("/hls7", async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).send("Falta ?url=");
+
+  let decodedUrl;
+  try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
+  catch { return res.status(400).send("URL inválida"); }
+
+  if (!stream7IsAllowed(decodedUrl)) return res.status(403).send("Dominio no permitido");
+
+  try {
+    const upstream = await axios.get(decodedUrl, {
+      timeout: 15000,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": STREAM7_REFERER,
+        "Origin": "https://futbollibretv.su"
+      }
+    });
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const m3u8Base = decodedUrl.substring(0, decodedUrl.lastIndexOf("/") + 1);
+
+    let content = upstream.data;
+
+    content = content.replace(/^((?!#).+\.m3u8.*)$/gm, (line) => {
+      const abs = line.startsWith("http") ? line : m3u8Base + line;
+      return `${baseUrl}/hls7?url=${encodeURIComponent(abs)}`;
+    });
+
+    content = content.replace(/^((?!#).+\.ts.*)$/gm, (line) => {
+      const abs = line.startsWith("http") ? line : m3u8Base + line;
+      return `${baseUrl}/hls7-seg?url=${encodeURIComponent(abs)}`;
+    });
+
+    content = content.replace(/URI="([^"]+)"/g, (match, uri) => {
+      const abs = uri.startsWith("http") ? uri : m3u8Base + uri;
+      return `URI="${baseUrl}/hls7-seg?url=${encodeURIComponent(abs)}"`;
+    });
+
+    res.set("Content-Type", "application/vnd.apple.mpegurl");
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Cache-Control", "no-cache");
+    res.send(content);
+  } catch (error) {
+    console.error("❌ hls7 error:", error.message);
+    res.status(502).send(`Error en proxy m3u8: ${error.message}`);
+  }
+});
+
+app.get("/hls7-seg", async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).send("Falta ?url=");
+
+  let decodedUrl;
+  try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
+  catch { return res.status(400).send("URL inválida"); }
+
+  if (!stream7IsAllowed(decodedUrl)) return res.status(403).send("Dominio no permitido");
+
+  try {
+    const upstream = await axios.get(decodedUrl, {
+      timeout: 20000,
+      responseType: "arraybuffer",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": STREAM7_REFERER,
+        "Origin": "https://futbollibretv.su"
+      }
+    });
+
+    const contentType = upstream.headers["content-type"] || "video/MP2T";
+    res.set("Content-Type", contentType);
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Cache-Control", "no-cache");
     res.send(upstream.data);
   } catch (error) {
-    console.error("❌ stream7 proxy error:", error.message);
-    res.status(502).send(`No se pudo obtener el stream: ${error.message}`);
+    console.error("❌ hls7-seg error:", error.message);
+    res.status(502).send(`Error en proxy segmento: ${error.message}`);
   }
 });
 
