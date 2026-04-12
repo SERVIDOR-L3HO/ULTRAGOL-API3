@@ -1668,13 +1668,72 @@ app.get("/transmisiones7", async (req, res) => {
       }
     }
 
-    res.json(data);
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const dataConProxy = {
+      ...data,
+      transmisiones: (data.transmisiones || []).map(t => ({
+        ...t,
+        canales: (t.canales || []).map(c => ({
+          ...c,
+          urlStream: `${baseUrl}/stream7?url=${encodeURIComponent(c.url)}`
+        }))
+      }))
+    };
+
+    res.json(dataConProxy);
   } catch (error) {
     console.error("Error en /transmisiones7:", error.message);
     res.status(500).json({
       error: "No se pudieron obtener las transmisiones desde futbollibretv.su",
       detalles: error.message
     });
+  }
+});
+
+app.get("/stream7", async (req, res) => {
+  const targetUrl = req.query.url;
+
+  if (!targetUrl) {
+    return res.status(400).send("Falta el parámetro ?url=");
+  }
+
+  let decodedUrl;
+  try {
+    decodedUrl = decodeURIComponent(targetUrl);
+    new URL(decodedUrl);
+  } catch {
+    return res.status(400).send("URL inválida");
+  }
+
+  const allowed = ["latamvidz1.com", "esvideofy.com"];
+  const hostname = new URL(decodedUrl).hostname;
+  if (!allowed.some(d => hostname.endsWith(d))) {
+    return res.status(403).send("Dominio no permitido");
+  }
+
+  try {
+    console.log(`🎬 stream7 proxy → ${decodedUrl}`);
+    const upstream = await axios.get(decodedUrl, {
+      timeout: 15000,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://futbollibretv.su/",
+        "Origin": "https://futbollibretv.su",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "es-MX,es;q=0.9"
+      },
+      responseType: "arraybuffer"
+    });
+
+    const contentType = upstream.headers["content-type"] || "text/html; charset=utf-8";
+    res.set("Content-Type", contentType);
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("X-Frame-Options", "ALLOWALL");
+    res.set("Cache-Control", "no-cache");
+    res.send(upstream.data);
+  } catch (error) {
+    console.error("❌ stream7 proxy error:", error.message);
+    res.status(502).send(`No se pudo obtener el stream: ${error.message}`);
   }
 });
 
