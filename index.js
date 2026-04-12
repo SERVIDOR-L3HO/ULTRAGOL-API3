@@ -1674,7 +1674,8 @@ app.get("/transmisiones7", async (req, res) => {
       transmisiones: (data.transmisiones || []).map(t => ({
         ...t,
         canales: (t.canales || []).map(c => ({
-          ...c,
+          canal: c.canal,
+          calidad: c.calidad,
           urlStream: `${baseUrl}/stream7?url=${encodeURIComponent(c.url)}`
         }))
       }))
