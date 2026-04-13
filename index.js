@@ -1727,7 +1727,7 @@ app.get("/transmisiones7", async (req, res) => {
 const STREAM7_REFERER = "https://futbollibretv.su/";
 const STREAM7_ALLOWED = [
   "latamvidz1.com", "esvideofy.com", "envivoslatam.org", "ng0pr.envivoslatam.org",
-  "zohanayaan.com", "hoca6.com", "83870203.net", "eveningbad.net"
+  "zohanayaan.com", "hoca6.com", "83870203.net", "12703830.net", "eveningbad.net"
 ];
 
 function stream7IsAllowed(url) {
