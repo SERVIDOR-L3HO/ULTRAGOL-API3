@@ -1725,7 +1725,10 @@ app.get("/transmisiones7", async (req, res) => {
 });
 
 const STREAM7_REFERER = "https://futbollibretv.su/";
-const STREAM7_ALLOWED = ["latamvidz1.com", "esvideofy.com", "envivoslatam.org", "ng0pr.envivoslatam.org", "zohanayaan.com", "hoca6.com"];
+const STREAM7_ALLOWED = [
+  "latamvidz1.com", "esvideofy.com", "envivoslatam.org", "ng0pr.envivoslatam.org",
+  "zohanayaan.com", "hoca6.com", "83870203.net", "eveningbad.net"
+];
 
 function stream7IsAllowed(url) {
   try {
@@ -1735,40 +1738,58 @@ function stream7IsAllowed(url) {
 }
 
 async function extractM3u8FromBolaloca(bola_url) {
-  const bola = await axios.get(bola_url, {
-    timeout: 15000,
-    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
-  });
-  const iframeMatch = bola.data.match(/src=["'](https?:\/\/hoca6\.com\/footy\.php[^"']+)["']/);
-  if (!iframeMatch) throw new Error("No se encontró iframe de hoca6.com");
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
 
-  const hocaUrl = iframeMatch[1];
-  const hoca = await axios.get(hocaUrl, {
+  // Paso 1: obtener la página de bolaloca y encontrar el iframe del player
+  const bola = await axios.get(bola_url, { timeout: 15000, headers: { "User-Agent": UA } });
+
+  // Buscar cualquier iframe de player conocido (hoca6, eveningbad, etc.)
+  const iframeMatch = bola.data.match(
+    /src=["'](https?:\/\/(?:hoca6\.com|eveningbad\.net)\/[^"']+)["']/
+  );
+  if (!iframeMatch) throw new Error("No se encontró iframe de player compatible en bolaloca.my");
+
+  const playerUrl = iframeMatch[1];
+  const playerHost = new URL(playerUrl).hostname;
+
+  // Paso 2: obtener la página del player con Referer de bolaloca
+  const player = await axios.get(playerUrl, {
     timeout: 15000,
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "Referer": bola_url
+    headers: { "User-Agent": UA, "Referer": bola_url }
+  });
+  const html = player.data;
+
+  let m3u8Url = null;
+
+  // Estrategia A: m3u8 directo en el HTML (eveningbad y similares)
+  const directM3u8 = html.match(/https?:\/\/[^\s"'`<>\\]*\.m3u8[^\s"'`<>\\]*/);
+  if (directM3u8) {
+    m3u8Url = directM3u8[0];
+  }
+
+  // Estrategia B: array de caracteres ofuscado (hoca6.com)
+  if (!m3u8Url) {
+    const arrMatch = html.match(/return\s*\(\s*\[([^\]]+)\]\.join\(""\)/);
+    if (arrMatch) {
+      const chars = arrMatch[1].match(/"([^"]*)"/g).map(s => s.slice(1, -1));
+      const m3u8Base = chars.join("");
+
+      const part2Match = html.match(/agnlrrtesSaUiuraArbye\s*=\s*\[([^\]]*)\]/);
+      const part2 = part2Match ? part2Match[1].match(/"([^"]*)"/g)?.map(s => s.slice(1, -1)).join("") || "" : "";
+
+      const part3Match = html.match(/id=["']ihgSnuiatrekafctBs["'][^>]*>([^<]*)</);
+      const part3 = part3Match ? part3Match[1].trim() : "";
+
+      m3u8Url = (m3u8Base + part2 + part3).replace(/\\/g, "");
     }
-  });
+  }
 
-  const html = hoca.data;
+  if (!m3u8Url || !m3u8Url.includes(".m3u8")) {
+    throw new Error(`No se pudo extraer el stream del player (${playerHost})`);
+  }
 
-  const arrMatch = html.match(/return\s*\(\s*\[([^\]]+)\]\.join\(""\)/);
-  if (!arrMatch) throw new Error("No se encontró el array de caracteres del stream");
-
-  const chars = arrMatch[1].match(/"([^"]*)"/g).map(s => s.slice(1, -1));
-  const m3u8Base = chars.join("");
-
-  const part2Match = html.match(/agnlrrtesSaUiuraArbye\s*=\s*\[([^\]]*)\]/);
-  const part2 = part2Match ? part2Match[1].match(/"([^"]*)"/g)?.map(s => s.slice(1, -1)).join("") || "" : "";
-
-  const part3Match = html.match(/id=["']ihgSnuiatrekafctBs["'][^>]*>([^<]*)</);
-  const part3 = part3Match ? part3Match[1].trim() : "";
-
-  const m3u8Url = (m3u8Base + part2 + part3).replace(/\\/g, "");
-  if (!m3u8Url.includes(".m3u8")) throw new Error("URL extraída no parece un m3u8 válido");
-
-  return { m3u8Url, referer: hocaUrl };
+  // El referer para el CDN: ambos players necesitan la URL del player como Referer
+  return { m3u8Url, referer: playerUrl };
 }
 
 app.get("/stream7", async (req, res) => {
