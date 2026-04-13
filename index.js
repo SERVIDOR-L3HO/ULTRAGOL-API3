@@ -1692,13 +1692,50 @@ app.get("/transmisiones7", async (req, res) => {
 });
 
 const STREAM7_REFERER = "https://futbollibretv.su/";
-const STREAM7_ALLOWED = ["latamvidz1.com", "esvideofy.com", "envivoslatam.org", "ng0pr.envivoslatam.org"];
+const STREAM7_ALLOWED = ["latamvidz1.com", "esvideofy.com", "envivoslatam.org", "ng0pr.envivoslatam.org", "zohanayaan.com", "hoca6.com"];
 
 function stream7IsAllowed(url) {
   try {
     const h = new URL(url).hostname;
     return STREAM7_ALLOWED.some(d => h === d || h.endsWith("." + d));
   } catch { return false; }
+}
+
+async function extractM3u8FromBolaloca(bola_url) {
+  const bola = await axios.get(bola_url, {
+    timeout: 15000,
+    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+  });
+  const iframeMatch = bola.data.match(/src=["'](https?:\/\/hoca6\.com\/footy\.php[^"']+)["']/);
+  if (!iframeMatch) throw new Error("No se encontró iframe de hoca6.com");
+
+  const hocaUrl = iframeMatch[1];
+  const hoca = await axios.get(hocaUrl, {
+    timeout: 15000,
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "Referer": bola_url
+    }
+  });
+
+  const html = hoca.data;
+
+  const arrMatch = html.match(/return\s*\(\s*\[([^\]]+)\]\.join\(""\)/);
+  if (!arrMatch) throw new Error("No se encontró el array de caracteres del stream");
+
+  const chars = arrMatch[1].match(/"([^"]*)"/g).map(s => s.slice(1, -1));
+  const m3u8Base = chars.join("");
+
+  const part2Match = html.match(/agnlrrtesSaUiuraArbye\s*=\s*\[([^\]]*)\]/);
+  const part2 = part2Match ? part2Match[1].match(/"([^"]*)"/g)?.map(s => s.slice(1, -1)).join("") || "" : "";
+
+  const part3Match = html.match(/id=["']ihgSnuiatrekafctBs["'][^>]*>([^<]*)</);
+  const part3 = part3Match ? part3Match[1].trim() : "";
+
+  const m3u8Url = (m3u8Base + part2 + part3).replace(/\\/g, "");
+  if (!m3u8Url.includes(".m3u8")) throw new Error("URL extraída no parece un m3u8 válido");
+
+  return { m3u8Url, referer: hocaUrl };
 }
 
 app.get("/stream7", async (req, res) => {
@@ -1713,32 +1750,40 @@ app.get("/stream7", async (req, res) => {
     return res.status(400).send("URL inválida");
   }
 
-  const playerAllowed = ["latamvidz1.com", "esvideofy.com"];
-  if (!playerAllowed.some(d => new URL(decodedUrl).hostname.endsWith(d))) {
+  const hostname = new URL(decodedUrl).hostname;
+  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my"];
+  if (!playerAllowed.some(d => hostname === d || hostname.endsWith("." + d))) {
     return res.status(403).send("Dominio no permitido");
   }
 
-  try {
-    console.log(`🎬 stream7 → obteniendo player: ${decodedUrl}`);
-    const upstream = await axios.get(decodedUrl, {
-      timeout: 15000,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": STREAM7_REFERER,
-        "Origin": "https://futbollibretv.su",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-      }
-    });
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  let m3u8Url, streamReferer;
 
-    const html = upstream.data;
-    const m3u8Match = html.match(/var\s+playbackURL\s*=\s*["']([^"']+\.m3u8[^"']*)["']/);
-    if (!m3u8Match) {
-      return res.status(502).send("No se encontró el stream en la respuesta del servidor.");
+  try {
+    if (hostname === "bolaloca.my" || hostname.endsWith(".bolaloca.my")) {
+      console.log(`🎬 stream7 (bolaloca) → ${decodedUrl}`);
+      const extracted = await extractM3u8FromBolaloca(decodedUrl);
+      m3u8Url = extracted.m3u8Url;
+      streamReferer = extracted.referer;
+    } else {
+      console.log(`🎬 stream7 → obteniendo player: ${decodedUrl}`);
+      const upstream = await axios.get(decodedUrl, {
+        timeout: 15000,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Referer": STREAM7_REFERER,
+          "Origin": "https://futbollibretv.su",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        }
+      });
+      const html = upstream.data;
+      const m3u8Match = html.match(/var\s+playbackURL\s*=\s*["']([^"']+\.m3u8[^"']*)["']/);
+      if (!m3u8Match) return res.status(502).send("No se encontró el stream en la respuesta del servidor.");
+      m3u8Url = m3u8Match[1];
+      streamReferer = STREAM7_REFERER;
     }
 
-    const m3u8Url = m3u8Match[1];
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const proxiedM3u8 = `${baseUrl}/hls7?url=${encodeURIComponent(m3u8Url)}`;
+    const proxiedM3u8 = `${baseUrl}/hls7?url=${encodeURIComponent(m3u8Url)}&ref=${encodeURIComponent(streamReferer || "")}`;
 
     const playerPageUrl = `${baseUrl}/stream7?url=${encodeURIComponent(decodedUrl)}`;
     const playerHtml = `<!DOCTYPE html>
@@ -1842,13 +1887,15 @@ app.get("/hls7", async (req, res) => {
 
   if (!stream7IsAllowed(decodedUrl)) return res.status(403).send("Dominio no permitido");
 
+  const referer = req.query.ref ? req.query.ref : STREAM7_REFERER;
+  const refParam = req.query.ref ? `&ref=${encodeURIComponent(req.query.ref)}` : "";
+
   try {
     const upstream = await axios.get(decodedUrl, {
       timeout: 15000,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": STREAM7_REFERER,
-        "Origin": "https://futbollibretv.su"
+        "Referer": referer
       }
     });
 
@@ -1859,17 +1906,17 @@ app.get("/hls7", async (req, res) => {
 
     content = content.replace(/^((?!#).+\.m3u8.*)$/gm, (line) => {
       const abs = line.startsWith("http") ? line : m3u8Base + line;
-      return `${baseUrl}/hls7?url=${encodeURIComponent(abs)}`;
+      return `${baseUrl}/hls7?url=${encodeURIComponent(abs)}${refParam}`;
     });
 
     content = content.replace(/^((?!#).+\.ts.*)$/gm, (line) => {
       const abs = line.startsWith("http") ? line : m3u8Base + line;
-      return `${baseUrl}/hls7-seg?url=${encodeURIComponent(abs)}`;
+      return `${baseUrl}/hls7-seg?url=${encodeURIComponent(abs)}${refParam}`;
     });
 
     content = content.replace(/URI="([^"]+)"/g, (match, uri) => {
       const abs = uri.startsWith("http") ? uri : m3u8Base + uri;
-      return `URI="${baseUrl}/hls7-seg?url=${encodeURIComponent(abs)}"`;
+      return `URI="${baseUrl}/hls7-seg?url=${encodeURIComponent(abs)}${refParam}"`;
     });
 
     res.set("Content-Type", "application/vnd.apple.mpegurl");
@@ -1892,14 +1939,15 @@ app.get("/hls7-seg", async (req, res) => {
 
   if (!stream7IsAllowed(decodedUrl)) return res.status(403).send("Dominio no permitido");
 
+  const referer = req.query.ref ? req.query.ref : STREAM7_REFERER;
+
   try {
     const upstream = await axios.get(decodedUrl, {
       timeout: 20000,
       responseType: "arraybuffer",
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": STREAM7_REFERER,
-        "Origin": "https://futbollibretv.su"
+        "Referer": referer
       }
     });
 
