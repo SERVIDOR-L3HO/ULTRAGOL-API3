@@ -1925,10 +1925,10 @@ app.get("/stream7", async (req, res) => {
     @keyframes spin{to{transform:rotate(360deg)}}
     #loader p{font-size:13px;color:rgba(255,255,255,.5);letter-spacing:.5px}
 
-    /* ── Badge EN VIVO ── */
-    #liveBadge{position:absolute;top:12px;left:12px;background:var(--red);color:#fff;font-size:11px;font-weight:700;letter-spacing:1.5px;padding:4px 10px;border-radius:4px;display:flex;align-items:center;gap:6px;z-index:10;display:none}
-    .liveDot{width:7px;height:7px;background:#fff;border-radius:50%;animation:pulse 1.2s ease-in-out infinite}
-    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.7)}}
+    /* ── Logo Ultragol ── */
+    #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none;transition:opacity .4s}
+    #logo img{height:32px;width:auto;opacity:.55;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));transition:opacity .4s}
+    #wrap:hover #logo img{opacity:.18}
 
     /* ── Controles custom ── */
     #controls{position:absolute;bottom:0;left:0;right:0;padding:0 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
@@ -1979,8 +1979,10 @@ app.get("/stream7", async (req, res) => {
     <p>Conectando al stream...</p>
   </div>
 
-  <!-- EN VIVO badge -->
-  <div id="liveBadge"><span class="liveDot"></span>EN VIVO</div>
+  <!-- Logo Ultragol -->
+  <div id="logo">
+    <img src="https://www.ultragol-l3ho.com.mx/attached_assets/1001854642-removebg-preview_1764575635170.png" alt="Ultragol">
+  </div>
 
   <!-- Tap feedback (centro) -->
   <div id="tapFx"><div class="tapCircle" id="tapCircle">
@@ -2007,6 +2009,9 @@ app.get("/stream7", async (req, res) => {
       <span id="timeLabel">EN VIVO</span>
       <div id="spacer"></div>
       <span id="qualityLabel">HD</span>
+      <button class="btn" id="btnPip" title="Ventana flotante (PiP)" style="display:none">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg>
+      </button>
       <button class="btn" id="btnFs" title="Pantalla completa">
         <svg viewBox="0 0 24 24" id="fsIcon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
       </button>
@@ -2025,13 +2030,12 @@ app.get("/stream7", async (req, res) => {
 <script>
 (function(){
   var SRC = "${proxiedM3u8}";
-  var video  = document.getElementById("video");
-  var loader = document.getElementById("loader");
-  var liveBadge = document.getElementById("liveBadge");
+  var video    = document.getElementById("video");
+  var loader   = document.getElementById("loader");
   var errOverlay = document.getElementById("errOverlay");
-  var btnPlay = document.getElementById("btnPlay");
+  var btnPlay  = document.getElementById("btnPlay");
   var playIcon = document.getElementById("playIcon");
-  var btnMute = document.getElementById("btnMute");
+  var btnMute  = document.getElementById("btnMute");
   var volIcon  = document.getElementById("volIcon");
   var volSlider= document.getElementById("volSlider");
   var timeLabel= document.getElementById("timeLabel");
@@ -2041,6 +2045,7 @@ app.get("/stream7", async (req, res) => {
   var liveBar  = document.getElementById("liveBar");
   var qualityLabel = document.getElementById("qualityLabel");
   var btnFs    = document.getElementById("btnFs");
+  var btnPip   = document.getElementById("btnPip");
   var wrap     = document.getElementById("wrap");
   var tapCircle= document.getElementById("tapCircle");
   var tapIcon  = document.getElementById("tapIcon");
@@ -2064,7 +2069,7 @@ app.get("/stream7", async (req, res) => {
 
   /* ── Show/hide loader ── */
   function showLoader(msg){ loader.querySelector("p").textContent = msg||"Conectando al stream..."; loader.style.display="flex"; }
-  function hideLoader(){ loader.style.display="none"; liveBadge.style.display="flex"; }
+  function hideLoader(){ loader.style.display="none"; }
   function showError(){ errOverlay.style.display="flex"; loader.style.display="none"; }
 
   /* ── Controls auto-hide ── */
@@ -2133,6 +2138,27 @@ app.get("/stream7", async (req, res) => {
       setIcon(document.getElementById("fsIcon"),"fsOn");
     }
   });
+
+  /* ── Picture-in-Picture ── */
+  if(document.pictureInPictureEnabled){
+    btnPip.style.display = "flex";
+    btnPip.addEventListener("click", function(){
+      if(document.pictureInPictureElement){
+        document.exitPictureInPicture().catch(function(){});
+      } else {
+        video.requestPictureInPicture().catch(function(){});
+      }
+    });
+    video.addEventListener("enterpictureinpicture", function(){
+      btnPip.title = "Salir de ventana flotante";
+      btnPip.style.opacity = "1";
+      btnPip.querySelector("svg").style.fill = "var(--red)";
+    });
+    video.addEventListener("leavepictureinpicture", function(){
+      btnPip.title = "Ventana flotante (PiP)";
+      btnPip.querySelector("svg").style.fill = "currentColor";
+    });
+  }
 
   /* ── HLS Player ── */
   function initPlayer(){
