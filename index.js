@@ -1727,7 +1727,8 @@ app.get("/transmisiones7", async (req, res) => {
 const STREAM7_REFERER = "https://futbollibretv.su/";
 const STREAM7_ALLOWED = [
   "latamvidz1.com", "esvideofy.com", "envivoslatam.org", "ng0pr.envivoslatam.org",
-  "zohanayaan.com", "hoca6.com", "83870203.net", "12703830.net", "eveningbad.net"
+  "zohanayaan.com", "hoca6.com", "83870203.net", "12703830.net", "eveningbad.net",
+  "streameasthd.net", "prospectivetoday.fun"
 ];
 
 function stream7IsAllowed(url) {
@@ -1735,6 +1736,58 @@ function stream7IsAllowed(url) {
     const h = new URL(url).hostname;
     return STREAM7_ALLOWED.some(d => h === d || h.endsWith("." + d));
   } catch { return false; }
+}
+
+async function extractM3u8FromStreamtpnew(pageUrl) {
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
+  const origin = new URL(pageUrl).origin;
+  const resp = await axios.get(pageUrl, {
+    timeout: 15000,
+    headers: { "User-Agent": UA, "Referer": origin + "/" }
+  });
+  const html = resp.data;
+
+  // Extraer todos los pares [k,"base64"] del array obfuscado
+  const pairs = [...html.matchAll(/\[(\d+),"([A-Za-z0-9+/=]+)"\]/g)];
+  if (!pairs.length) throw new Error("No se encontró el array de obfuscación en streamtpnew");
+
+  // Extraer k: suma de las dos funciones que retornan números antes de var p2pConfig
+  const p2pIdx = html.indexOf("var p2pConfig");
+  const before = p2pIdx > 0 ? html.substring(0, p2pIdx) : html;
+  const kMatches = [...before.matchAll(/function\s+\w+\(\)\{return\s+(\d+);\}/g)];
+  if (kMatches.length < 2) throw new Error("No se pudo extraer k de streamtpnew");
+  const k = parseInt(kMatches[kMatches.length - 2][1]) + parseInt(kMatches[kMatches.length - 1][1]);
+
+  // Decodificar: sort por índice, luego String.fromCharCode(parseInt(atob(v).replace(/\D/g,'')) - k)
+  const sorted = pairs.map(m => [parseInt(m[1]), m[2]]).sort((a, b) => a[0] - b[0]);
+  let m3u8Url = "";
+  for (const [ki, v] of sorted) {
+    const decoded = Buffer.from(v, "base64").toString("latin1");
+    const num = parseInt(decoded.replace(/\D/g, "")) - k;
+    m3u8Url += String.fromCharCode(num);
+  }
+
+  if (!m3u8Url || !m3u8Url.includes(".m3u8")) {
+    throw new Error("streamtpnew: m3u8 decodificado inválido: " + m3u8Url.substring(0, 80));
+  }
+
+  return { m3u8Url, referer: origin + "/" };
+}
+
+async function extractM3u8FromStreamvipx(pageUrl) {
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
+  const origin = new URL(pageUrl).origin;
+  const resp = await axios.get(pageUrl, {
+    timeout: 15000,
+    headers: { "User-Agent": UA, "Referer": origin + "/" }
+  });
+  const html = resp.data;
+
+  // El m3u8 está directo en el HTML
+  const m = html.match(/https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*/);
+  if (!m) throw new Error("No se encontró m3u8 en streamvipx");
+
+  return { m3u8Url: m[0], referer: origin + "/" };
 }
 
 async function extractM3u8FromBolaloca(bola_url) {
@@ -1805,7 +1858,7 @@ app.get("/stream7", async (req, res) => {
   }
 
   const hostname = new URL(decodedUrl).hostname;
-  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my"];
+  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com"];
   if (!playerAllowed.some(d => hostname === d || hostname.endsWith("." + d))) {
     return res.status(403).send("Dominio no permitido");
   }
@@ -1817,6 +1870,16 @@ app.get("/stream7", async (req, res) => {
     if (hostname === "bolaloca.my" || hostname.endsWith(".bolaloca.my")) {
       console.log(`🎬 stream7 (bolaloca) → ${decodedUrl}`);
       const extracted = await extractM3u8FromBolaloca(decodedUrl);
+      m3u8Url = extracted.m3u8Url;
+      streamReferer = extracted.referer;
+    } else if (hostname === "streamtpnew.com" || hostname.endsWith(".streamtpnew.com")) {
+      console.log(`🎬 stream7 (streamtpnew) → ${decodedUrl}`);
+      const extracted = await extractM3u8FromStreamtpnew(decodedUrl);
+      m3u8Url = extracted.m3u8Url;
+      streamReferer = extracted.referer;
+    } else if (hostname === "streamvipx.com" || hostname.endsWith(".streamvipx.com")) {
+      console.log(`🎬 stream7 (streamvipx) → ${decodedUrl}`);
+      const extracted = await extractM3u8FromStreamvipx(decodedUrl);
       m3u8Url = extracted.m3u8Url;
       streamReferer = extracted.referer;
     } else {
@@ -1958,14 +2021,16 @@ app.get("/hls7", async (req, res) => {
 
     let content = upstream.data;
 
-    content = content.replace(/^((?!#).+\.m3u8.*)$/gm, (line) => {
-      const abs = line.startsWith("http") ? line : m3u8Base + line;
-      return `${baseUrl}/hls7?url=${encodeURIComponent(abs)}${refParam}`;
-    });
-
-    content = content.replace(/^((?!#).+\.ts.*)$/gm, (line) => {
+    // Reescribir segmentos .ts primero (evitar que capturemos .ts.m3u8)
+    content = content.replace(/^((?!#).+\.ts(?:[?&][^\s]*)?)$/gm, (line) => {
       const abs = line.startsWith("http") ? line : m3u8Base + line;
       return `${baseUrl}/hls7-seg?url=${encodeURIComponent(abs)}${refParam}`;
+    });
+
+    // Reescribir variantes .m3u8 (incluyendo mono.ts.m3u8, etc.)
+    content = content.replace(/^((?!#)(?!.+\/hls7).+\.m3u8[^\s]*)$/gm, (line) => {
+      const abs = line.startsWith("http") ? line : m3u8Base + line;
+      return `${baseUrl}/hls7?url=${encodeURIComponent(abs)}${refParam}`;
     });
 
     content = content.replace(/URI="([^"]+)"/g, (match, uri) => {
@@ -2777,6 +2842,21 @@ app.get("/ultragol-l3ho", (req, res) => {
 </html>`;
   };
   
+  // Si la URL es de un dominio que soporta stream7, redirigir ahí para extracción server-side
+  const STREAM7_PLAYER_DOMAINS = ["streamtpnew.com", "streamvipx.com", "bolaloca.my"];
+  if (targetUrl) {
+    try {
+      const decoded = decodeURIComponent(targetUrl);
+      const h = new URL(decoded).hostname;
+      if (STREAM7_PLAYER_DOMAINS.some(d => h === d || h.endsWith("." + d))) {
+        const baseUrl = `${req.protocol}://${req.get("host")}`;
+        const stream7Url = `${baseUrl}/stream7?url=${encodeURIComponent(decoded)}`;
+        console.log(`🔀 l3ho → stream7 para ${h}: ${stream7Url}`);
+        return res.redirect(302, stream7Url);
+      }
+    } catch(e) { /* URL inválida, continúa al flujo normal */ }
+  }
+
   const html = generatePlayerHtml(targetUrl);
   
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
