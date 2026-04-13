@@ -1981,7 +1981,7 @@ app.get("/stream7", async (req, res) => {
 
   <!-- Logo Ultragol -->
   <div id="logo">
-    <img src="https://www.ultragol-l3ho.com.mx/attached_assets/1001854642-removebg-preview_1764575635170.png" alt="Ultragol">
+    <img src="/public/ultragol-logo.png" alt="Ultragol">
   </div>
 
   <!-- Tap feedback (centro) -->
