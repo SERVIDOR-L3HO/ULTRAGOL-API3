@@ -26,14 +26,14 @@ function buildPlutoStreamUrl(channelId) {
   const params = new URLSearchParams({
     advertisingId: "",
     appName: "web",
-    appVersion: "na",
+    appVersion: "5.0.0",
     clientID: "pluto-latam-api",
-    clientModelNumber: "na",
+    clientModelNumber: "1",
     deviceDNT: "false",
-    deviceMake: "unknown",
-    deviceModel: "unknown",
+    deviceMake: "Chrome",
+    deviceModel: "web",
     deviceType: "web",
-    deviceVersion: "unknown",
+    deviceVersion: "120.0",
     serverSideAds: "false",
     sid: "pluto-latam-api"
   });
