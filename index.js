@@ -70,6 +70,11 @@ const {
   scrapCanalesPorCategoria, 
   scrapCanalesDeportes 
 } = require("./src/scrapers/canales");
+const {
+  scrapPlutoTVCanales,
+  scrapPlutoTVCanalPorId,
+  scrapPlutoTVCanalPorCategoria
+} = require("./src/scrapers/plutotv");
 
 const { 
   scrapMarcadoresLigaMX,
@@ -2409,6 +2414,69 @@ app.get("/canales/deportes", async (req, res) => {
     console.error("Error en /canales/deportes:", error.message);
     res.status(500).json({ 
       error: "No se pudieron obtener los canales deportivos",
+      detalles: error.message 
+    });
+  }
+});
+
+// === PLUTO TV ===
+app.get("/pluto-tv/canales", async (req, res) => {
+  try {
+    let data = cache.get("pluto_tv_canales");
+    if (!data) {
+      console.log("📺 Obteniendo canales de Pluto TV (caché vacío)...");
+      data = await scrapPlutoTVCanales();
+      if (data.success) {
+        cache.set("pluto_tv_canales", data, 1800); // 30 minutos
+      }
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /pluto-tv/canales:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los canales de Pluto TV",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/pluto-tv/canal/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cacheKey = `pluto_tv_canal_${id}`;
+    let data = cache.get(cacheKey);
+    if (!data) {
+      data = await scrapPlutoTVCanalPorId(id);
+      if (data.success) {
+        cache.set(cacheKey, data, 1800);
+      }
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /pluto-tv/canal/:id:", error.message);
+    res.status(500).json({ 
+      error: "No se pudo obtener el canal de Pluto TV",
+      detalles: error.message 
+    });
+  }
+});
+
+app.get("/pluto-tv/canales/categoria/:categoria", async (req, res) => {
+  try {
+    const { categoria } = req.params;
+    const cacheKey = `pluto_tv_cat_${categoria.toLowerCase()}`;
+    let data = cache.get(cacheKey);
+    if (!data) {
+      data = await scrapPlutoTVCanalPorCategoria(categoria);
+      if (data.success) {
+        cache.set(cacheKey, data, 1800);
+      }
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /pluto-tv/canales/categoria:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los canales de Pluto TV por categoría",
       detalles: error.message 
     });
   }
