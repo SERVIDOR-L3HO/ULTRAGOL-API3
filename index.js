@@ -2324,19 +2324,391 @@ app.get("/hls7-seg", async (req, res) => {
   }
 });
 
-// === CANALES (fuente: famelack/IPTV-org) ===
+// === PROXY HLS PARA CANALES ===
+app.get("/hls-canal", async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).send("Falta ?url=");
+  let decodedUrl;
+  try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
+  catch { return res.status(400).send("URL inválida"); }
+
+  try {
+    const upstream = await axios.get(decodedUrl, {
+      timeout: 15000,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Origin": "https://pluto.tv",
+        "Referer": "https://pluto.tv/"
+      }
+    });
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const m3u8Base = decodedUrl.substring(0, decodedUrl.lastIndexOf("/") + 1);
+    let content = upstream.data;
+
+    content = content.replace(/^((?!#).+\.ts(?:[?&][^\s]*)?)$/gm, (line) => {
+      const abs = line.startsWith("http") ? line : m3u8Base + line;
+      return `${baseUrl}/hls-canal-seg?url=${encodeURIComponent(abs)}`;
+    });
+    content = content.replace(/^((?!#)(?!.+\/hls-canal).+\.m3u8[^\s]*)$/gm, (line) => {
+      const abs = line.startsWith("http") ? line : m3u8Base + line;
+      return `${baseUrl}/hls-canal?url=${encodeURIComponent(abs)}`;
+    });
+    content = content.replace(/URI="([^"]+)"/g, (match, uri) => {
+      const abs = uri.startsWith("http") ? uri : m3u8Base + uri;
+      return `URI="${baseUrl}/hls-canal-seg?url=${encodeURIComponent(abs)}"`;
+    });
+
+    res.set("Content-Type", "application/vnd.apple.mpegurl");
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Cache-Control", "no-cache");
+    res.send(content);
+  } catch (error) {
+    console.error("❌ hls-canal error:", error.message);
+    res.status(502).send(`Error en proxy m3u8: ${error.message}`);
+  }
+});
+
+app.get("/hls-canal-seg", async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).send("Falta ?url=");
+  let decodedUrl;
+  try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
+  catch { return res.status(400).send("URL inválida"); }
+
+  try {
+    const upstream = await axios.get(decodedUrl, {
+      timeout: 20000,
+      responseType: "arraybuffer",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Origin": "https://pluto.tv",
+        "Referer": "https://pluto.tv/"
+      }
+    });
+    const contentType = upstream.headers["content-type"] || "video/MP2T";
+    res.set("Content-Type", contentType);
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Cache-Control", "no-cache");
+    res.send(upstream.data);
+  } catch (error) {
+    console.error("❌ hls-canal-seg error:", error.message);
+    res.status(502).send(`Error en proxy segmento: ${error.message}`);
+  }
+});
+
+// === REPRODUCTOR DE CANALES ===
+app.get("/canal-player", (req, res) => {
+  const { url, nombre, categorias, pais, bandera, fuente, logo, streams } = req.query;
+  if (!url) return res.status(400).send("Falta el parámetro ?url=");
+
+  let decodedUrl;
+  try { decodedUrl = decodeURIComponent(url); new URL(decodedUrl); }
+  catch { return res.status(400).send("URL inválida"); }
+
+  const canalNombre = nombre ? decodeURIComponent(nombre) : "Canal en vivo";
+  const canalPais = pais ? decodeURIComponent(pais) : null;
+  const canalBandera = bandera ? decodeURIComponent(bandera) : null;
+  const canalFuente = fuente ? decodeURIComponent(fuente) : null;
+  const canalLogo = logo ? decodeURIComponent(logo) : null;
+  const canalCategorias = categorias ? decodeURIComponent(categorias).split(",").map(c => c.trim()).filter(Boolean) : [];
+
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+  let señales = [];
+  try { señales = streams ? JSON.parse(decodeURIComponent(streams)) : []; } catch {}
+  if (!señales.length) señales = [{ url: decodedUrl, label: "Señal 1" }];
+
+  // Proxy each stream URL through /hls-canal to avoid CORS issues
+  señales = señales.map(s => ({
+    ...s,
+    url: `${baseUrl}/hls-canal?url=${encodeURIComponent(s.url)}`
+  }));
+
+  const señalesJson = JSON.stringify(señales).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
+
+  const tagsPais = canalBandera && canalPais
+    ? `<span class="tag tag-pais">${canalBandera} ${canalPais.toUpperCase()}</span>` : "";
+  const tagsCat = canalCategorias.map(c => `<span class="tag tag-cat">${c.toUpperCase()}</span>`).join("");
+  const tagFuente = canalFuente ? `<span class="tag tag-src">${canalFuente.toUpperCase()}</span>` : "";
+  const logoHtml = canalLogo
+    ? `<img src="${canalLogo}" alt="${canalNombre}" onerror="this.style.display='none'">` : "";
+  const señalesHtml = señales.map((s, i) =>
+    `<button class="signal-btn${i===0?" active":""}" onclick="switchStream(${i})">${s.label||"Señal "+(i+1)}</button>`
+  ).join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>${canalNombre} - EN VIVO</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    :root{--red:#e74c3c;--red2:#c0392b;--bg:#0d0d0d;--card:#161616;--border:#222}
+    html,body{width:100%;height:100%;background:var(--bg);font-family:'Segoe UI',Arial,sans-serif;color:#fff;display:flex;flex-direction:column;overflow:hidden}
+
+    /* ── Player ── */
+    #playerWrap{position:relative;width:100%;flex:1;background:#000;min-height:0}
+    video{width:100%;height:100%;object-fit:contain;display:block}
+
+    #loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;z-index:20;gap:14px}
+    .spinner{width:48px;height:48px;border:4px solid rgba(255,255,255,.1);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #loader p{font-size:13px;color:rgba(255,255,255,.5)}
+
+    #controls{position:absolute;bottom:0;left:0;right:0;padding:0 12px 8px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
+    #playerWrap:hover #controls,#playerWrap.showCtrl #controls{opacity:1}
+    #progressWrap{position:relative;height:18px;cursor:pointer;display:flex;align-items:center;margin-bottom:2px}
+    #progressBg{position:absolute;left:0;right:0;height:3px;background:rgba(255,255,255,.2);border-radius:2px}
+    #progressWrap:hover #progressBg{height:5px}
+    #liveBar{position:absolute;left:0;right:0;height:100%;background:linear-gradient(90deg,rgba(231,76,60,.6),rgba(231,76,60,.2));border-radius:2px}
+    #progressFill{position:absolute;left:0;height:100%;background:var(--red);border-radius:2px;width:0%}
+    #btnRow{display:flex;align-items:center;gap:8px}
+    .btn{background:none;border:none;color:#fff;cursor:pointer;padding:5px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+    .btn:hover{background:rgba(255,255,255,.12)}
+    .btn svg{width:20px;height:20px;fill:currentColor}
+    #volSlider{-webkit-appearance:none;appearance:none;width:64px;height:3px;background:rgba(255,255,255,.3);border-radius:2px;outline:none;cursor:pointer}
+    #volSlider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;background:#fff;border-radius:50%;cursor:pointer}
+    #timeLabel{font-size:11px;color:rgba(255,255,255,.7);white-space:nowrap;margin-left:2px}
+    #spacer{flex:1}
+    #qualityLabel{font-size:11px;background:rgba(255,255,255,.15);padding:2px 7px;border-radius:4px;color:rgba(255,255,255,.8)}
+
+    #errOverlay{position:absolute;inset:0;background:rgba(0,0,0,.92);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:30;gap:12px;padding:24px;text-align:center}
+    #errOverlay svg{width:48px;height:48px;fill:var(--red);opacity:.8}
+    #errOverlay h2{font-size:17px}
+    #errOverlay p{font-size:12px;color:rgba(255,255,255,.5);max-width:260px}
+    #retryBtn{background:var(--red);color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s}
+    #retryBtn:hover{background:var(--red2)}
+
+    #tapFx{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5}
+    .tapCircle{width:64px;height:64px;background:rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.5);transition:opacity .25s,transform .25s;backdrop-filter:blur(4px)}
+    .tapCircle.show{opacity:1;transform:scale(1)}
+    .tapCircle svg{width:28px;height:28px;fill:#fff}
+
+    /* ── Info card ── */
+    #infoCard{background:var(--card);border-top:1px solid var(--border);padding:10px 14px;flex-shrink:0}
+    #cardTop{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+    #chanLogo{height:32px;width:auto;border-radius:4px;object-fit:contain;background:rgba(255,255,255,.05);padding:2px}
+    #chanName{font-size:15px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .live-badge{background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:4px;white-space:nowrap;letter-spacing:.5px}
+    #tagsRow{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+    .tag{font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;letter-spacing:.3px}
+    .tag-pais{background:rgba(255,255,255,.1);color:rgba(255,255,255,.8)}
+    .tag-cat{background:rgba(52,152,219,.25);color:#5dade2}
+    .tag-src{background:rgba(46,204,113,.2);color:#58d68d}
+    #signalsRow{display:flex;flex-wrap:wrap;gap:6px}
+    .signal-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.85);padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;transition:all .2s}
+    .signal-btn.active,.signal-btn:hover{background:var(--red);border-color:var(--red);color:#fff}
+  </style>
+</head>
+<body>
+<div id="playerWrap">
+  <video id="video" playsinline></video>
+  <div id="loader"><div class="spinner"></div><p>Conectando al stream...</p></div>
+  <div id="tapFx"><div class="tapCircle" id="tapCircle">
+    <svg viewBox="0 0 24 24" id="tapIcon"><path d="M8 5v14l11-7z"/></svg>
+  </div></div>
+  <div id="controls">
+    <div id="progressWrap">
+      <div id="progressBg"><div id="liveBar" style="display:none"></div><div id="progressFill"></div></div>
+    </div>
+    <div id="btnRow">
+      <button class="btn" id="btnPlay"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
+      <button class="btn" id="btnMute"><svg viewBox="0 0 24 24" id="volIcon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/></svg></button>
+      <input type="range" id="volSlider" min="0" max="1" step="0.05" value="1">
+      <span id="timeLabel">EN VIVO</span>
+      <div id="spacer"></div>
+      <span id="qualityLabel">HD</span>
+      <button class="btn" id="btnPip" title="PiP" style="display:none"><svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
+      <button class="btn" id="btnFs"><svg viewBox="0 0 24 24" id="fsIcon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
+    </div>
+  </div>
+  <div id="errOverlay">
+    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+    <h2>Stream no disponible</h2>
+    <p>El canal puede no estar transmitiendo en este momento.</p>
+    <button id="retryBtn">&#8635; Reintentar</button>
+  </div>
+</div>
+
+<div id="infoCard">
+  <div id="cardTop">
+    ${logoHtml ? `<img id="chanLogo" src="${canalLogo}" alt="${canalNombre}" onerror="this.style.display='none'">` : ""}
+    <span id="chanName">${canalNombre}</span>
+    <span class="live-badge">● EN VIVO</span>
+  </div>
+  <div id="tagsRow">${tagsPais}${tagsCat}${tagFuente}</div>
+  ${señales.length > 1 ? `<div id="signalsRow">${señalesHtml}</div>` : ""}
+</div>
+
+<script>
+(function(){
+  var STREAMS = ${señalesJson};
+  var currentIdx = 0;
+  var video = document.getElementById("video");
+  var loader = document.getElementById("loader");
+  var errOverlay = document.getElementById("errOverlay");
+  var btnPlay = document.getElementById("btnPlay");
+  var playIcon = document.getElementById("playIcon");
+  var btnMute = document.getElementById("btnMute");
+  var volIcon = document.getElementById("volIcon");
+  var volSlider = document.getElementById("volSlider");
+  var timeLabel = document.getElementById("timeLabel");
+  var progressFill = document.getElementById("progressFill");
+  var liveBar = document.getElementById("liveBar");
+  var qualityLabel = document.getElementById("qualityLabel");
+  var btnFs = document.getElementById("btnFs");
+  var btnPip = document.getElementById("btnPip");
+  var wrap = document.getElementById("playerWrap");
+  var tapCircle = document.getElementById("tapCircle");
+  var tapIcon = document.getElementById("tapIcon");
+  var retries = 0; var maxRetries = 3;
+  var hlsInstance = null; var isLive = true; var ctrlTimer;
+
+  var ICONS = {
+    play:'<path d="M8 5v14l11-7z"/>',
+    pause:'<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>',
+    volOn:'<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/>',
+    volOff:'<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>',
+    fsOn:'<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>',
+    fsOff:'<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>'
+  };
+  function setIcon(el,k){el.innerHTML=ICONS[k];}
+
+  function showLoader(msg){loader.querySelector("p").textContent=msg||"Conectando al stream...";loader.style.display="flex";}
+  function hideLoader(){loader.style.display="none";}
+  function showError(){errOverlay.style.display="flex";loader.style.display="none";}
+  function showCtrl(){wrap.classList.add("showCtrl");clearTimeout(ctrlTimer);ctrlTimer=setTimeout(()=>wrap.classList.remove("showCtrl"),3000);}
+  wrap.addEventListener("mousemove",showCtrl);
+  wrap.addEventListener("touchstart",showCtrl,{passive:true});
+
+  function togglePlay(){
+    if(video.paused){video.play();setIcon(playIcon,"pause");setIcon(tapIcon,"pause");}
+    else{video.pause();setIcon(playIcon,"play");setIcon(tapIcon,"play");}
+    flashTap();
+  }
+  btnPlay.addEventListener("click",function(e){e.stopPropagation();togglePlay();});
+  video.addEventListener("click",togglePlay);
+  video.addEventListener("play",function(){setIcon(playIcon,"pause");});
+  video.addEventListener("pause",function(){setIcon(playIcon,"play");});
+
+  var tapTimer;
+  function flashTap(){tapCircle.classList.add("show");clearTimeout(tapTimer);tapTimer=setTimeout(()=>tapCircle.classList.remove("show"),600);}
+
+  volSlider.addEventListener("input",function(){video.volume=this.value;video.muted=this.value==0;setIcon(volIcon,video.muted?"volOff":"volOn");});
+  btnMute.addEventListener("click",function(){video.muted=!video.muted;volSlider.value=video.muted?0:video.volume;setIcon(volIcon,video.muted?"volOff":"volOn");});
+
+  btnFs.addEventListener("click",function(){
+    var el=document.documentElement;
+    if(!document.fullscreenElement&&!document.webkitFullscreenElement){(el.requestFullscreen||el.webkitRequestFullscreen).call(el);setIcon(document.getElementById("fsIcon"),"fsOff");}
+    else{(document.exitFullscreen||document.webkitExitFullscreen).call(document);setIcon(document.getElementById("fsIcon"),"fsOn");}
+  });
+
+  if(document.pictureInPictureEnabled){
+    btnPip.style.display="flex";
+    btnPip.addEventListener("click",function(){
+      if(document.pictureInPictureElement)document.exitPictureInPicture().catch(function(){});
+      else video.requestPictureInPicture().catch(function(){});
+    });
+  }
+
+  function initPlayer(src){
+    showLoader(retries>0?"Reintentando... ("+retries+"/"+maxRetries+")":"Conectando al stream...");
+    errOverlay.style.display="none";
+    if(hlsInstance){hlsInstance.destroy();hlsInstance=null;}
+    if(Hls.isSupported()){
+      var hls=new Hls({maxBufferLength:20,liveSyncDurationCount:3,manifestLoadingMaxRetry:3,levelLoadingMaxRetry:3,enableWorker:true});
+      hlsInstance=hls;
+      hls.loadSource(src);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED,function(e,data){
+        hideLoader();
+        isLive=video.duration===Infinity||isNaN(video.duration);
+        if(isLive){liveBar.style.display="block";progressFill.style.width="100%";timeLabel.textContent="EN VIVO";}
+        var lvl=hls.levels[hls.currentLevel];
+        if(lvl&&lvl.height){qualityLabel.textContent=lvl.height+"p";}
+        video.play().catch(function(){});retries=0;
+      });
+      hls.on(Hls.Events.LEVEL_SWITCHED,function(e,data){
+        var lvl=hls.levels[data.level];if(lvl&&lvl.height){qualityLabel.textContent=lvl.height+"p";}
+      });
+      hls.on(Hls.Events.ERROR,function(e,data){
+        if(data.fatal){hls.destroy();hlsInstance=null;
+          if(retries<maxRetries){retries++;showLoader("Error, reintentando... ("+retries+"/"+maxRetries+")");setTimeout(function(){initPlayer(STREAMS[currentIdx].url);},3000);}
+          else showError();
+        }
+      });
+    } else if(video.canPlayType("application/vnd.apple.mpegurl")){
+      video.src=src;
+      video.addEventListener("loadedmetadata",function(){hideLoader();video.play().catch(function(){});});
+      video.addEventListener("error",function(){if(retries<maxRetries){retries++;setTimeout(function(){initPlayer(STREAMS[currentIdx].url);},3000);}else showError();});
+    } else showError();
+  }
+
+  window.switchStream=function(idx){
+    currentIdx=idx;retries=0;
+    document.querySelectorAll(".signal-btn").forEach(function(b,i){b.classList.toggle("active",i===idx);});
+    initPlayer(STREAMS[idx].url);
+  };
+
+  document.getElementById("retryBtn").addEventListener("click",function(){retries=0;initPlayer(STREAMS[currentIdx].url);});
+  initPlayer(STREAMS[0].url);
+})();
+</script>
+</body>
+</html>`;
+
+  res.set("Content-Type","text/html; charset=utf-8");
+  res.set("Access-Control-Allow-Origin","*");
+  res.set("X-Frame-Options","ALLOWALL");
+  res.set("Cache-Control","no-cache");
+  res.send(html);
+});
+
+// === CANALES (fuente: famelack/IPTV-org + Pluto TV) ===
 app.get("/canales", async (req, res) => {
   try {
     let data = cache.get("canales");
     
     if (!data) {
-      console.log("📺 Obteniendo canales desde IPTV-org (fuente famelack) - caché vacío...");
+      console.log("📺 Obteniendo canales desde IPTV-org y Pluto TV - caché vacío...");
       data = await scrapCanales();
       if (data.success) {
-        cache.set("canales", data, 3600); // Cache 1 hora
+        cache.set("canales", data, 3600);
       }
     }
-    
+
+    if (data.success) {
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const enriched = {
+        ...data,
+        canales: data.canales.map(canal => {
+          const allStreams = (canal.streams || []).map((s, i) => ({
+            url: s.url,
+            label: `Señal ${i + 1}`,
+            status: s.status || "online"
+          }));
+          const params = new URLSearchParams({
+            url: allStreams[0]?.url || "",
+            nombre: canal.nombre || "",
+            categorias: (canal.categorias || []).join(","),
+            pais: canal.pais || "",
+            bandera: canal.bandera || "",
+            fuente: canal.fuente || "",
+            logo: canal.logo || "",
+            streams: JSON.stringify(allStreams)
+          });
+          return {
+            ...canal,
+            player_url: `${baseUrl}/canal-player?${params.toString()}`,
+            streams: allStreams
+          };
+        })
+      };
+      return res.json(enriched);
+    }
+
     res.json(data);
   } catch (error) {
     console.error("Error en /canales:", error.message);
