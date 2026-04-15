@@ -2446,10 +2446,10 @@ app.get("/canal-player", (req, res) => {
   <style>
     *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
     :root{--red:#e74c3c;--red2:#c0392b;--bg:#0d0d0d;--card:#161616;--border:#222}
-    html,body{width:100%;height:100%;background:var(--bg);font-family:'Segoe UI',Arial,sans-serif;color:#fff;display:flex;flex-direction:column;overflow:hidden}
+    html,body{width:100%;height:100%;background:var(--bg);font-family:'Segoe UI',Arial,sans-serif;color:#fff;overflow:hidden}
 
     /* ── Player ── */
-    #playerWrap{position:relative;width:100%;flex:1;background:#000;min-height:0}
+    #playerWrap{position:relative;width:100%;height:100%;background:#000}
     video{width:100%;height:100%;object-fit:contain;display:block}
 
     #loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;z-index:20;gap:14px}
@@ -2486,20 +2486,6 @@ app.get("/canal-player", (req, res) => {
     .tapCircle.show{opacity:1;transform:scale(1)}
     .tapCircle svg{width:28px;height:28px;fill:#fff}
 
-    /* ── Info card ── */
-    #infoCard{background:var(--card);border-top:1px solid var(--border);padding:10px 14px;flex-shrink:0}
-    #cardTop{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-    #chanLogo{height:32px;width:auto;border-radius:4px;object-fit:contain;background:rgba(255,255,255,.05);padding:2px}
-    #chanName{font-size:15px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .live-badge{background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:4px;white-space:nowrap;letter-spacing:.5px}
-    #tagsRow{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
-    .tag{font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;letter-spacing:.3px}
-    .tag-pais{background:rgba(255,255,255,.1);color:rgba(255,255,255,.8)}
-    .tag-cat{background:rgba(52,152,219,.25);color:#5dade2}
-    .tag-src{background:rgba(46,204,113,.2);color:#58d68d}
-    #signalsRow{display:flex;flex-wrap:wrap;gap:6px}
-    .signal-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.85);padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;transition:all .2s}
-    .signal-btn.active,.signal-btn:hover{background:var(--red);border-color:var(--red);color:#fff}
   </style>
 </head>
 <body>
@@ -2530,16 +2516,6 @@ app.get("/canal-player", (req, res) => {
     <p>El canal puede no estar transmitiendo en este momento.</p>
     <button id="retryBtn">&#8635; Reintentar</button>
   </div>
-</div>
-
-<div id="infoCard">
-  <div id="cardTop">
-    ${logoHtml ? `<img id="chanLogo" src="${canalLogo}" alt="${canalNombre}" onerror="this.style.display='none'">` : ""}
-    <span id="chanName">${canalNombre}</span>
-    <span class="live-badge">● EN VIVO</span>
-  </div>
-  <div id="tagsRow">${tagsPais}${tagsCat}${tagFuente}</div>
-  ${señales.length > 1 ? `<div id="signalsRow">${señalesHtml}</div>` : ""}
 </div>
 
 <script>
