@@ -2684,25 +2684,20 @@ app.get("/canales", async (req, res) => {
       const enriched = {
         ...data,
         canales: data.canales.map(canal => {
-          const allStreams = (canal.streams || []).map((s, i) => ({
-            url: s.url,
-            label: `Señal ${i + 1}`,
-            status: s.status || "online"
-          }));
+          const { streams, ...canalSinStreams } = canal;
+          const firstStream = streams?.[0]?.url || "";
           const params = new URLSearchParams({
-            url: allStreams[0]?.url || "",
+            url: firstStream,
             nombre: canal.nombre || "",
             categorias: (canal.categorias || []).join(","),
             pais: canal.pais || "",
             bandera: canal.bandera || "",
             fuente: canal.fuente || "",
-            logo: canal.logo || "",
-            streams: JSON.stringify(allStreams)
+            logo: canal.logo || ""
           });
           return {
-            ...canal,
-            player_url: `${baseUrl}/canal-player?${params.toString()}`,
-            streams: allStreams
+            ...canalSinStreams,
+            player_url: `${baseUrl}/canal-player?${params.toString()}`
           };
         })
       };
