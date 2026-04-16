@@ -3460,7 +3460,7 @@ app.get("/ultragol-l3ho", (req, res) => {
   };
   
   // Si la URL es de un dominio que soporta stream7, redirigir ahí para extracción server-side
-  const STREAM7_PLAYER_DOMAINS = ["streamtpnew.com", "streamvipx.com", "bolaloca.my"];
+  const STREAM7_PLAYER_DOMAINS = ["streamtpnew.com", "streamvipx.com", "bolaloca.my", "capo7play.com"];
   if (targetUrl) {
     try {
       const decoded = decodeURIComponent(targetUrl);
