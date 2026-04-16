@@ -1728,7 +1728,7 @@ const STREAM7_REFERER = "https://futbollibretv.su/";
 const STREAM7_ALLOWED = [
   "latamvidz1.com", "esvideofy.com", "envivoslatam.org", "ng0pr.envivoslatam.org",
   "zohanayaan.com", "hoca6.com", "83870203.net", "12703830.net", "eveningbad.net",
-  "streameasthd.net", "prospectivetoday.fun"
+  "streameasthd.net", "prospectivetoday.fun", "capo7play.com"
 ];
 
 function stream7IsAllowed(url) {
@@ -1788,6 +1788,31 @@ async function extractM3u8FromStreamvipx(pageUrl) {
   if (!m) throw new Error("No se encontró m3u8 en streamvipx");
 
   return { m3u8Url: m[0], referer: origin + "/" };
+}
+
+async function extractM3u8FromCapo7play(pageUrl) {
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36";
+  const origin = new URL(pageUrl).origin;
+  const resp = await axios.get(pageUrl, {
+    timeout: 15000,
+    headers: { "User-Agent": UA, "Referer": origin + "/" }
+  });
+  const html = resp.data;
+
+  // La URL del m3u8 está en un array de caracteres dentro de una función:
+  // return(["h","t","t","p","s",...].join("") + varAleatoria.join("") + document.getElementById("idAleatorio").innerHTML)
+  // La variable y el elemento son siempre cadenas vacías, así que solo necesitamos el array.
+  const arrMatch = html.match(/return\s*\(\s*\[([^\]]+)\]\.join\(""\)/);
+  if (!arrMatch) throw new Error("capo7play: no se encontró el array de caracteres del stream");
+
+  const chars = [...arrMatch[1].matchAll(/"([^"]*)"/g)].map(m => m[1]);
+  const m3u8Url = chars.join("").replace(/\\\//g, "/");
+
+  if (!m3u8Url || !m3u8Url.includes(".m3u8")) {
+    throw new Error("capo7play: m3u8 inválido: " + m3u8Url.substring(0, 80));
+  }
+
+  return { m3u8Url, referer: origin + "/" };
 }
 
 async function extractM3u8FromBolaloca(bola_url) {
@@ -1858,7 +1883,7 @@ app.get("/stream7", async (req, res) => {
   }
 
   const hostname = new URL(decodedUrl).hostname;
-  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com"];
+  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com"];
   if (!playerAllowed.some(d => hostname === d || hostname.endsWith("." + d))) {
     return res.status(403).send("Dominio no permitido");
   }
@@ -1867,7 +1892,12 @@ app.get("/stream7", async (req, res) => {
   let m3u8Url, streamReferer;
 
   try {
-    if (hostname === "bolaloca.my" || hostname.endsWith(".bolaloca.my")) {
+    if (hostname === "capo7play.com" || hostname.endsWith(".capo7play.com")) {
+      console.log(`🎬 stream7 (capo7play) → ${decodedUrl}`);
+      const extracted = await extractM3u8FromCapo7play(decodedUrl);
+      m3u8Url = extracted.m3u8Url;
+      streamReferer = extracted.referer;
+    } else if (hostname === "bolaloca.my" || hostname.endsWith(".bolaloca.my")) {
       console.log(`🎬 stream7 (bolaloca) → ${decodedUrl}`);
       const extracted = await extractM3u8FromBolaloca(decodedUrl);
       m3u8Url = extracted.m3u8Url;
