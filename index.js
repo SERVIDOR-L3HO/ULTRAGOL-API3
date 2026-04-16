@@ -1728,7 +1728,7 @@ const STREAM7_REFERER = "https://futbollibretv.su/";
 const STREAM7_ALLOWED = [
   "latamvidz1.com", "esvideofy.com", "envivoslatam.org", "ng0pr.envivoslatam.org",
   "zohanayaan.com", "hoca6.com", "83870203.net", "12703830.net", "eveningbad.net",
-  "streameasthd.net", "prospectivetoday.fun", "capo7play.com"
+  "streameasthd.net", "prospectivetoday.fun", "capo7play.com", "streamx550.com"
 ];
 
 function stream7IsAllowed(url) {
@@ -1883,7 +1883,7 @@ app.get("/stream7", async (req, res) => {
   }
 
   const hostname = new URL(decodedUrl).hostname;
-  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com"];
+  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com"];
   if (!playerAllowed.some(d => hostname === d || hostname.endsWith("." + d))) {
     return res.status(403).send("Dominio no permitido");
   }
@@ -1902,8 +1902,8 @@ app.get("/stream7", async (req, res) => {
       const extracted = await extractM3u8FromBolaloca(decodedUrl);
       m3u8Url = extracted.m3u8Url;
       streamReferer = extracted.referer;
-    } else if (hostname === "streamtpnew.com" || hostname.endsWith(".streamtpnew.com")) {
-      console.log(`🎬 stream7 (streamtpnew) → ${decodedUrl}`);
+    } else if (hostname === "streamtpnew.com" || hostname.endsWith(".streamtpnew.com") || hostname === "streamx550.com" || hostname.endsWith(".streamx550.com")) {
+      console.log(`🎬 stream7 (streamtpnew/streamx550) → ${decodedUrl}`);
       const extracted = await extractM3u8FromStreamtpnew(decodedUrl);
       m3u8Url = extracted.m3u8Url;
       streamReferer = extracted.referer;
@@ -3460,7 +3460,7 @@ app.get("/ultragol-l3ho", (req, res) => {
   };
   
   // Si la URL es de un dominio que soporta stream7, redirigir ahí para extracción server-side
-  const STREAM7_PLAYER_DOMAINS = ["streamtpnew.com", "streamvipx.com", "bolaloca.my", "capo7play.com"];
+  const STREAM7_PLAYER_DOMAINS = ["streamtpnew.com", "streamvipx.com", "bolaloca.my", "capo7play.com", "streamx550.com"];
   if (targetUrl) {
     try {
       const decoded = decodeURIComponent(targetUrl);
