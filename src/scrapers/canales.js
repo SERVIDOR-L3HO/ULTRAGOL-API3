@@ -1,4 +1,5 @@
 const axios = require("axios");
+const cheerio = require("cheerio");
 
 const IPTV_API_BASE = "https://iptv-org.github.io/api";
 const PLUTO_API_BASE = "https://api.pluto.tv/v2";
@@ -239,9 +240,103 @@ async function scrapCanalesDeportes() {
   return await scrapCanalesPorCategoria("sports");
 }
 
+function extractJsonStringifyObject(html, fromIndex) {
+  const start = html.indexOf("{", fromIndex);
+  if (start === -1) return null;
+  let depth = 0;
+  let inStr = false;
+  let escape = false;
+  for (let i = start; i < html.length; i++) {
+    const ch = html[i];
+    if (escape) { escape = false; continue; }
+    if (ch === "\\") { escape = true; continue; }
+    if (ch === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return html.substring(start, i + 1);
+    }
+  }
+  return null;
+}
+
+async function scrapCanalesPremium() {
+  const URL_PREMIUM = "https://90minutos16.blogspot.com/p/canales-premium.html?m=1";
+  console.log("📺 Obteniendo canales premium de 90minutos...");
+
+  try {
+    const { data: html } = await axios.get(URL_PREMIUM, {
+      timeout: 30000,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      }
+    });
+
+    const canales = [];
+    const nombreRe = /"nombre"\s*:\s*"([^"]+)"/g;
+    let m;
+
+    while ((m = nombreRe.exec(html)) !== null) {
+      const blockStart = m.index;
+      const blockEnd   = html.indexOf("JSON.stringify", blockStart + m[0].length) + 200;
+      const segment    = html.substring(blockStart, Math.min(blockEnd + 1000, html.length));
+
+      const tipoM   = segment.match(/"tipo"\s*:\s*"([^"]+)"/);
+      const urlM    = segment.match(/"url"\s*:\s*"([^"]+)"/);
+      const imagenM = segment.match(/"imagen"\s*:\s*"([^"]+)"/);
+
+      if (!urlM || !imagenM) continue;
+
+      let params = null;
+      const jsIdx = segment.indexOf("JSON.stringify");
+      if (jsIdx !== -1) {
+        const rawObj = extractJsonStringifyObject(segment, jsIdx + "JSON.stringify".length);
+        if (rawObj) {
+          try {
+            const cleaned = rawObj
+              .replace(/[^\x09\x0a\x0d\x20-\x7e]/g, " ")
+              .replace(/,(\s*[}\]])/g, "$1");
+            params = JSON.parse(cleaned);
+          } catch (_) {
+            params = null;
+          }
+        }
+      }
+
+      canales.push({
+        nombre: m[1].trim(),
+        tipo:   tipoM ? tipoM[1].trim() : null,
+        url:    urlM[1].trim(),
+        imagen: imagenM[1].trim(),
+        params,
+        fuente: "90minutos-premium"
+      });
+    }
+
+    console.log(`✅ Canales premium obtenidos: ${canales.length} canales de 90minutos`);
+
+    return {
+      success: true,
+      fuente: "90minutos-premium",
+      totalCanales: canales.length,
+      canales,
+      ultimaActualizacion: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error("❌ Error obteniendo canales premium:", error.message);
+    return {
+      success: false,
+      error: error.message,
+      canales: []
+    };
+  }
+}
+
 module.exports = {
   scrapCanales,
   scrapCanalesPorPais,
   scrapCanalesPorCategoria,
-  scrapCanalesDeportes
+  scrapCanalesDeportes,
+  scrapCanalesPremium
 };

@@ -68,7 +68,8 @@ const {
   scrapCanales, 
   scrapCanalesPorPais, 
   scrapCanalesPorCategoria, 
-  scrapCanalesDeportes 
+  scrapCanalesDeportes,
+  scrapCanalesPremium
 } = require("./src/scrapers/canales");
 
 const { 
@@ -2782,6 +2783,29 @@ app.get("/canales/deportes", async (req, res) => {
     console.error("Error en /canales/deportes:", error.message);
     res.status(500).json({ 
       error: "No se pudieron obtener los canales deportivos",
+      detalles: error.message 
+    });
+  }
+});
+
+// === CANALES PREMIUM (fuente: 90minutos) ===
+app.get("/canales/premium", async (req, res) => {
+  try {
+    let data = cache.get("canales_premium");
+    
+    if (!data) {
+      console.log("📺 Obteniendo canales premium - caché vacío...");
+      data = await scrapCanalesPremium();
+      if (data.success) {
+        cache.set("canales_premium", data, 1800);
+      }
+    }
+    
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /canales/premium:", error.message);
+    res.status(500).json({ 
+      error: "No se pudieron obtener los canales premium",
       detalles: error.message 
     });
   }
