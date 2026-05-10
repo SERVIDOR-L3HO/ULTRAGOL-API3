@@ -260,22 +260,33 @@
     }
 
     async function verifyAndLoad() {
+      const errorEl = document.getElementById('authError');
+      errorEl.style.display = 'none';
       try {
         const res = await fetch('/api-admin/keys', {
           headers: { 'x-admin-key': sessionAdminKey }
         });
-        if (!res.ok) {
-          document.getElementById('authError').style.display = 'block';
+        // 401 = wrong key, anything else = key is valid but server issue
+        if (res.status === 401) {
+          errorEl.textContent = 'API key incorrecta. Inténtalo de nuevo.';
+          errorEl.style.display = 'block';
           sessionAdminKey = null;
           return;
         }
-        const data = await res.json();
         sessionStorage.setItem('adminKey', sessionAdminKey);
         document.getElementById('authGate').style.display = 'none';
         document.getElementById('mainContent').style.display = 'block';
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          document.getElementById('keysPanel').innerHTML =
+            `<div class="empty">⚠️ ${d.error || 'Error del servidor'}</div>`;
+          return;
+        }
+        const data = await res.json();
         renderKeys(data.keys || []);
       } catch (err) {
-        document.getElementById('authError').style.display = 'block';
+        errorEl.textContent = 'Error de conexión. Recarga la página.';
+        errorEl.style.display = 'block';
         sessionAdminKey = null;
       }
     }
