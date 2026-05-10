@@ -1,7 +1,7 @@
 modules = ["nodejs-20", "web", "bash"]
 [agent]
 expertMode = true
-integrations = ["youtube:1.0.0"]
+integrations = ["youtube:1.0.0", "firebase_barebones_javascript:1.0.0"]
 stack = "BEST_EFFORT_FALLBACK"
 
 [nix]
