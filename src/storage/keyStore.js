@@ -2,26 +2,56 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const KEYS_FILE = path.join(__dirname, '../../data/apikeys.json');
+const IS_VERCEL = !!process.env.VERCEL;
+
+const LOCAL_FILE = IS_VERCEL
+  ? '/tmp/apikeys.json'
+  : path.join(__dirname, '../../data/apikeys.json');
+
+let memoryStore = null;
 
 function ensureFile() {
-  const dir = path.dirname(KEYS_FILE);
+  if (IS_VERCEL) {
+    if (!fs.existsSync(LOCAL_FILE)) {
+      const initial = _loadFromEnv();
+      fs.writeFileSync(LOCAL_FILE, JSON.stringify(initial), 'utf8');
+      memoryStore = initial;
+    }
+    return;
+  }
+  const dir = path.dirname(LOCAL_FILE);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  if (!fs.existsSync(KEYS_FILE)) fs.writeFileSync(KEYS_FILE, JSON.stringify([]), 'utf8');
+  if (!fs.existsSync(LOCAL_FILE)) fs.writeFileSync(LOCAL_FILE, JSON.stringify([]), 'utf8');
+}
+
+function _loadFromEnv() {
+  try {
+    const raw = process.env.API_KEYS_JSON;
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
 }
 
 function readKeys() {
+  if (IS_VERCEL && memoryStore !== null) return memoryStore;
   ensureFile();
   try {
-    return JSON.parse(fs.readFileSync(KEYS_FILE, 'utf8'));
+    const data = JSON.parse(fs.readFileSync(LOCAL_FILE, 'utf8'));
+    if (IS_VERCEL) memoryStore = data;
+    return data;
   } catch {
     return [];
   }
 }
 
 function writeKeys(keys) {
+  if (IS_VERCEL) {
+    memoryStore = keys;
+    try { fs.writeFileSync(LOCAL_FILE, JSON.stringify(keys, null, 2), 'utf8'); } catch {}
+    return;
+  }
   ensureFile();
-  fs.writeFileSync(KEYS_FILE, JSON.stringify(keys, null, 2), 'utf8');
+  fs.writeFileSync(LOCAL_FILE, JSON.stringify(keys, null, 2), 'utf8');
 }
 
 function getAllKeys() {
@@ -83,4 +113,4 @@ function incrementRequests(rawKey) {
   }
 }
 
-module.exports = { getAllKeys, createKey, findKey, getKeyById, toggleKey, deleteKey, incrementRequests };
+module.exports = { getAllKeys, createKey, findKey, getKeyById, toggleKey, deleteKey, incrementRequests, IS_VERCEL };

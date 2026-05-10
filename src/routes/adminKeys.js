@@ -71,4 +71,18 @@ router.delete('/keys/:id', requireAdminKey, (req, res) => {
   }
 });
 
+router.get('/status', requireAdminKey, (req, res) => {
+  const { IS_VERCEL } = require('../storage/keyStore');
+  res.json({ isVercel: IS_VERCEL });
+});
+
+router.get('/export', requireAdminKey, (req, res) => {
+  try {
+    const keys = store.getAllKeys();
+    res.json({ API_KEYS_JSON: JSON.stringify(keys) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
