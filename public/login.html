@@ -132,7 +132,7 @@
 
         <div id="error-msg"></div>
 
-        <button class="btn-google" id="btn-login" onclick="handleLogin()">
+        <button class="btn-google" id="btn-login" onclick="signInWithGoogle()">
             <svg width="20" height="20" viewBox="0 0 24 24">
                 <path fill="#000" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#000" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -153,38 +153,36 @@
     </div>
 
     <script type="module">
-        import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-        import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
-        const FIREBASE_CONFIG = {
-            apiKey: "AIzaSyCHAptclAjSVJP3iDNzqrLbs9bQ3272SrU",
-            authDomain: "apik-9510b.firebaseapp.com",
-            projectId: "apik-9510b",
-            storageBucket: "apik-9510b.firebasestorage.app",
-            messagingSenderId: "275629352874",
-            appId: "1:275629352874:web:7028e3a61097d7476d6dd3",
-            measurementId: "G-S6DZL6ZGH0"
-        };
+        let app, auth, provider;
 
-        const ALLOWED_EMAIL = 'santiagoeduardo331@gmail.com';
-        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-
-        const app = getApps().length ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
-        const auth = getAuth(app);
-        const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
-
-        async function handleUser(user) {
-            if (!user) return;
-            const email = user.email?.toLowerCase();
-            if (email !== ALLOWED_EMAIL) {
-                showError('Acceso denegado. Solo la cuenta autorizada puede entrar.');
-                await auth.signOut();
-                return;
-            }
-            showLoading('Verificando acceso...');
+        async function initFirebase() {
             try {
-                const idToken = await user.getIdToken();
+                const resp = await fetch('/api/firebase-config');
+                if (!resp.ok) throw new Error('No se pudo obtener la configuración de Firebase');
+                const config = await resp.json();
+                app = initializeApp(config);
+                auth = getAuth(app);
+                provider = new GoogleAuthProvider();
+                provider.setCustomParameters({ login_hint: 'Santiagoeduardo331@gmail.com' });
+            } catch (err) {
+                showError('Firebase no está configurado aún. Contacta al administrador.');
+                document.getElementById('btn-login').disabled = true;
+            }
+        }
+
+        window.signInWithGoogle = async function() {
+            if (!auth) return;
+            const btn = document.getElementById('btn-login');
+            const loading = document.getElementById('loading');
+            btn.disabled = true;
+            loading.style.display = 'block';
+            hideError();
+            try {
+                const result = await signInWithPopup(auth, provider);
+                const idToken = await result.user.getIdToken();
                 const resp = await fetch('/auth/firebase-login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -196,86 +194,29 @@
                 } else {
                     showError(data.error || 'Acceso denegado.');
                     await auth.signOut();
-                    hideLoading();
                 }
-            } catch {
-                showError('Error de conexión. Inténtalo de nuevo.');
-                hideLoading();
-            }
-        }
-
-        getRedirectResult(auth).then(result => {
-            if (result?.user) handleUser(result.user);
-        }).catch(err => {
-            if (err.code && err.code !== 'auth/no-current-user') {
-                showError(getErrorMsg(err.code));
-            }
-        });
-
-        onAuthStateChanged(auth, (user) => {
-            if (user && user.email?.toLowerCase() === ALLOWED_EMAIL) {
-                handleUser(user);
-            }
-        });
-
-        window.handleLogin = async function() {
-            const btn = document.getElementById('btn-login');
-            btn.disabled = true;
-            hideError();
-
-            if (isMobile) {
-                showLoading('Redirigiendo a Google...');
-                try {
-                    await signInWithRedirect(auth, provider);
-                } catch (err) {
-                    showError(getErrorMsg(err.code));
-                    btn.disabled = false;
-                    hideLoading();
-                }
-                return;
-            }
-
-            showLoading('Abriendo Google...');
-            try {
-                const result = await signInWithPopup(auth, provider);
-                await handleUser(result.user);
             } catch (err) {
-                if (err.code === 'auth/popup-blocked') {
-                    showLoading('Redirigiendo a Google...');
-                    await signInWithRedirect(auth, provider);
-                    return;
-                }
-                if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
-                    showError(getErrorMsg(err.code));
+                if (err.code === 'auth/popup-closed-by-user') {
+                    hideError();
+                } else {
+                    showError('Error al iniciar sesión: ' + (err.message || 'Inténtalo de nuevo.'));
                 }
             } finally {
                 btn.disabled = false;
-                hideLoading();
+                loading.style.display = 'none';
             }
         };
-
-        function getErrorMsg(code) {
-            if (code === 'auth/unauthorized-domain') {
-                return 'Este dominio no está autorizado en Firebase. Agrégalo en Firebase Console → Authentication → Authorized domains.';
-            }
-            if (code === 'auth/popup-blocked') return 'Popup bloqueado. Intenta de nuevo.';
-            if (code === 'auth/network-request-failed') return 'Sin conexión a internet.';
-            return 'Error al iniciar sesión. Inténtalo de nuevo.';
-        }
 
         function showError(msg) {
             const el = document.getElementById('error-msg');
             el.textContent = msg;
             el.style.display = 'block';
-            hideLoading();
         }
-        function hideError() { document.getElementById('error-msg').style.display = 'none'; }
-        function showLoading(msg) {
-            const el = document.getElementById('loading');
-            el.textContent = msg || 'Cargando...';
-            el.style.display = 'block';
+        function hideError() {
+            document.getElementById('error-msg').style.display = 'none';
         }
-        function hideLoading() { document.getElementById('loading').style.display = 'none'; }
+
+        initFirebase();
     </script>
 </body>
 </html>

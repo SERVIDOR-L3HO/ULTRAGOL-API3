@@ -326,15 +326,6 @@ async function updateMarcadores() {
   }
 }
 
-const PUBLIC_EXACT = new Set(['/', '/login', '/logout', '/admin', '/l3ho-links', '/embed/l3ho-links', '/api/firebase-config', '/ultragol-l3ho', '/glz-proxy', '/api']);
-const PUBLIC_PREFIXES = ['/auth/', '/public/', '/attached_assets/', '/admin/'];
-
-app.use((req, res, next) => {
-  if (PUBLIC_EXACT.has(req.path)) return next();
-  if (PUBLIC_PREFIXES.some(p => req.path.startsWith(p))) return next();
-  return apiKeyAuth(req, res, next);
-});
-
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

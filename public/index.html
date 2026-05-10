@@ -29,14 +29,8 @@
                     <span class="status-dot"></span>
                     <span>v3.5.0</span>
                 </div>
-                <a href="/login" class="login-btn" id="loginBtn" style="display:none;">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-                    Iniciar Sesión
-                </a>
                 <div class="user-info" id="userInfo" style="display: none;">
-                    <img id="userAvatar" src="" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:cover;display:none;">
                     <span id="userName"></span>
-                    <a href="/admin" class="logout-btn" style="background:rgba(0,255,136,0.1);border-color:rgba(0,255,136,0.3);color:#00ff88;">Admin</a>
                     <a href="/logout" class="logout-btn">Salir</a>
                 </div>
             </nav>
@@ -52,15 +46,6 @@
                     <span class="title-line accent">DATA HUB</span>
                 </h1>
                 <p class="hero-subtitle">Plataforma profesional de datos deportivos en tiempo real. Scraping inteligente de las principales ligas del mundo con marcadores en vivo desde ESPN.</p>
-
-                <div id="heroCta" style="display:none; margin-bottom: 40px;">
-                    <a href="/login" class="hero-cta-btn">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-                        Iniciar Sesión con Google
-                    </a>
-                    <p class="hero-cta-sub">🔒 Acceso privado — solo cuenta autorizada</p>
-                </div>
-
                 <div class="hero-stats">
                     <div class="stat">
                         <div class="stat-icon">⚽</div>
@@ -456,23 +441,14 @@
         fetch('/auth/status')
             .then(res => res.json())
             .then(data => {
-                if (data.authenticated && data.user) {
-                    document.getElementById('userInfo').style.display = 'flex';
-                    document.getElementById('userName').textContent = data.user.name || data.user.email || '';
-                    const avatar = document.getElementById('userAvatar');
-                    if (data.user.picture) {
-                        avatar.src = data.user.picture;
-                        avatar.style.display = 'inline-block';
-                    }
-                } else {
-                    document.getElementById('loginBtn').style.display = 'inline-flex';
-                    document.getElementById('heroCta').style.display = 'block';
+                if (data.authenticated) {
+                    const userInfo = document.getElementById('userInfo');
+                    const userName = document.getElementById('userName');
+                    userInfo.style.display = 'flex';
+                    userName.textContent = data.user;
                 }
             })
-            .catch(() => {
-                document.getElementById('loginBtn').style.display = 'inline-flex';
-                document.getElementById('heroCta').style.display = 'block';
-            });
+            .catch(console.error);
     </script>
 </body>
 </html>
