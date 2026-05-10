@@ -194,6 +194,33 @@ body {
     text-decoration: none;
     font-size: 13px;
     font-weight: 500;
+    padding: 7px 14px;
+    border: 1px solid rgba(255,0,110,0.3);
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+.logout-btn:hover {
+    background: rgba(255,0,110,0.08);
+}
+
+.login-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 20px;
+    background: var(--primary);
+    color: #000;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 10px;
+    letter-spacing: 0.3px;
+    transition: opacity 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
+}
+.login-btn:hover {
+    opacity: 0.88;
+    box-shadow: 0 0 18px rgba(0,240,255,0.35);
 }
 
 /* Hero Section */

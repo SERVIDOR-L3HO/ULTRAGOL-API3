@@ -29,6 +29,10 @@
                     <span class="status-dot"></span>
                     <span>v3.5.0</span>
                 </div>
+                <a href="/login" class="login-btn" id="loginBtn" style="display:none;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                    Iniciar Sesión
+                </a>
                 <div class="user-info" id="userInfo" style="display: none;">
                     <img id="userAvatar" src="" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:cover;display:none;">
                     <span id="userName"></span>
@@ -444,18 +448,20 @@
             .then(res => res.json())
             .then(data => {
                 if (data.authenticated && data.user) {
-                    const userInfo = document.getElementById('userInfo');
-                    const userName = document.getElementById('userName');
-                    const userAvatar = document.getElementById('userAvatar');
-                    userInfo.style.display = 'flex';
-                    userName.textContent = data.user.name || data.user.email || '';
+                    document.getElementById('userInfo').style.display = 'flex';
+                    document.getElementById('userName').textContent = data.user.name || data.user.email || '';
+                    const avatar = document.getElementById('userAvatar');
                     if (data.user.picture) {
-                        userAvatar.src = data.user.picture;
-                        userAvatar.style.display = 'inline-block';
+                        avatar.src = data.user.picture;
+                        avatar.style.display = 'inline-block';
                     }
+                } else {
+                    document.getElementById('loginBtn').style.display = 'inline-flex';
                 }
             })
-            .catch(console.error);
+            .catch(() => {
+                document.getElementById('loginBtn').style.display = 'inline-flex';
+            });
     </script>
 </body>
 </html>
