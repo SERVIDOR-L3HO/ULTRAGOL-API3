@@ -1,4 +1,4 @@
-const store = require('../storage/keyStore');
+const store = require('../storage/firestoreKeyStore');
 
 const PUBLIC_PATHS = [
   '/',
@@ -16,7 +16,7 @@ const PUBLIC_PREFIXES = [
   '/api-admin/',
 ];
 
-const apiKeyAuth = (req, res, next) => {
+const apiKeyAuth = async (req, res, next) => {
   const reqPath = req.path;
 
   if (PUBLIC_PATHS.includes(reqPath)) return next();
@@ -33,7 +33,7 @@ const apiKeyAuth = (req, res, next) => {
   }
 
   try {
-    const found = store.findKey(apiKey);
+    const found = await store.findKey(apiKey);
     if (!found) {
       return res.status(401).json({
         error: 'API Key inválida o desactivada',
