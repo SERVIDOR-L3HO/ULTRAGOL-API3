@@ -2,6 +2,7 @@ modules = ["nodejs-20", "web", "bash"]
 [agent]
 expertMode = true
 integrations = ["youtube:1.0.0"]
+stack = "BEST_EFFORT_FALLBACK"
 
 [nix]
 channel = "stable-25_05"
@@ -41,6 +42,4 @@ run = ["node", "index.js"]
 [userenv]
 
 [userenv.shared]
-ADMIN_PASSWORD = "L3HO2025!Secure"
-L3HO_PASSWORD = "Interactive@Admin2025"
 NODE_ENV = "production"
