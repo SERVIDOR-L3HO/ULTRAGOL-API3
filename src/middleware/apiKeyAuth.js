@@ -1,4 +1,4 @@
-const store = require('../storage/firestoreKeyStore');
+const store = require('../storage/keyStore');
 
 const PUBLIC_PATHS = [
   '/',

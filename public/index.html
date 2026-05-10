@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
-<body style="visibility:hidden">
+<body>
     <div class="gradient-bg"></div>
     <div class="grid-overlay"></div>
     <div class="floating-particles" id="particles"></div>
@@ -423,49 +423,9 @@
         </div>
     </footer>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCHAptclAjSVJP3iDNzqrLbs9bQ3272SrU",
-            authDomain: "apik-9510b.firebaseapp.com",
-            projectId: "apik-9510b",
-            storageBucket: "apik-9510b.firebasestorage.app",
-            messagingSenderId: "275629352874",
-            appId: "1:275629352874:web:b5094a86ac51251c6d6dd3",
-            measurementId: "G-P1BZ3SVMEC"
-        };
-
-        const ALLOWED_EMAIL = 'santiagoeduardo331@gmail.com';
-
-        const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app);
-        const auth = getAuth(app);
-
-        onAuthStateChanged(auth, (user) => {
-            if (!user || user.email !== ALLOWED_EMAIL) {
-                window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
-                return;
-            }
-
-            // User is authenticated — show the page
-            document.body.style.visibility = 'visible';
-            const nameEl = document.getElementById('userDisplayName');
-            const infoEl = document.getElementById('userInfo');
-            if (nameEl) nameEl.textContent = user.displayName || user.email;
-            if (infoEl) infoEl.style.display = 'flex';
-        });
-
-        window.doLogout = async () => {
-            await signOut(auth);
-            window.location.href = '/login';
-        };
-
+    <script>
         document.getElementById('base-url').textContent = window.location.origin;
 
-        // Create floating particles
         const particlesContainer = document.getElementById('particles');
         for (let i = 0; i < 50; i++) {
             const particle = document.createElement('div');

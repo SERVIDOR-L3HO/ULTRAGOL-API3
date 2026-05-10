@@ -104,8 +104,6 @@ const {
 } = require("./src/scrapers/estadisticas");
 
 const path = require("path");
-const adminKeysRouter = require("./src/routes/adminKeys");
-const { apiKeyAuth } = require("./src/middleware/apiKeyAuth");
 const app = express();
 
 app.set('trust proxy', 1);
@@ -123,8 +121,6 @@ app.use('/public', express.static(path.join(__dirname, 'public'), {
     res.setHeader('Cache-Control', 'public, max-age=31536000');
   }
 }));
-
-app.use(apiKeyAuth);
 
 async function updateAllData() {
   console.log("🔄 Actualizando datos de Liga MX...");
@@ -214,16 +210,6 @@ async function updateMarcadores() {
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-
-app.get("/login", (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
-
-app.get("/admin", (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
-
-app.use('/api-admin', adminKeysRouter);
 
 app.get("/l3ho-links", (req, res) => {
   res.setHeader('X-Frame-Options', 'ALLOWALL');

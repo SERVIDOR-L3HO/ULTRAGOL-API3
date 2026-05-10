@@ -18,49 +18,6 @@
       background-size: 40px 40px; }
     .wrap { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 0 20px 60px; }
 
-    #authGate {
-      position: fixed; inset: 0; z-index: 200;
-      background: #050b18;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .auth-card {
-      background: rgba(255,255,255,0.03); border: 1px solid rgba(0,212,255,0.15);
-      border-radius: 20px; padding: 48px 40px; width: 420px; max-width: 95vw;
-      backdrop-filter: blur(20px);
-      box-shadow: 0 0 60px rgba(0,212,255,0.06), 0 20px 40px rgba(0,0,0,0.4);
-    }
-    .auth-logo { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 32px; }
-    .auth-logo img { width: 42px; height: 42px; object-fit: contain; }
-    .auth-logo .brand { font-family: 'Orbitron', sans-serif; }
-    .auth-logo .brand .top { font-size: 20px; font-weight: 900; color: #00d4ff; letter-spacing: 3px; }
-    .auth-logo .brand .sub { font-size: 9px; letter-spacing: 4px; color: rgba(255,255,255,0.4); }
-    .auth-card h1 { font-family: 'Orbitron', sans-serif; font-size: 15px; font-weight: 700; color: #fff; text-align: center; letter-spacing: 2px; margin-bottom: 8px; }
-    .auth-card .subtitle { text-align: center; color: rgba(255,255,255,0.4); font-size: 13px; margin-bottom: 28px; }
-    .security-badge {
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      background: rgba(0,212,255,0.06); border: 1px solid rgba(0,212,255,0.15);
-      border-radius: 50px; padding: 8px 16px; margin-bottom: 28px; font-size: 12px; color: rgba(255,255,255,0.5);
-    }
-    .security-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: #00d4ff; animation: pulse 2s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-    .google-btn {
-      width: 100%; padding: 15px; background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 12px;
-      color: #fff; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 500; transition: all 0.2s;
-    }
-    .google-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(0,212,255,0.4); }
-    .google-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .google-icon { width: 20px; height: 20px; flex-shrink: 0; }
-    .auth-error {
-      background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
-      border-radius: 10px; padding: 10px 14px; margin-top: 12px;
-      color: #ef4444; font-size: 13px; display: none; text-align: center;
-    }
-    .auth-loading { text-align: center; margin-top: 14px; color: rgba(255,255,255,0.5); font-size: 13px; display: none; }
-    .restricted-note { text-align: center; font-size: 11px; color: rgba(255,255,255,0.25); margin-top: 20px; line-height: 1.6; }
-    .restricted-note span { color: rgba(0,212,255,0.6); }
-
     #mainContent { display: none; }
     header {
       position: sticky; top: 0; z-index: 100;
@@ -156,36 +113,6 @@
   <div class="bg"></div>
   <div class="grid"></div>
 
-  <div id="authGate">
-    <div class="auth-card">
-      <div class="auth-logo">
-        <img src="/attached_assets/1001854641-removebg-preview_1764606701240.png" alt="L3HO">
-        <div class="brand">
-          <div class="top">L3HO</div>
-          <div class="sub">INTERACTIVE</div>
-        </div>
-      </div>
-      <h1>ADMIN ACCESS</h1>
-      <p class="subtitle">Panel de administración de API Keys</p>
-      <div class="security-badge">
-        <span class="dot"></span>
-        Acceso restringido · Solo administradores
-      </div>
-      <button class="google-btn" id="googleBtn" onclick="signInWithGoogle()">
-        <svg class="google-icon" viewBox="0 0 24 24">
-          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-        </svg>
-        Continuar con Google
-      </button>
-      <div class="auth-error" id="authError"></div>
-      <div class="auth-loading" id="authLoading"><span class="spinner"></span> Verificando...</div>
-      <p class="restricted-note">Solo el correo <span>santiagoeduardo331@gmail.com</span><br>tiene acceso a este panel.</p>
-    </div>
-  </div>
-
   <div id="mainContent">
     <header>
       <div class="header-inner">
@@ -197,7 +124,7 @@
           </div>
         </div>
         <div class="header-right">
-          <div class="user-pill"><span class="dot"></span><span id="userEmailDisplay">Admin</span></div>
+          <div class="user-pill"><span class="dot"></span><span>Admin</span></div>
           <button class="logout-btn" onclick="doLogout()">Salir</button>
         </div>
       </div>
@@ -220,10 +147,10 @@
           <button class="create-btn" id="createBtn" onclick="createKey()">+ Generar Key</button>
         </div>
         <div class="new-key-box" id="newKeyBox">
-          <div class="nk-label">✅ API Key generada — Cópiala ahora</div>
+          <div class="nk-label">API Key generada — Cópiala ahora</div>
           <div class="nk-key" id="newKeyValue"></div>
-          <button class="copy-btn" onclick="copyKey()">📋 Copiar key</button>
-          <p class="warning-note">⚠️ Esta key solo se muestra una vez. Guárdala en un lugar seguro.</p>
+          <button class="copy-btn" onclick="copyKey()">Copiar key</button>
+          <p class="warning-note">Esta key solo se muestra una vez. Guárdala en un lugar seguro.</p>
         </div>
       </div>
 
@@ -236,111 +163,54 @@
 
   <div class="toast" id="toast"></div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
-    import { getFirestore, collection, getDocs, addDoc, doc, updateDoc, deleteDoc, orderBy, query } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCHAptclAjSVJP3iDNzqrLbs9bQ3272SrU",
-      authDomain: "apik-9510b.firebaseapp.com",
-      projectId: "apik-9510b",
-      storageBucket: "apik-9510b.firebasestorage.app",
-      messagingSenderId: "275629352874",
-      appId: "1:275629352874:web:b5094a86ac51251c6d6dd3"
-    };
-
-    const ALLOWED_EMAIL = 'santiagoeduardo331@gmail.com';
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const keysCol = collection(db, 'apikeys');
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ login_hint: ALLOWED_EMAIL });
-
-    let refreshTimer = null;
-
-    function startTokenRefresh(user) {
-      if (refreshTimer) clearInterval(refreshTimer);
-      refreshTimer = setInterval(async () => {
-        try { await user.getIdToken(true); } catch(e) {}
-      }, 55 * 60 * 1000);
+  <script>
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api-admin/check-auth', { credentials: 'include' });
+        const data = await res.json();
+        if (data.authenticated) {
+          document.getElementById('mainContent').style.display = 'block';
+          loadKeys();
+        } else {
+          window.location.href = '/login?redirect=/admin';
+        }
+      } catch (e) {
+        window.location.href = '/login?redirect=/admin';
+      }
     }
 
-    onAuthStateChanged(auth, (user) => {
-      if (user && user.email === ALLOWED_EMAIL) {
-        document.getElementById('userEmailDisplay').textContent = user.email;
-        document.getElementById('authGate').style.display = 'none';
-        document.getElementById('mainContent').style.display = 'block';
-        startTokenRefresh(user);
-        loadKeys();
-      } else {
-        if (refreshTimer) clearInterval(refreshTimer);
-        document.getElementById('authGate').style.display = 'flex';
-        document.getElementById('mainContent').style.display = 'none';
-      }
-    });
-
-    window.signInWithGoogle = async () => {
-      const btn = document.getElementById('googleBtn');
-      const errorEl = document.getElementById('authError');
-      const loadingEl = document.getElementById('authLoading');
-      errorEl.style.display = 'none';
-      btn.disabled = true;
-      loadingEl.style.display = 'block';
-      try {
-        const result = await signInWithPopup(auth, provider);
-        if (result.user.email !== ALLOWED_EMAIL) {
-          await signOut(auth);
-          errorEl.textContent = `Acceso denegado: ${result.user.email} no está autorizado.`;
-          errorEl.style.display = 'block';
-        }
-      } catch (err) {
-        if (err.code !== 'auth/popup-closed-by-user') {
-          errorEl.textContent = 'Error al iniciar sesión. Intenta de nuevo.';
-          errorEl.style.display = 'block';
-        }
-      } finally {
-        btn.disabled = false;
-        loadingEl.style.display = 'none';
-      }
-    };
-
-    window.doLogout = () => signOut(auth);
+    async function doLogout() {
+      await fetch('/api-admin/logout', { method: 'POST', credentials: 'include' });
+      window.location.href = '/login';
+    }
 
     async function loadKeys() {
       const panel = document.getElementById('keysPanel');
       try {
-        const q = query(keysCol, orderBy('createdAt', 'desc'));
-        const snap = await getDocs(q);
-        const keys = snap.docs.map(d => ({ ...d.data(), _docId: d.id }));
-        renderKeys(keys);
+        const res = await fetch('/api-admin/keys', { credentials: 'include' });
+        if (res.status === 401) { window.location.href = '/login?redirect=/admin'; return; }
+        const data = await res.json();
+        renderKeys(data.keys || []);
       } catch (err) {
         panel.innerHTML = `<div class="empty">Error cargando keys: ${err.message}</div>`;
       }
     }
 
-    window.createKey = async () => {
+    async function createKey() {
       const name = document.getElementById('keyNameInput').value.trim();
       if (!name) { showToast('Ingresa un nombre para la key', true); return; }
       const btn = document.getElementById('createBtn');
       btn.disabled = true; btn.textContent = 'Generando...';
       try {
-        const bytes = new Uint8Array(24);
-        crypto.getRandomValues(bytes);
-        const rawKey = 'l3ho_' + Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
-        const entry = {
-          id: crypto.randomUUID(),
-          name,
-          key: rawKey,
-          keyDisplay: rawKey.substring(0, 12) + '...',
-          active: true,
-          requests: 0,
-          createdAt: new Date().toISOString(),
-          lastUsed: null
-        };
-        await addDoc(keysCol, entry);
-        document.getElementById('newKeyValue').textContent = rawKey;
+        const res = await fetch('/api-admin/keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error desconocido');
+        document.getElementById('newKeyValue').textContent = data.key.key;
         document.getElementById('newKeyBox').style.display = 'block';
         document.getElementById('keyNameInput').value = '';
         showToast('API Key generada exitosamente');
@@ -350,29 +220,39 @@
       } finally {
         btn.disabled = false; btn.textContent = '+ Generar Key';
       }
-    };
+    }
 
-    window.copyKey = () => {
+    function copyKey() {
       navigator.clipboard.writeText(document.getElementById('newKeyValue').textContent)
         .then(() => showToast('Key copiada al portapapeles'));
-    };
+    }
 
-    window.toggleKey = async (docId, currentActive) => {
+    async function toggleKey(id, currentActive) {
       try {
-        await updateDoc(doc(db, 'apikeys', docId), { active: !currentActive });
+        const res = await fetch(`/api-admin/keys/${id}/toggle`, {
+          method: 'PATCH',
+          credentials: 'include'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
         showToast(currentActive ? 'Key desactivada' : 'Key activada');
         loadKeys();
       } catch (err) { showToast(err.message, true); }
-    };
+    }
 
-    window.deleteKey = async (docId, name) => {
+    async function deleteKey(id, name) {
       if (!confirm(`¿Eliminar la key "${name}"? Esta acción es irreversible.`)) return;
       try {
-        await deleteDoc(doc(db, 'apikeys', docId));
+        const res = await fetch(`/api-admin/keys/${id}`, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
         showToast('Key eliminada');
         loadKeys();
       } catch (err) { showToast(err.message, true); }
-    };
+    }
 
     function renderKeys(keys) {
       const panel = document.getElementById('keysPanel');
@@ -392,8 +272,8 @@
           <td><span class="requests-count">${(k.requests||0).toLocaleString()}</span></td>
           <td><span class="date-str">${formatDate(k.createdAt)}</span></td>
           <td><div class="actions">
-            <button class="toggle-btn" onclick="toggleKey('${k._docId}',${k.active})">${k.active?'Desactivar':'Activar'}</button>
-            <button class="delete-btn" onclick="deleteKey('${k._docId}','${esc(k.name)}')">Eliminar</button>
+            <button class="toggle-btn" onclick="toggleKey('${k.id}',${k.active})">${k.active?'Desactivar':'Activar'}</button>
+            <button class="delete-btn" onclick="deleteKey('${k.id}','${esc(k.name)}')">Eliminar</button>
           </div></td>
         </tr>`).join('')}</tbody></table>`;
     }
@@ -419,6 +299,8 @@
       t.classList.add('show');
       setTimeout(()=>t.classList.remove('show'), 3200);
     }
+
+    checkAuth();
   </script>
 </body>
 </html>
