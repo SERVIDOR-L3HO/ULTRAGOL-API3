@@ -1,29 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
-const { getDb, verifyIdToken, getFieldValue } = require('../firebase/admin');
+const { getDb, getFieldValue } = require('../firebase/admin');
 
-const ALLOWED_EMAIL = 'santiagoeduardo331@gmail.com';
-
-const requireFirebaseAdmin = async (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token de autenticación requerido' });
+const requireAdminKey = (req, res, next) => {
+  const adminKey = process.env.ADMIN_API_KEY;
+  if (!adminKey) {
+    return res.status(503).json({ error: 'ADMIN_API_KEY no configurada en el servidor' });
   }
-  const idToken = authHeader.split('Bearer ')[1];
-  try {
-    const decoded = await verifyIdToken(idToken);
-    if (decoded.email !== ALLOWED_EMAIL) {
-      return res.status(403).json({ error: 'Acceso denegado. Email no autorizado.' });
-    }
-    req.adminUser = decoded;
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Token inválido o expirado' });
+  const provided = req.headers['x-admin-key'] || req.query.adminKey;
+  if (!provided || provided !== adminKey) {
+    return res.status(401).json({ error: 'API key de administrador inválida' });
   }
+  next();
 };
 
-router.get('/keys', requireFirebaseAdmin, async (req, res) => {
+router.get('/keys', requireAdminKey, async (req, res) => {
   const db = getDb();
   if (!db) return res.status(503).json({ error: 'Firebase no inicializado' });
   try {
@@ -43,7 +35,7 @@ router.get('/keys', requireFirebaseAdmin, async (req, res) => {
   }
 });
 
-router.post('/keys', requireFirebaseAdmin, async (req, res) => {
+router.post('/keys', requireAdminKey, async (req, res) => {
   const db = getDb();
   if (!db) return res.status(503).json({ error: 'Firebase no inicializado' });
   const { name } = req.body;
@@ -60,8 +52,7 @@ router.post('/keys', requireFirebaseAdmin, async (req, res) => {
       active: true,
       requests: 0,
       createdAt: new Date(),
-      lastUsed: null,
-      createdBy: req.adminUser.email
+      lastUsed: null
     });
     res.json({
       success: true,
@@ -76,7 +67,7 @@ router.post('/keys', requireFirebaseAdmin, async (req, res) => {
   }
 });
 
-router.patch('/keys/:id', requireFirebaseAdmin, async (req, res) => {
+router.patch('/keys/:id', requireAdminKey, async (req, res) => {
   const db = getDb();
   if (!db) return res.status(503).json({ error: 'Firebase no inicializado' });
   try {
@@ -91,7 +82,7 @@ router.patch('/keys/:id', requireFirebaseAdmin, async (req, res) => {
   }
 });
 
-router.delete('/keys/:id', requireFirebaseAdmin, async (req, res) => {
+router.delete('/keys/:id', requireAdminKey, async (req, res) => {
   const db = getDb();
   if (!db) return res.status(503).json({ error: 'Firebase no inicializado' });
   try {

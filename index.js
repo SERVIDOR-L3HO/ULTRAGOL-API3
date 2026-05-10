@@ -104,6 +104,7 @@ const {
 } = require("./src/scrapers/estadisticas");
 
 const path = require("path");
+const adminKeysRouter = require("./src/routes/adminKeys");
 const app = express();
 
 app.set('trust proxy', 1);
@@ -218,6 +219,8 @@ app.get("/login", (req, res) => {
 app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
+
+app.use('/api-admin', adminKeysRouter);
 
 app.get("/l3ho-links", (req, res) => {
   res.setHeader('X-Frame-Options', 'ALLOWALL');
