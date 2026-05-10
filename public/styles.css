@@ -223,6 +223,33 @@ body {
     box-shadow: 0 0 18px rgba(0,240,255,0.35);
 }
 
+.hero-cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 36px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #fff;
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 14px;
+    letter-spacing: 0.3px;
+    transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 4px 24px rgba(0,240,255,0.25);
+    margin-bottom: 12px;
+}
+.hero-cta-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0,240,255,0.35);
+}
+.hero-cta-sub {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.4);
+    margin-top: 4px;
+}
+
 /* Hero Section */
 .hero {
     padding: 100px 0 80px;

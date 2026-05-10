@@ -132,7 +132,7 @@
 
         <div id="error-msg"></div>
 
-        <button class="btn-google" id="btn-login" onclick="signInWithGoogle()">
+        <button class="btn-google" id="btn-login" onclick="handleLogin()">
             <svg width="20" height="20" viewBox="0 0 24 24">
                 <path fill="#000" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#000" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -153,33 +153,43 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+        import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+        import { getAuth, signInWithPopup, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
-        let app, auth, provider;
+        let auth, provider;
 
-        async function initFirebase() {
+        async function getFirebase() {
+            if (auth) return true;
             try {
                 const resp = await fetch('/api/firebase-config');
-                if (!resp.ok) throw new Error('No se pudo obtener la configuración de Firebase');
+                if (!resp.ok) throw new Error('Config no disponible');
                 const config = await resp.json();
-                app = initializeApp(config);
+                const existing = getApps();
+                const app = existing.length ? existing[0] : initializeApp(config);
                 auth = getAuth(app);
                 provider = new GoogleAuthProvider();
                 provider.setCustomParameters({ login_hint: 'Santiagoeduardo331@gmail.com' });
+                return true;
             } catch (err) {
-                showError('Firebase no está configurado aún. Contacta al administrador.');
-                document.getElementById('btn-login').disabled = true;
+                return false;
             }
         }
 
-        window.signInWithGoogle = async function() {
-            if (!auth) return;
+        window.handleLogin = async function() {
             const btn = document.getElementById('btn-login');
             const loading = document.getElementById('loading');
             btn.disabled = true;
             loading.style.display = 'block';
             hideError();
+
+            const ready = await getFirebase();
+            if (!ready) {
+                showError('No se pudo conectar con el servidor. Verifica que estás en la URL correcta e intenta de nuevo.');
+                btn.disabled = false;
+                loading.style.display = 'none';
+                return;
+            }
+
             try {
                 const result = await signInWithPopup(auth, provider);
                 const idToken = await result.user.getIdToken();
@@ -192,14 +202,16 @@
                 if (data.success) {
                     window.location.href = '/';
                 } else {
-                    showError(data.error || 'Acceso denegado.');
+                    showError(data.error || 'Acceso denegado. Solo la cuenta autorizada puede entrar.');
                     await auth.signOut();
                 }
             } catch (err) {
-                if (err.code === 'auth/popup-closed-by-user') {
+                if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
                     hideError();
+                } else if (err.code === 'auth/popup-blocked') {
+                    showError('El popup fue bloqueado. Permite ventanas emergentes para este sitio e intenta de nuevo.');
                 } else {
-                    showError('Error al iniciar sesión: ' + (err.message || 'Inténtalo de nuevo.'));
+                    showError('Error al iniciar sesión. Inténtalo de nuevo.');
                 }
             } finally {
                 btn.disabled = false;
@@ -216,7 +228,7 @@
             document.getElementById('error-msg').style.display = 'none';
         }
 
-        initFirebase();
+        getFirebase();
     </script>
 </body>
 </html>
