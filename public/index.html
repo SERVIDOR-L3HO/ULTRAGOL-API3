@@ -30,7 +30,9 @@
                     <span>v3.5.0</span>
                 </div>
                 <div class="user-info" id="userInfo" style="display: none;">
+                    <img id="userAvatar" src="" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:cover;display:none;">
                     <span id="userName"></span>
+                    <a href="/admin" class="logout-btn" style="background:rgba(0,255,136,0.1);border-color:rgba(0,255,136,0.3);color:#00ff88;">Admin</a>
                     <a href="/logout" class="logout-btn">Salir</a>
                 </div>
             </nav>
@@ -441,11 +443,16 @@
         fetch('/auth/status')
             .then(res => res.json())
             .then(data => {
-                if (data.authenticated) {
+                if (data.authenticated && data.user) {
                     const userInfo = document.getElementById('userInfo');
                     const userName = document.getElementById('userName');
+                    const userAvatar = document.getElementById('userAvatar');
                     userInfo.style.display = 'flex';
-                    userName.textContent = data.user;
+                    userName.textContent = data.user.name || data.user.email || '';
+                    if (data.user.picture) {
+                        userAvatar.src = data.user.picture;
+                        userAvatar.style.display = 'inline-block';
+                    }
                 }
             })
             .catch(console.error);
