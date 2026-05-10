@@ -127,8 +127,9 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCHAptclAjSVJP3iDNzqrLbs9bQ3272SrU",
@@ -136,10 +137,12 @@
       projectId: "apik-9510b",
       storageBucket: "apik-9510b.firebasestorage.app",
       messagingSenderId: "275629352874",
-      appId: "1:275629352874:web:b27d393ae88598fc6d6dd3"
+      appId: "1:275629352874:web:b27d393ae88598fc6d6dd3",
+      measurementId: "G-N828RZDJ55"
     };
 
     const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ login_hint: 'santiagoeduardo331@gmail.com' });
