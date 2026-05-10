@@ -129,7 +129,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCHAptclAjSVJP3iDNzqrLbs9bQ3272SrU",
@@ -137,8 +137,8 @@
       projectId: "apik-9510b",
       storageBucket: "apik-9510b.firebasestorage.app",
       messagingSenderId: "275629352874",
-      appId: "1:275629352874:web:b27d393ae88598fc6d6dd3",
-      measurementId: "G-N828RZDJ55"
+      appId: "1:275629352874:web:b5094a86ac51251c6d6dd3",
+      measurementId: "G-P1BZ3SVMEC"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -148,6 +148,14 @@
     provider.setCustomParameters({ login_hint: 'santiagoeduardo331@gmail.com' });
 
     const ALLOWED_EMAIL = 'santiagoeduardo331@gmail.com';
+
+    // If already logged in with the right account, go straight to the main page
+    onAuthStateChanged(auth, (user) => {
+      if (user && user.email === ALLOWED_EMAIL) {
+        const dest = new URLSearchParams(window.location.search).get('redirect') || '/';
+        window.location.href = dest;
+      }
+    });
 
     window.signInWithGoogle = async () => {
       const btn = document.getElementById('googleBtn');
@@ -170,11 +178,8 @@
           return;
         }
 
-        const idToken = await user.getIdToken();
-        sessionStorage.setItem('firebaseToken', idToken);
-        sessionStorage.setItem('firebaseEmail', user.email);
-        sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
-        window.location.href = '/admin';
+        const dest = new URLSearchParams(window.location.search).get('redirect') || '/';
+        window.location.href = dest;
       } catch (err) {
         if (err.code !== 'auth/popup-closed-by-user') {
           errorBox.textContent = 'Error al iniciar sesión. Intenta de nuevo.';
