@@ -4,26 +4,6 @@ const cron = require("node-cron");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const cache = require("./src/cache/dataCache");
-const bcrypt = require("bcryptjs");
-
-const { initFirebase } = require("./src/firebase/admin");
-const { apiKeyAuth } = require("./src/middleware/apiKeyAuth");
-const adminKeysRouter = require("./src/routes/adminKeys");
-initFirebase();
-
-const {
-  sessionConfig,
-  loginLimiter,
-  apiLimiter,
-  securityHeaders,
-  isAuthenticated,
-  isNotAuthenticated,
-  validatePassword,
-  createSession,
-  destroySession,
-  sessionTimeout,
-  logAccess
-} = require("./src/middleware/auth");
 const { scrapTabla } = require("./src/scrapers/tabla");
 const { scrapNoticias } = require("./src/scrapers/noticias");
 const { scrapGoleadores } = require("./src/scrapers/goleadores");
@@ -128,16 +108,12 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-app.use(securityHeaders);
 app.use(cors({
   origin: true,
   credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(sessionConfig);
-app.use(sessionTimeout(30 * 60 * 1000));
-app.use(logAccess);
 
 app.use('/attached_assets', express.static(path.join(__dirname, 'attached_assets')));
 app.use('/public', express.static(path.join(__dirname, 'public'), {
@@ -145,22 +121,6 @@ app.use('/public', express.static(path.join(__dirname, 'public'), {
     res.setHeader('Cache-Control', 'public, max-age=31536000');
   }
 }));
-
-app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
-
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
-
-app.use('/api-admin', adminKeysRouter);
-
-app.use(apiKeyAuth);
-
-app.get('/auth/status', (req, res) => {
-  res.json({ authenticated: false });
-});
 
 async function updateAllData() {
   console.log("🔄 Actualizando datos de Liga MX...");

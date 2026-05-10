@@ -29,10 +29,6 @@
                     <span class="status-dot"></span>
                     <span>v3.5.0</span>
                 </div>
-                <div class="user-info" id="userInfo" style="display: none;">
-                    <span id="userName"></span>
-                    <a href="/logout" class="logout-btn">Salir</a>
-                </div>
             </nav>
         </div>
     </header>
@@ -365,9 +361,9 @@
                         <code>JSON</code>
                     </div>
                     <div class="info-card">
-                        <div class="info-icon">🔐</div>
-                        <h4>Autenticación</h4>
-                        <code>Session Based</code>
+                        <div class="info-icon">🌐</div>
+                        <h4>Acceso</h4>
+                        <code>Público</code>
                     </div>
                     <div class="info-card">
                         <div class="info-icon">⚡</div>
@@ -437,18 +433,6 @@
             particlesContainer.appendChild(particle);
         }
         
-        // Check authentication status
-        fetch('/auth/status')
-            .then(res => res.json())
-            .then(data => {
-                if (data.authenticated) {
-                    const userInfo = document.getElementById('userInfo');
-                    const userName = document.getElementById('userName');
-                    userInfo.style.display = 'flex';
-                    userName.textContent = data.user;
-                }
-            })
-            .catch(console.error);
     </script>
 </body>
 </html>
