@@ -169,7 +169,7 @@
                     <span id="userName"></span>
                 </div>
                 <a href="/" class="btn-sm">Dashboard</a>
-                <button class="btn-sm" onclick="logout()" style="color:#ff6b6b;border-color:rgba(255,100,100,0.2)">Salir</button>
+                <button class="btn-sm" onclick="window._logout()" style="color:#ff6b6b;border-color:rgba(255,100,100,0.2)">Salir</button>
             </div>
         </div>
     </header>
@@ -202,13 +202,13 @@
                 <div class="input-wrap">
                     <input type="text" id="keyDesc" placeholder="Descripción (opcional)" maxlength="120">
                 </div>
-                <button class="btn-create" onclick="createKey()" id="btnCreate">+ Crear Key</button>
+                <button class="btn-create" onclick="window._createKey()" id="btnCreate">+ Crear Key</button>
             </div>
             <div class="new-key-banner" id="newKeyBanner">
                 <div class="label">✅ API Key creada exitosamente — cópiala ahora, no se volverá a mostrar completa</div>
                 <div class="key-display">
                     <code id="newKeyValue"></code>
-                    <button class="btn-copy" onclick="copyKey()">Copiar</button>
+                    <button class="btn-copy" onclick="window._copyKey()">Copiar</button>
                 </div>
                 <div class="copy-warning">⚠️ Guarda esta key en un lugar seguro. Por seguridad no la volverás a ver completa.</div>
             </div>
@@ -236,12 +236,66 @@
 
     <div id="toast"></div>
 
-    <script>
+    <script type="module">
+        import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyCHAptclAjSVJP3iDNzqrLbs9bQ3272SrU",
+            authDomain: "apik-9510b.firebaseapp.com",
+            projectId: "apik-9510b",
+            storageBucket: "apik-9510b.firebasestorage.app",
+            messagingSenderId: "275629352874",
+            appId: "1:275629352874:web:7028e3a61097d7476d6dd3",
+            measurementId: "G-S6DZL6ZGH0"
+        };
+
+        const ALLOWED_EMAIL = 'santiagoeduardo331@gmail.com';
+
+        const app = getApps().length ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
+        const auth = getAuth(app);
+
+        let currentIdToken = null;
         let allKeys = [];
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user && user.email?.toLowerCase() === ALLOWED_EMAIL) {
+                currentIdToken = await user.getIdToken();
+                const pill = document.getElementById('userPill');
+                document.getElementById('userName').textContent = user.displayName || user.email;
+                if (user.photoURL) document.getElementById('userAvatar').src = user.photoURL;
+                pill.style.display = 'flex';
+                loadKeys();
+            } else if (user) {
+                await signOut(auth);
+                window.location.href = '/login';
+            } else {
+                const resp = await fetch('/auth/status');
+                const data = await resp.json();
+                if (!data.authenticated) {
+                    window.location.href = '/login';
+                } else {
+                    const pill = document.getElementById('userPill');
+                    document.getElementById('userName').textContent = data.user?.name || data.user?.email || '';
+                    if (data.user?.picture) document.getElementById('userAvatar').src = data.user.picture;
+                    pill.style.display = 'flex';
+                    loadKeys();
+                }
+            }
+        });
+
+        async function authHeaders() {
+            if (currentIdToken) {
+                try { currentIdToken = await auth.currentUser?.getIdToken(); } catch {}
+                return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentIdToken}` };
+            }
+            return { 'Content-Type': 'application/json' };
+        }
 
         async function loadKeys() {
             try {
-                const resp = await fetch('/admin/api-keys');
+                const headers = await authHeaders();
+                const resp = await fetch('/admin/api-keys', { headers });
                 if (resp.status === 401 || resp.status === 403) {
                     window.location.href = '/login';
                     return;
@@ -250,7 +304,6 @@
                 allKeys = data.keys || [];
                 renderStats();
                 renderTable();
-                loadUserInfo();
             } catch (err) {
                 showToast('Error cargando las keys');
             }
@@ -295,8 +348,8 @@
                                 <td><span class="last-used">${k.lastUsed ? timeAgo(k.lastUsed) : 'Nunca'}</span></td>
                                 <td>
                                     <div class="actions">
-                                        ${k.active ? `<button class="btn-danger" onclick="revokeKey('${k.id}')">Revocar</button>` : ''}
-                                        <button class="btn-danger" onclick="deleteKey('${k.id}')">Eliminar</button>
+                                        ${k.active ? `<button class="btn-danger" onclick="window._revokeKey('${k.id}')">Revocar</button>` : ''}
+                                        <button class="btn-danger" onclick="window._deleteKey('${k.id}')">Eliminar</button>
                                     </div>
                                 </td>
                             </tr>
@@ -306,7 +359,7 @@
             `;
         }
 
-        async function createKey() {
+        window._createKey = async function() {
             const name = document.getElementById('keyName').value.trim();
             const desc = document.getElementById('keyDesc').value.trim();
             if (!name) { showToast('Escribe un nombre para la key'); return; }
@@ -314,73 +367,62 @@
             btn.disabled = true;
             btn.textContent = 'Creando...';
             try {
+                const headers = await authHeaders();
                 const resp = await fetch('/admin/api-keys', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers,
                     body: JSON.stringify({ name, description: desc })
                 });
                 const data = await resp.json();
                 if (data.key) {
                     document.getElementById('keyName').value = '';
                     document.getElementById('keyDesc').value = '';
-                    const banner = document.getElementById('newKeyBanner');
                     document.getElementById('newKeyValue').textContent = data.key.key;
-                    banner.style.display = 'block';
+                    document.getElementById('newKeyBanner').style.display = 'block';
                     showToast('API Key creada');
                     loadKeys();
                 } else {
                     showToast(data.error || 'Error al crear');
                 }
-            } catch (err) {
-                showToast('Error de red');
-            } finally {
+            } catch { showToast('Error de red'); }
+            finally {
                 btn.disabled = false;
                 btn.textContent = '+ Crear Key';
             }
-        }
+        };
 
-        async function revokeKey(id) {
+        window._revokeKey = async function(id) {
             if (!confirm('¿Revocar esta API key? Dejará de funcionar inmediatamente.')) return;
             try {
-                const resp = await fetch(`/admin/api-keys/${id}/revoke`, { method: 'POST' });
+                const headers = await authHeaders();
+                const resp = await fetch(`/admin/api-keys/${id}/revoke`, { method: 'POST', headers });
                 const data = await resp.json();
                 if (data.success) { showToast('Key revocada'); loadKeys(); }
                 else showToast(data.error || 'Error');
             } catch { showToast('Error de red'); }
-        }
+        };
 
-        async function deleteKey(id) {
+        window._deleteKey = async function(id) {
             if (!confirm('¿Eliminar esta API key permanentemente?')) return;
             try {
-                const resp = await fetch(`/admin/api-keys/${id}`, { method: 'DELETE' });
+                const headers = await authHeaders();
+                const resp = await fetch(`/admin/api-keys/${id}`, { method: 'DELETE', headers });
                 const data = await resp.json();
                 if (data.success) { showToast('Key eliminada'); loadKeys(); }
                 else showToast(data.error || 'Error');
             } catch { showToast('Error de red'); }
-        }
+        };
 
-        function copyKey() {
+        window._copyKey = function() {
             const val = document.getElementById('newKeyValue').textContent;
             navigator.clipboard.writeText(val).then(() => showToast('Copiado al portapapeles'));
-        }
+        };
 
-        async function loadUserInfo() {
-            try {
-                const resp = await fetch('/auth/status');
-                const data = await resp.json();
-                if (data.authenticated && data.user) {
-                    const pill = document.getElementById('userPill');
-                    document.getElementById('userName').textContent = data.user.name || data.user.email;
-                    if (data.user.picture) document.getElementById('userAvatar').src = data.user.picture;
-                    pill.style.display = 'flex';
-                }
-            } catch {}
-        }
-
-        async function logout() {
+        window._logout = async function() {
+            try { await signOut(auth); } catch {}
             await fetch('/logout');
             window.location.href = '/login';
-        }
+        };
 
         function showToast(msg) {
             const t = document.getElementById('toast');
@@ -402,8 +444,6 @@
             if (hrs < 24) return `hace ${hrs}h`;
             return `hace ${Math.floor(hrs/24)}d`;
         }
-
-        loadKeys();
     </script>
 </body>
 </html>

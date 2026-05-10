@@ -154,26 +154,37 @@
 
     <script type="module">
         import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-        import { getAuth, signInWithPopup, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
-        let auth, provider;
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyCHAptclAjSVJP3iDNzqrLbs9bQ3272SrU",
+            authDomain: "apik-9510b.firebaseapp.com",
+            projectId: "apik-9510b",
+            storageBucket: "apik-9510b.firebasestorage.app",
+            messagingSenderId: "275629352874",
+            appId: "1:275629352874:web:7028e3a61097d7476d6dd3",
+            measurementId: "G-S6DZL6ZGH0"
+        };
 
-        async function getFirebase() {
-            if (auth) return true;
-            try {
-                const resp = await fetch('/api/firebase-config');
-                if (!resp.ok) throw new Error('Config no disponible');
-                const config = await resp.json();
-                const existing = getApps();
-                const app = existing.length ? existing[0] : initializeApp(config);
-                auth = getAuth(app);
-                provider = new GoogleAuthProvider();
-                provider.setCustomParameters({ login_hint: 'Santiagoeduardo331@gmail.com' });
-                return true;
-            } catch (err) {
-                return false;
+        const ALLOWED_EMAIL = 'santiagoeduardo331@gmail.com';
+
+        const app = getApps().length ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ login_hint: 'Santiagoeduardo331@gmail.com', prompt: 'select_account' });
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user && user.email.toLowerCase() === ALLOWED_EMAIL) {
+                const idToken = await user.getIdToken();
+                const resp = await fetch('/auth/firebase-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken })
+                });
+                const data = await resp.json();
+                if (data.success) window.location.href = '/';
             }
-        }
+        });
 
         window.handleLogin = async function() {
             const btn = document.getElementById('btn-login');
@@ -181,17 +192,14 @@
             btn.disabled = true;
             loading.style.display = 'block';
             hideError();
-
-            const ready = await getFirebase();
-            if (!ready) {
-                showError('No se pudo conectar con el servidor. Verifica que estás en la URL correcta e intenta de nuevo.');
-                btn.disabled = false;
-                loading.style.display = 'none';
-                return;
-            }
-
             try {
                 const result = await signInWithPopup(auth, provider);
+                const email = result.user.email?.toLowerCase();
+                if (email !== ALLOWED_EMAIL) {
+                    showError('Acceso denegado. Solo la cuenta autorizada puede entrar.');
+                    await auth.signOut();
+                    return;
+                }
                 const idToken = await result.user.getIdToken();
                 const resp = await fetch('/auth/firebase-login', {
                     method: 'POST',
@@ -202,14 +210,14 @@
                 if (data.success) {
                     window.location.href = '/';
                 } else {
-                    showError(data.error || 'Acceso denegado. Solo la cuenta autorizada puede entrar.');
+                    showError(data.error || 'Acceso denegado.');
                     await auth.signOut();
                 }
             } catch (err) {
                 if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
                     hideError();
                 } else if (err.code === 'auth/popup-blocked') {
-                    showError('El popup fue bloqueado. Permite ventanas emergentes para este sitio e intenta de nuevo.');
+                    showError('El popup fue bloqueado. Permite ventanas emergentes para este sitio.');
                 } else {
                     showError('Error al iniciar sesión. Inténtalo de nuevo.');
                 }
@@ -227,8 +235,6 @@
         function hideError() {
             document.getElementById('error-msg').style.display = 'none';
         }
-
-        getFirebase();
     </script>
 </body>
 </html>
