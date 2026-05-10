@@ -6,6 +6,11 @@ const cheerio = require("cheerio");
 const cache = require("./src/cache/dataCache");
 const bcrypt = require("bcryptjs");
 
+const { initFirebase } = require("./src/firebase/admin");
+const { apiKeyAuth } = require("./src/middleware/apiKeyAuth");
+const adminKeysRouter = require("./src/routes/adminKeys");
+initFirebase();
+
 const {
   sessionConfig,
   loginLimiter,
@@ -141,78 +146,20 @@ app.use('/public', express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-let ADMIN_USERS = {};
-const initAdminUsers = () => {
-  if (!process.env.ADMIN_PASSWORD && !process.env.L3HO_PASSWORD) {
-    console.warn('⚠️ ADVERTENCIA: Variables de entorno ADMIN_PASSWORD y L3HO_PASSWORD no configuradas');
-    console.warn('⚠️ Usando credenciales temporales solo para desarrollo');
-    ADMIN_USERS = {
-      'admin': bcrypt.hashSync('temp_dev_pass_' + Date.now(), 12)
-    };
-  } else {
-    if (process.env.ADMIN_PASSWORD) {
-      ADMIN_USERS['admin'] = bcrypt.hashSync(process.env.ADMIN_PASSWORD, 12);
-    }
-    if (process.env.L3HO_PASSWORD) {
-      ADMIN_USERS['l3ho'] = bcrypt.hashSync(process.env.L3HO_PASSWORD, 12);
-    }
-  }
-};
-initAdminUsers();
-
-app.get('/login', isNotAuthenticated, (req, res) => {
+app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-app.post('/auth/login', loginLimiter, async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
-    }
-    
-    const userHash = ADMIN_USERS[username.toLowerCase()];
-    
-    if (!userHash) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return res.status(401).json({ error: 'Credenciales inválidas' });
-    }
-    
-    const isValid = await bcrypt.compare(password, userHash);
-    
-    if (!isValid) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return res.status(401).json({ error: 'Credenciales inválidas' });
-    }
-    
-    createSession(req, { username: username.toLowerCase() });
-    console.log(`🔐 Login exitoso: ${username} desde IP ${req.ip}`);
-    
-    res.json({ success: true, message: 'Inicio de sesión exitoso' });
-  } catch (error) {
-    console.error('Error en login:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-app.get('/logout', (req, res) => {
-  const username = req.session?.user?.username || 'Unknown';
-  destroySession(req, () => {
-    console.log(`🔓 Logout: ${username}`);
-    res.redirect('/login');
-  });
-});
+app.use('/api-admin', adminKeysRouter);
+
+app.use(apiKeyAuth);
 
 app.get('/auth/status', (req, res) => {
-  if (req.session && req.session.authenticated) {
-    res.json({ 
-      authenticated: true, 
-      user: req.session.user?.username 
-    });
-  } else {
-    res.json({ authenticated: false });
-  }
+  res.json({ authenticated: false });
 });
 
 async function updateAllData() {

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel — L3HO Football API</title>
+  <link rel="icon" type="image/png" href="/attached_assets/1001854641-removebg-preview_1764606701240.png">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { min-height: 100vh; background: #050b18; font-family: 'Inter', sans-serif; color: #fff; }
+    .bg { position: fixed; inset: 0; z-index: 0;
+      background: radial-gradient(ellipse at 10% 30%, rgba(0,212,255,0.06) 0%, transparent 60%),
+                  radial-gradient(ellipse at 90% 70%, rgba(139,92,246,0.06) 0%, transparent 60%); }
+    .grid { position: fixed; inset: 0; z-index: 0;
+      background-image: linear-gradient(rgba(0,212,255,0.02) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(0,212,255,0.02) 1px, transparent 1px);
+      background-size: 40px 40px; }
+    .wrap { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 0 20px 60px; }
+
+    /* HEADER */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(5,11,24,0.9); backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(0,212,255,0.08);
+      padding: 0 20px;
+    }
+    .header-inner { max-width: 900px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; height: 64px; }
+    .logo-wrap { display: flex; align-items: center; gap: 10px; }
+    .logo-wrap img { width: 32px; height: 32px; object-fit: contain; }
+    .logo-text { font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 900; color: #00d4ff; letter-spacing: 3px; }
+    .logo-sub { font-size: 8px; letter-spacing: 4px; color: rgba(255,255,255,0.3); display: block; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .user-pill { display: flex; align-items: center; gap: 8px; background: rgba(0,212,255,0.06); border: 1px solid rgba(0,212,255,0.15); border-radius: 50px; padding: 6px 14px; font-size: 12px; color: rgba(255,255,255,0.6); }
+    .user-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #10b981; flex-shrink: 0; }
+    .logout-btn { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #ef4444; border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; }
+    .logout-btn:hover { background: rgba(239,68,68,0.2); }
+
+    /* PAGE */
+    .page-title { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 700; color: #fff; margin: 40px 0 4px; letter-spacing: 2px; }
+    .page-sub { color: rgba(255,255,255,0.4); font-size: 14px; margin-bottom: 32px; }
+
+    /* STATS */
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
+    .stat-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(0,212,255,0.1); border-radius: 14px; padding: 20px; }
+    .stat-card .label { font-size: 11px; letter-spacing: 2px; color: rgba(255,255,255,0.4); text-transform: uppercase; margin-bottom: 8px; }
+    .stat-card .value { font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 700; color: #00d4ff; }
+    .stat-card .value.purple { color: #a78bfa; }
+    .stat-card .value.green { color: #10b981; }
+
+    /* CREATE */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .section-title { font-size: 13px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+    .create-form { background: rgba(255,255,255,0.03); border: 1px solid rgba(0,212,255,0.12); border-radius: 14px; padding: 24px; margin-bottom: 28px; }
+    .form-row { display: flex; gap: 12px; }
+    .form-input {
+      flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px; padding: 12px 16px; color: #fff; font-family: 'Inter', sans-serif; font-size: 14px;
+      outline: none; transition: border-color 0.2s;
+    }
+    .form-input::placeholder { color: rgba(255,255,255,0.25); }
+    .form-input:focus { border-color: rgba(0,212,255,0.4); }
+    .create-btn {
+      background: linear-gradient(135deg, #00d4ff, #7c3aed); border: none; border-radius: 10px;
+      padding: 12px 24px; color: #fff; font-family: 'Inter', sans-serif; font-size: 14px;
+      font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity 0.2s;
+    }
+    .create-btn:hover { opacity: 0.85; }
+    .create-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* NEW KEY REVEAL */
+    .new-key-box { display: none; margin-top: 16px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); border-radius: 10px; padding: 16px; }
+    .new-key-box .nk-label { font-size: 11px; letter-spacing: 2px; color: #10b981; text-transform: uppercase; margin-bottom: 8px; }
+    .new-key-box .nk-key { font-family: monospace; font-size: 13px; color: #fff; word-break: break-all; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; }
+    .copy-btn { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: #10b981; border-radius: 8px; padding: 8px 16px; font-size: 12px; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; }
+    .copy-btn:hover { background: rgba(16,185,129,0.25); }
+    .warning-note { font-size: 12px; color: rgba(255,165,0,0.8); margin-top: 8px; }
+
+    /* KEYS TABLE */
+    .keys-panel { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,212,255,0.1); border-radius: 14px; overflow: hidden; }
+    .keys-panel .empty { text-align: center; padding: 48px; color: rgba(255,255,255,0.3); font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { border-bottom: 1px solid rgba(255,255,255,0.06); }
+    thead th { padding: 14px 20px; text-align: left; font-size: 11px; letter-spacing: 2px; color: rgba(255,255,255,0.35); text-transform: uppercase; font-weight: 500; }
+    tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.02); }
+    tbody td { padding: 16px 20px; font-size: 13px; vertical-align: middle; }
+    .key-name { font-weight: 600; color: #fff; }
+    .key-value { font-family: monospace; color: rgba(0,212,255,0.7); font-size: 12px; }
+    .badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 50px; padding: 4px 10px; font-size: 11px; font-weight: 500; }
+    .badge.active { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.25); }
+    .badge.inactive { background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.2); }
+    .badge .dot { width: 5px; height: 5px; border-radius: 50%; }
+    .badge.active .dot { background: #10b981; }
+    .badge.inactive .dot { background: #ef4444; }
+    .requests-count { color: rgba(255,255,255,0.5); font-size: 12px; }
+    .date-str { color: rgba(255,255,255,0.35); font-size: 11px; }
+    .actions { display: flex; gap: 8px; }
+    .toggle-btn { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.6); border-radius: 7px; padding: 6px 12px; font-size: 11px; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; }
+    .toggle-btn:hover { border-color: rgba(0,212,255,0.4); color: #00d4ff; }
+    .delete-btn { background: transparent; border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.6); border-radius: 7px; padding: 6px 12px; font-size: 11px; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; }
+    .delete-btn:hover { background: rgba(239,68,68,0.1); color: #ef4444; border-color: rgba(239,68,68,0.4); }
+    .loading { text-align: center; padding: 48px; color: rgba(255,255,255,0.3); }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(0,212,255,0.2); border-top-color: #00d4ff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 8px; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .toast { position: fixed; bottom: 32px; right: 32px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); border-radius: 10px; padding: 12px 20px; color: #10b981; font-size: 13px; z-index: 999; transform: translateY(80px); opacity: 0; transition: all 0.3s; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.error { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); color: #ef4444; }
+    @media(max-width: 600px) {
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .form-row { flex-direction: column; }
+      thead th:nth-child(3), td:nth-child(3),
+      thead th:nth-child(4), td:nth-child(4) { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg"></div>
+  <div class="grid"></div>
+
+  <header>
+    <div class="header-inner">
+      <div class="logo-wrap">
+        <img src="/attached_assets/1001854641-removebg-preview_1764606701240.png" alt="L3HO">
+        <div>
+          <div class="logo-text">L3HO</div>
+          <span class="logo-sub">INTERACTIVE</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="user-pill">
+          <span class="dot"></span>
+          <span id="userEmail">Cargando...</span>
+        </div>
+        <button class="logout-btn" onclick="doLogout()">Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="page-title">API KEY MANAGER</div>
+    <p class="page-sub">Gestiona las claves de acceso a la Football Data Hub API</p>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="label">Total Keys</div>
+        <div class="value" id="statTotal">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Activas</div>
+        <div class="value green" id="statActive">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Total Requests</div>
+        <div class="value purple" id="statRequests">—</div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <span class="section-title">Crear nueva API Key</span>
+    </div>
+    <div class="create-form">
+      <div class="form-row">
+        <input class="form-input" id="keyNameInput" type="text" placeholder="Nombre o descripción de la key (ej: App móvil)" maxlength="80">
+        <button class="create-btn" id="createBtn" onclick="createKey()">+ Generar Key</button>
+      </div>
+      <div class="new-key-box" id="newKeyBox">
+        <div class="nk-label">✅ API Key generada — Cópiala ahora</div>
+        <div class="nk-key" id="newKeyValue"></div>
+        <button class="copy-btn" onclick="copyKey()">📋 Copiar key</button>
+        <p class="warning-note">⚠️ Esta key solo se muestra una vez. Guárdala en un lugar seguro.</p>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <span class="section-title">API Keys activas</span>
+    </div>
+    <div class="keys-panel" id="keysPanel">
+      <div class="loading"><span class="spinner"></span>Cargando keys...</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCHAptclAjSVJP3iDNzqrLbs9bQ3272SrU",
+      authDomain: "apik-9510b.firebaseapp.com",
+      projectId: "apik-9510b",
+      storageBucket: "apik-9510b.firebasestorage.app",
+      messagingSenderId: "275629352874",
+      appId: "1:275629352874:web:b27d393ae88598fc6d6dd3"
+    };
+
+    const ALLOWED_EMAIL = 'santiagoeduardo331@gmail.com';
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    let currentToken = null;
+
+    const getToken = async () => {
+      const user = auth.currentUser;
+      if (!user) return null;
+      currentToken = await user.getIdToken(true);
+      return currentToken;
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user || user.email !== ALLOWED_EMAIL) {
+        await signOut(auth).catch(() => {});
+        window.location.href = '/login';
+        return;
+      }
+      document.getElementById('userEmail').textContent = user.displayName || user.email;
+      currentToken = await user.getIdToken();
+      loadKeys();
+    });
+
+    window.doLogout = async () => {
+      await signOut(auth);
+      sessionStorage.clear();
+      window.location.href = '/login';
+    };
+
+    window.createKey = async () => {
+      const name = document.getElementById('keyNameInput').value.trim();
+      if (!name) { showToast('Ingresa un nombre para la key', true); return; }
+      const btn = document.getElementById('createBtn');
+      btn.disabled = true; btn.textContent = 'Generando...';
+      try {
+        const token = await getToken();
+        const res = await fetch('/api-admin/keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        document.getElementById('newKeyValue').textContent = data.key;
+        document.getElementById('newKeyBox').style.display = 'block';
+        document.getElementById('keyNameInput').value = '';
+        showToast('API Key generada exitosamente');
+        loadKeys();
+      } catch (err) {
+        showToast(err.message, true);
+      } finally {
+        btn.disabled = false; btn.textContent = '+ Generar Key';
+      }
+    };
+
+    window.copyKey = () => {
+      const key = document.getElementById('newKeyValue').textContent;
+      navigator.clipboard.writeText(key).then(() => showToast('Key copiada al portapapeles'));
+    };
+
+    window.toggleKey = async (id) => {
+      try {
+        const token = await getToken();
+        const res = await fetch(`/api-admin/keys/${id}`, {
+          method: 'PATCH',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showToast(data.active ? 'Key activada' : 'Key desactivada');
+        loadKeys();
+      } catch (err) { showToast(err.message, true); }
+    };
+
+    window.deleteKey = async (id, name) => {
+      if (!confirm(`¿Eliminar la key "${name}"? Esta acción es irreversible.`)) return;
+      try {
+        const token = await getToken();
+        const res = await fetch(`/api-admin/keys/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+        showToast('Key eliminada');
+        loadKeys();
+      } catch (err) { showToast(err.message, true); }
+    };
+
+    async function loadKeys() {
+      const panel = document.getElementById('keysPanel');
+      try {
+        const token = await getToken();
+        const res = await fetch('/api-admin/keys', { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        const keys = data.keys || [];
+        updateStats(keys);
+        if (keys.length === 0) {
+          panel.innerHTML = '<div class="empty">No hay API keys creadas aún. Crea tu primera key arriba.</div>';
+          return;
+        }
+        panel.innerHTML = `<table>
+          <thead><tr>
+            <th>Nombre</th><th>Key</th><th>Estado</th>
+            <th>Requests</th><th>Creada</th><th>Acciones</th>
+          </tr></thead>
+          <tbody>${keys.map(k => `
+            <tr>
+              <td><span class="key-name">${esc(k.name)}</span></td>
+              <td><span class="key-value">${esc(k.keyDisplay)}</span></td>
+              <td><span class="badge ${k.active ? 'active' : 'inactive'}">
+                <span class="dot"></span>${k.active ? 'Activa' : 'Inactiva'}
+              </span></td>
+              <td><span class="requests-count">${(k.requests || 0).toLocaleString()}</span></td>
+              <td><span class="date-str">${formatDate(k.createdAt)}</span></td>
+              <td><div class="actions">
+                <button class="toggle-btn" onclick="toggleKey('${k.id}')">${k.active ? 'Desactivar' : 'Activar'}</button>
+                <button class="delete-btn" onclick="deleteKey('${k.id}','${esc(k.name)}')">Eliminar</button>
+              </div></td>
+            </tr>`).join('')}
+          </tbody></table>`;
+      } catch (err) {
+        panel.innerHTML = `<div class="empty">Error cargando keys: ${err.message}</div>`;
+      }
+    }
+
+    function updateStats(keys) {
+      document.getElementById('statTotal').textContent = keys.length;
+      document.getElementById('statActive').textContent = keys.filter(k => k.active).length;
+      document.getElementById('statRequests').textContent = keys.reduce((s, k) => s + (k.requests || 0), 0).toLocaleString();
+    }
+
+    function formatDate(d) {
+      if (!d) return '—';
+      const date = new Date(d);
+      if (isNaN(date)) return '—';
+      return date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function showToast(msg, isError = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast' + (isError ? ' error' : '');
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3200);
+    }
+  </script>
+</body>
+</html>
