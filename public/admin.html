@@ -298,11 +298,27 @@
     provider.setCustomParameters({ login_hint: ALLOWED_EMAIL });
 
     let currentUser = null;
+    let refreshTimer = null;
 
-    async function getAuthHeaders() {
+    async function getAuthHeaders(forceRefresh = false) {
       if (!currentUser) return {};
-      const token = await currentUser.getIdToken();
+      const token = await currentUser.getIdToken(forceRefresh);
       return { 'Authorization': 'Bearer ' + token };
+    }
+
+    function startTokenRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = setInterval(async () => {
+        if (currentUser) {
+          try {
+            await currentUser.getIdToken(true);
+          } catch (e) {}
+        }
+      }, 55 * 60 * 1000);
+    }
+
+    function stopTokenRefresh() {
+      if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
     }
 
     onAuthStateChanged(auth, async (user) => {
@@ -311,9 +327,11 @@
         document.getElementById('userEmailDisplay').textContent = user.email;
         document.getElementById('authGate').style.display = 'none';
         document.getElementById('mainContent').style.display = 'block';
+        startTokenRefresh();
         loadKeys();
       } else {
         currentUser = null;
+        stopTokenRefresh();
         document.getElementById('authGate').style.display = 'flex';
         document.getElementById('mainContent').style.display = 'none';
       }
@@ -348,12 +366,15 @@
       await signOut(auth);
     };
 
-    async function apiFetch(path, options = {}) {
-      const headers = await getAuthHeaders();
+    async function apiFetch(path, options = {}, isRetry = false) {
+      const headers = await getAuthHeaders(isRetry);
       const res = await fetch(path, {
         ...options,
         headers: { ...headers, ...(options.headers || {}) }
       });
+      if (res.status === 401 && !isRetry) {
+        return apiFetch(path, options, true);
+      }
       return res;
     }
 
