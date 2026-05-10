@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
-const { getDb, getFieldValue } = require('../firebase/admin');
+const store = require('../storage/keyStore');
 
 const requireAdminKey = (req, res, next) => {
   const adminKey = process.env.ADMIN_API_KEY;
@@ -15,19 +14,16 @@ const requireAdminKey = (req, res, next) => {
   next();
 };
 
-router.get('/keys', requireAdminKey, async (req, res) => {
-  const db = getDb();
-  if (!db) return res.status(503).json({ error: 'Firebase no inicializado' });
+router.get('/keys', requireAdminKey, (req, res) => {
   try {
-    const snapshot = await db.collection('apiKeys').orderBy('createdAt', 'desc').get();
-    const keys = snapshot.docs.map(doc => ({
-      id: doc.id,
-      name: doc.data().name,
-      keyDisplay: doc.data().keyDisplay,
-      active: doc.data().active,
-      requests: doc.data().requests || 0,
-      createdAt: doc.data().createdAt?.toDate?.() || doc.data().createdAt,
-      lastUsed: doc.data().lastUsed?.toDate?.() || doc.data().lastUsed || null
+    const keys = store.getAllKeys().map(k => ({
+      id: k.id,
+      name: k.name,
+      keyDisplay: k.keyDisplay,
+      active: k.active,
+      requests: k.requests || 0,
+      createdAt: k.createdAt,
+      lastUsed: k.lastUsed || null
     }));
     res.json({ keys });
   } catch (err) {
@@ -35,31 +31,19 @@ router.get('/keys', requireAdminKey, async (req, res) => {
   }
 });
 
-router.post('/keys', requireAdminKey, async (req, res) => {
-  const db = getDb();
-  if (!db) return res.status(503).json({ error: 'Firebase no inicializado' });
+router.post('/keys', requireAdminKey, (req, res) => {
   const { name } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'El nombre de la API key es requerido' });
   }
   try {
-    const rawKey = 'l3ho_' + crypto.randomBytes(24).toString('hex');
-    const keyDisplay = rawKey.substring(0, 12) + '...';
-    const docRef = await db.collection('apiKeys').add({
-      name: name.trim(),
-      key: rawKey,
-      keyDisplay,
-      active: true,
-      requests: 0,
-      createdAt: new Date(),
-      lastUsed: null
-    });
+    const entry = store.createKey(name);
     res.json({
       success: true,
-      id: docRef.id,
-      key: rawKey,
-      keyDisplay,
-      name: name.trim(),
+      id: entry.id,
+      key: entry.key,
+      keyDisplay: entry.keyDisplay,
+      name: entry.name,
       message: 'Guarda esta key, no se mostrará de nuevo.'
     });
   } catch (err) {
@@ -67,26 +51,20 @@ router.post('/keys', requireAdminKey, async (req, res) => {
   }
 });
 
-router.patch('/keys/:id', requireAdminKey, async (req, res) => {
-  const db = getDb();
-  if (!db) return res.status(503).json({ error: 'Firebase no inicializado' });
+router.patch('/keys/:id', requireAdminKey, (req, res) => {
   try {
-    const docRef = db.collection('apiKeys').doc(req.params.id);
-    const doc = await docRef.get();
-    if (!doc.exists) return res.status(404).json({ error: 'API key no encontrada' });
-    const newActive = !doc.data().active;
-    await docRef.update({ active: newActive });
-    res.json({ success: true, active: newActive });
+    const updated = store.toggleKey(req.params.id);
+    if (!updated) return res.status(404).json({ error: 'API key no encontrada' });
+    res.json({ success: true, active: updated.active });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.delete('/keys/:id', requireAdminKey, async (req, res) => {
-  const db = getDb();
-  if (!db) return res.status(503).json({ error: 'Firebase no inicializado' });
+router.delete('/keys/:id', requireAdminKey, (req, res) => {
   try {
-    await db.collection('apiKeys').doc(req.params.id).delete();
+    const deleted = store.deleteKey(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'API key no encontrada' });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

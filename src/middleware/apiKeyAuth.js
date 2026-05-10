@@ -1,4 +1,4 @@
-const { getDb, getFieldValue } = require('../firebase/admin');
+const store = require('../storage/keyStore');
 
 const PUBLIC_PATHS = [
   '/',
@@ -16,7 +16,7 @@ const PUBLIC_PREFIXES = [
   '/api-admin/',
 ];
 
-const apiKeyAuth = async (req, res, next) => {
+const apiKeyAuth = (req, res, next) => {
   const reqPath = req.path;
 
   if (PUBLIC_PATHS.includes(reqPath)) return next();
@@ -27,39 +27,21 @@ const apiKeyAuth = async (req, res, next) => {
   if (!apiKey) {
     return res.status(401).json({
       error: 'API Key requerida',
-      message: 'Incluye tu API key en el header X-API-Key o como parámetro ?apiKey=TU_KEY',
-      docs: 'Solicita tu API key en el panel de administración'
+      message: 'Incluye tu API key en el header X-Api-Key o como parámetro ?apiKey=TU_KEY',
+      docs: 'Solicita tu API key en el panel de administración: /admin'
     });
   }
 
-  const db = getDb();
-  if (!db) {
-    console.warn('⚠️ Firebase no inicializado, saltando validación de API key');
-    return next();
-  }
-
   try {
-    const snapshot = await db.collection('apiKeys')
-      .where('key', '==', apiKey)
-      .where('active', '==', true)
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) {
+    const found = store.findKey(apiKey);
+    if (!found) {
       return res.status(401).json({
         error: 'API Key inválida o desactivada',
         message: 'La API key proporcionada no es válida o ha sido revocada'
       });
     }
-
-    const doc = snapshot.docs[0];
-    const FieldValue = getFieldValue();
-    doc.ref.update({
-      requests: FieldValue.increment(1),
-      lastUsed: new Date()
-    }).catch(() => {});
-
-    req.apiKeyInfo = { id: doc.id, ...doc.data() };
+    store.incrementRequests(apiKey);
+    req.apiKeyInfo = found;
     next();
   } catch (err) {
     console.error('Error validando API key:', err.message);

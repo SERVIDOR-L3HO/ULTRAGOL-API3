@@ -105,6 +105,7 @@ const {
 
 const path = require("path");
 const adminKeysRouter = require("./src/routes/adminKeys");
+const { apiKeyAuth } = require("./src/middleware/apiKeyAuth");
 const app = express();
 
 app.set('trust proxy', 1);
@@ -122,6 +123,8 @@ app.use('/public', express.static(path.join(__dirname, 'public'), {
     res.setHeader('Cache-Control', 'public, max-age=31536000');
   }
 }));
+
+app.use(apiKeyAuth);
 
 async function updateAllData() {
   console.log("🔄 Actualizando datos de Liga MX...");
