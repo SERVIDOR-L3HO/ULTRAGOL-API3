@@ -15,7 +15,6 @@
     "express": "^4.22.1",
     "express-rate-limit": "^8.3.2",
     "express-session": "^1.19.0",
-    "firebase-admin": "^13.9.0",
     "googleapis": "^163.0.0",
     "helmet": "^8.1.0",
     "node-cron": "^4.2.1",

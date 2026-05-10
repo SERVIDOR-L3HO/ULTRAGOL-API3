@@ -119,9 +119,6 @@ const {
 } = require("./src/scrapers/estadisticas");
 
 const path = require("path");
-const { requireFirebaseAuth, requireAdminAuth, apiKeyAuth, firebaseTokenLogin } = require("./src/middleware/firebaseAuth");
-const { createKey, getAllKeys, getKeyByValue, deleteKey, revokeKey } = require("./src/apiKeys");
-
 const app = express();
 
 app.set('trust proxy', 1);
@@ -163,82 +160,59 @@ const initAdminUsers = () => {
 };
 initAdminUsers();
 
-app.get('/login', (req, res) => {
-  if (req.session && req.session.firebaseAuthenticated) {
-    return res.redirect('/');
-  }
+app.get('/login', isNotAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-app.get('/api/firebase-config', (req, res) => {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const apiKey = process.env.FIREBASE_API_KEY;
-  const appId = process.env.FIREBASE_APP_ID;
-  if (!projectId || !apiKey || !appId) {
-    return res.status(503).json({ error: 'Firebase no configurado' });
+app.post('/auth/login', loginLimiter, async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+    }
+    
+    const userHash = ADMIN_USERS[username.toLowerCase()];
+    
+    if (!userHash) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    
+    const isValid = await bcrypt.compare(password, userHash);
+    
+    if (!isValid) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    
+    createSession(req, { username: username.toLowerCase() });
+    console.log(`🔐 Login exitoso: ${username} desde IP ${req.ip}`);
+    
+    res.json({ success: true, message: 'Inicio de sesión exitoso' });
+  } catch (error) {
+    console.error('Error en login:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
-  res.json({
-    apiKey,
-    authDomain: `${projectId}.firebaseapp.com`,
-    projectId,
-    storageBucket: `${projectId}.firebasestorage.app`,
-    appId
-  });
 });
 
-app.post('/auth/firebase-login', loginLimiter, firebaseTokenLogin);
-
 app.get('/logout', (req, res) => {
-  const email = req.session?.firebaseUser?.email || req.session?.user?.username || 'Unknown';
+  const username = req.session?.user?.username || 'Unknown';
   destroySession(req, () => {
-    console.log(`🔓 Logout: ${email}`);
+    console.log(`🔓 Logout: ${username}`);
     res.redirect('/login');
   });
 });
 
 app.get('/auth/status', (req, res) => {
-  if (req.session && req.session.firebaseAuthenticated) {
-    res.json({
-      authenticated: true,
-      user: req.session.firebaseUser
+  if (req.session && req.session.authenticated) {
+    res.json({ 
+      authenticated: true, 
+      user: req.session.user?.username 
     });
   } else {
     res.json({ authenticated: false });
   }
-});
-
-app.get('/admin', requireAdminAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
-
-app.get('/admin/api-keys', requireAdminAuth, (req, res) => {
-  const keys = getAllKeys().map(k => ({
-    ...k,
-    keyMasked: k.key ? k.key.substring(0, 12) + '••••••••' : '',
-    key: undefined
-  }));
-  res.json({ keys });
-});
-
-app.post('/admin/api-keys', requireAdminAuth, (req, res) => {
-  const { name, description } = req.body;
-  if (!name || !name.trim()) {
-    return res.status(400).json({ error: 'Nombre requerido' });
-  }
-  const key = createKey(name.trim(), description || '');
-  res.json({ key });
-});
-
-app.post('/admin/api-keys/:id/revoke', requireAdminAuth, (req, res) => {
-  const ok = revokeKey(req.params.id);
-  if (!ok) return res.status(404).json({ error: 'Key no encontrada' });
-  res.json({ success: true });
-});
-
-app.delete('/admin/api-keys/:id', requireAdminAuth, (req, res) => {
-  const ok = deleteKey(req.params.id);
-  if (!ok) return res.status(404).json({ error: 'Key no encontrada' });
-  res.json({ success: true });
 });
 
 async function updateAllData() {
