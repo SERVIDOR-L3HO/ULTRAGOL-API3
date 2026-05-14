@@ -3,6 +3,7 @@ const cors = require("cors");
 const cron = require("node-cron");
 const axios = require("axios");
 const cheerio = require("cheerio");
+const ytdl = require("@distube/ytdl-core");
 const cache = require("./src/cache/dataCache");
 const { scrapTabla } = require("./src/scrapers/tabla");
 const { scrapNoticias } = require("./src/scrapers/noticias");
@@ -1723,6 +1724,34 @@ async function extractM3u8FromCapo7play(pageUrl) {
   return { m3u8Url, referer: origin + "/" };
 }
 
+async function extractFromYouTube(videoUrl) {
+  if (!ytdl.validateURL(videoUrl)) throw new Error("URL de YouTube inválida");
+
+  const info = await ytdl.getInfo(videoUrl, {
+    requestOptions: {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      }
+    }
+  });
+
+  const isLive = info.videoDetails.isLiveContent;
+
+  if (isLive) {
+    const hlsFormat = info.formats.find(f => f.isHLS);
+    if (hlsFormat) {
+      return { type: "m3u8", url: hlsFormat.url, referer: "https://www.youtube.com/", title: info.videoDetails.title };
+    }
+  }
+
+  const format = ytdl.chooseFormat(info.formats, { quality: "highestvideo", filter: "audioandvideo" })
+    || ytdl.chooseFormat(info.formats, { filter: "audioandvideo" });
+
+  if (!format) throw new Error("No se encontró un formato compatible en este video de YouTube");
+
+  return { type: "mp4", url: format.url, referer: "https://www.youtube.com/", title: info.videoDetails.title, mimeType: format.mimeType || "video/mp4" };
+}
+
 async function extractM3u8FromBolaloca(bola_url) {
   const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
 
@@ -1791,7 +1820,7 @@ app.get("/stream7", async (req, res) => {
   }
 
   const hostname = new URL(decodedUrl).hostname;
-  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com"];
+  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be"];
   if (!playerAllowed.some(d => hostname === d || hostname.endsWith("." + d))) {
     return res.status(403).send("Dominio no permitido");
   }
@@ -1800,7 +1829,17 @@ app.get("/stream7", async (req, res) => {
   let m3u8Url, streamReferer;
 
   try {
-    if (hostname === "capo7play.com" || hostname.endsWith(".capo7play.com")) {
+    if (hostname === "youtube.com" || hostname.endsWith(".youtube.com") || hostname === "youtu.be") {
+      console.log(`🎬 stream7 (youtube) → ${decodedUrl}`);
+      const extracted = await extractFromYouTube(decodedUrl);
+
+      if (extracted.type === "m3u8") {
+        m3u8Url = extracted.url;
+        streamReferer = extracted.referer;
+      } else {
+        return res.redirect(302, extracted.url);
+      }
+    } else if (hostname === "capo7play.com" || hostname.endsWith(".capo7play.com")) {
       console.log(`🎬 stream7 (capo7play) → ${decodedUrl}`);
       const extracted = await extractM3u8FromCapo7play(decodedUrl);
       m3u8Url = extracted.m3u8Url;
