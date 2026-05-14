@@ -3,7 +3,10 @@ const cors = require("cors");
 const cron = require("node-cron");
 const axios = require("axios");
 const cheerio = require("cheerio");
-const ytdlExec = require("yt-dlp-exec");
+const ytdl = require("@distube/ytdl-core");
+const { execFile } = require("child_process");
+const { promisify } = require("util");
+const execFileAsync = promisify(execFile);
 const cache = require("./src/cache/dataCache");
 const { scrapTabla } = require("./src/scrapers/tabla");
 const { scrapNoticias } = require("./src/scrapers/noticias");
@@ -1724,34 +1727,69 @@ async function extractM3u8FromCapo7play(pageUrl) {
   return { m3u8Url, referer: origin + "/" };
 }
 
-async function extractFromYouTube(videoUrl) {
-  const info = await ytdlExec(videoUrl, {
-    dumpSingleJson: true,
-    noWarnings: true,
-    noCallHome: true,
-    noCheckCertificates: true,
-    format: "best[ext=mp4]/best[protocol=m3u8]/best",
-    addHeader: ["referer:https://www.youtube.com/", "user-agent:Mozilla/5.0"]
-  });
+const YTDLP_PATHS = [
+  "/home/runner/workspace/.pythonlibs/bin/yt-dlp",
+  path.join(__dirname, "node_modules/yt-dlp-exec/bin/yt-dlp"),
+  "/usr/local/bin/yt-dlp",
+  "/usr/bin/yt-dlp"
+];
 
-  if (!info) throw new Error("yt-dlp no pudo obtener información del video");
+function findYtDlp() {
+  const fs = require("fs");
+  return YTDLP_PATHS.find(p => { try { return fs.existsSync(p); } catch { return false; } }) || null;
+}
 
-  const isLive = info.is_live || info.was_live || false;
-
+async function extractFromYouTubeViaYtDlp(videoUrl) {
+  const bin = findYtDlp();
+  if (!bin) throw new Error("yt-dlp no disponible en este entorno");
+  const { stdout } = await execFileAsync(bin, [
+    videoUrl,
+    "--dump-single-json",
+    "--no-warnings",
+    "--format", "best[ext=mp4]/best[protocol=m3u8]/best",
+    "--add-header", "referer:https://www.youtube.com/"
+  ], { timeout: 30000 });
+  const info = JSON.parse(stdout);
+  if (!info) throw new Error("yt-dlp no devolvió información");
+  const isLive = info.is_live || false;
   if (isLive && info.manifest_url) {
     return { type: "m3u8", url: info.manifest_url, referer: "https://www.youtube.com/", title: info.title };
   }
-
   if (isLive) {
-    const hlsFormat = (info.formats || []).find(f => f.protocol === "m3u8" || f.protocol === "m3u8_native");
-    if (hlsFormat) {
-      return { type: "m3u8", url: hlsFormat.url, referer: "https://www.youtube.com/", title: info.title };
+    const hlsFmt = (info.formats || []).find(f => f.protocol === "m3u8" || f.protocol === "m3u8_native");
+    if (hlsFmt) return { type: "m3u8", url: hlsFmt.url, referer: "https://www.youtube.com/", title: info.title };
+  }
+  if (!info.url) throw new Error("yt-dlp no encontró URL reproducible");
+  return { type: "mp4", url: info.url, referer: "https://www.youtube.com/", title: info.title, mimeType: info.ext ? `video/${info.ext}` : "video/mp4" };
+}
+
+async function extractFromYouTube(videoUrl) {
+  // Intento 1: @distube/ytdl-core — puro Node.js, funciona en Vercel y cualquier entorno
+  try {
+    if (!ytdl.validateURL(videoUrl)) throw new Error("URL de YouTube inválida");
+    const info = await ytdl.getInfo(videoUrl, {
+      requestOptions: {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept-Language": "en-US,en;q=0.9"
+        }
+      }
+    });
+    const isLive = info.videoDetails.isLiveContent;
+    if (isLive) {
+      const hlsFmt = info.formats.find(f => f.isHLS);
+      if (hlsFmt) return { type: "m3u8", url: hlsFmt.url, referer: "https://www.youtube.com/", title: info.videoDetails.title };
     }
+    const format = ytdl.chooseFormat(info.formats, { quality: "highestvideo", filter: "audioandvideo" })
+      || ytdl.chooseFormat(info.formats, { filter: "audioandvideo" });
+    if (!format || !format.url) throw new Error("No se encontró formato compatible");
+    return { type: "mp4", url: format.url, referer: "https://www.youtube.com/", title: info.videoDetails.title };
+  } catch (ytdlErr) {
+    console.log(`⚠️ ytdl-core falló (${ytdlErr.message}), intentando yt-dlp...`);
   }
 
-  if (!info.url) throw new Error("No se encontró un formato reproducible para este video");
-
-  return { type: "mp4", url: info.url, referer: "https://www.youtube.com/", title: info.title, mimeType: info.ext ? `video/${info.ext}` : "video/mp4" };
+  // Intento 2: yt-dlp — más robusto, disponible en Replit/servidor propio
+  return extractFromYouTubeViaYtDlp(videoUrl);
 }
 
 async function extractM3u8FromBolaloca(bola_url) {
