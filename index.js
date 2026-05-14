@@ -3,7 +3,7 @@ const cors = require("cors");
 const cron = require("node-cron");
 const axios = require("axios");
 const cheerio = require("cheerio");
-const ytdl = require("@distube/ytdl-core");
+const ytdlExec = require("yt-dlp-exec");
 const cache = require("./src/cache/dataCache");
 const { scrapTabla } = require("./src/scrapers/tabla");
 const { scrapNoticias } = require("./src/scrapers/noticias");
@@ -1725,31 +1725,33 @@ async function extractM3u8FromCapo7play(pageUrl) {
 }
 
 async function extractFromYouTube(videoUrl) {
-  if (!ytdl.validateURL(videoUrl)) throw new Error("URL de YouTube inválida");
-
-  const info = await ytdl.getInfo(videoUrl, {
-    requestOptions: {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-      }
-    }
+  const info = await ytdlExec(videoUrl, {
+    dumpSingleJson: true,
+    noWarnings: true,
+    noCallHome: true,
+    noCheckCertificates: true,
+    format: "best[ext=mp4]/best[protocol=m3u8]/best",
+    addHeader: ["referer:https://www.youtube.com/", "user-agent:Mozilla/5.0"]
   });
 
-  const isLive = info.videoDetails.isLiveContent;
+  if (!info) throw new Error("yt-dlp no pudo obtener información del video");
+
+  const isLive = info.is_live || info.was_live || false;
+
+  if (isLive && info.manifest_url) {
+    return { type: "m3u8", url: info.manifest_url, referer: "https://www.youtube.com/", title: info.title };
+  }
 
   if (isLive) {
-    const hlsFormat = info.formats.find(f => f.isHLS);
+    const hlsFormat = (info.formats || []).find(f => f.protocol === "m3u8" || f.protocol === "m3u8_native");
     if (hlsFormat) {
-      return { type: "m3u8", url: hlsFormat.url, referer: "https://www.youtube.com/", title: info.videoDetails.title };
+      return { type: "m3u8", url: hlsFormat.url, referer: "https://www.youtube.com/", title: info.title };
     }
   }
 
-  const format = ytdl.chooseFormat(info.formats, { quality: "highestvideo", filter: "audioandvideo" })
-    || ytdl.chooseFormat(info.formats, { filter: "audioandvideo" });
+  if (!info.url) throw new Error("No se encontró un formato reproducible para este video");
 
-  if (!format) throw new Error("No se encontró un formato compatible en este video de YouTube");
-
-  return { type: "mp4", url: format.url, referer: "https://www.youtube.com/", title: info.videoDetails.title, mimeType: format.mimeType || "video/mp4" };
+  return { type: "mp4", url: info.url, referer: "https://www.youtube.com/", title: info.title, mimeType: info.ext ? `video/${info.ext}` : "video/mp4" };
 }
 
 async function extractM3u8FromBolaloca(bola_url) {
