@@ -4,6 +4,7 @@ const cron = require("node-cron");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const ytdl = require("@distube/ytdl-core");
+const playDl = require("play-dl");
 const { execFile } = require("child_process");
 const { promisify } = require("util");
 const execFileAsync = promisify(execFile);
@@ -1764,17 +1765,29 @@ async function extractFromYouTubeViaYtDlp(videoUrl) {
 }
 
 async function extractFromYouTube(videoUrl) {
-  // Intento 1: @distube/ytdl-core — puro Node.js, funciona en Vercel y cualquier entorno
+  // Intento 1: play-dl — puro Node.js, funciona en Vercel y cualquier entorno
+  try {
+    const yt_validate = playDl.yt_validate(videoUrl);
+    if (!yt_validate || yt_validate === "search") throw new Error("URL de YouTube inválida");
+    const info = await playDl.video_info(videoUrl);
+    const isLive = info.video_details?.live;
+    if (isLive) {
+      const hlsFmt = (info.format || []).find(f => f.mimeType?.includes("application/x-mpegURL") || f.url?.includes(".m3u8"));
+      if (hlsFmt?.url) return { type: "m3u8", url: hlsFmt.url, referer: "https://www.youtube.com/", title: info.video_details?.title };
+    }
+    const formats = (info.format || []).filter(f => f.url);
+    const best = formats.filter(f => f.mimeType?.includes("video/mp4")).sort((a, b) => (b.quality || 0) - (a.quality || 0))[0]
+      || formats[0];
+    if (!best?.url) throw new Error("No se encontró formato con URL directa");
+    return { type: "mp4", url: best.url, referer: "https://www.youtube.com/", title: info.video_details?.title };
+  } catch (playErr) {
+    console.log(`⚠️ play-dl falló (${playErr.message}), intentando ytdl-core...`);
+  }
+
+  // Intento 2: @distube/ytdl-core — segunda opción pura Node.js
   try {
     if (!ytdl.validateURL(videoUrl)) throw new Error("URL de YouTube inválida");
-    const info = await ytdl.getInfo(videoUrl, {
-      requestOptions: {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept-Language": "en-US,en;q=0.9"
-        }
-      }
-    });
+    const info = await ytdl.getInfo(videoUrl);
     const isLive = info.videoDetails.isLiveContent;
     if (isLive) {
       const hlsFmt = info.formats.find(f => f.isHLS);
@@ -1782,13 +1795,13 @@ async function extractFromYouTube(videoUrl) {
     }
     const format = ytdl.chooseFormat(info.formats, { quality: "highestvideo", filter: "audioandvideo" })
       || ytdl.chooseFormat(info.formats, { filter: "audioandvideo" });
-    if (!format || !format.url) throw new Error("No se encontró formato compatible");
+    if (!format?.url) throw new Error("No se encontró formato compatible");
     return { type: "mp4", url: format.url, referer: "https://www.youtube.com/", title: info.videoDetails.title };
   } catch (ytdlErr) {
     console.log(`⚠️ ytdl-core falló (${ytdlErr.message}), intentando yt-dlp...`);
   }
 
-  // Intento 2: yt-dlp — más robusto, disponible en Replit/servidor propio
+  // Intento 3: yt-dlp — más robusto, disponible en Replit/servidor propio
   return extractFromYouTubeViaYtDlp(videoUrl);
 }
 
