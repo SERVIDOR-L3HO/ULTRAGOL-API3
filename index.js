@@ -1890,7 +1890,39 @@ app.get("/stream7", async (req, res) => {
         m3u8Url = extracted.url;
         streamReferer = extracted.referer;
       } else {
-        return res.redirect(302, extracted.url);
+        // For YouTube mp4/regular videos, use iframe embed (most reliable, no IP binding issues)
+        let videoId = null;
+        try {
+          const ytUrl = new URL(decodedUrl);
+          if (ytUrl.hostname === "youtu.be") {
+            videoId = ytUrl.pathname.slice(1).split("?")[0];
+          } else {
+            videoId = ytUrl.searchParams.get("v") || ytUrl.pathname.split("/").pop();
+          }
+        } catch {}
+        const embedUrl = videoId
+          ? `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`
+          : null;
+        if (!embedUrl) return res.status(400).send("No se pudo extraer el ID del video");
+        return res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>YouTube - L3HO</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;background:#000;overflow:hidden}
+    iframe{width:100%;height:100%;border:none;display:block}
+    #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none}
+    #logo img{height:28px;opacity:.4;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7))}
+  </style>
+</head>
+<body>
+<iframe src="${embedUrl}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+<div id="logo"><img src="${baseUrl}/attached_assets/1001854641-removebg-preview_1764572556092.png" onerror="this.style.display='none'"></div>
+</body>
+</html>`);
       }
     } else if (hostname === "capo7play.com" || hostname.endsWith(".capo7play.com")) {
       console.log(`🎬 stream7 (capo7play) → ${decodedUrl}`);
@@ -2264,6 +2296,37 @@ app.get("/stream7", async (req, res) => {
   } catch (error) {
     console.error("❌ stream7 error:", error.message);
     res.status(502).send(`No se pudo obtener el stream: ${error.message}`);
+  }
+});
+
+app.get("/yt-proxy", async (req, res) => {
+  const raw = req.query.url;
+  if (!raw) return res.status(400).send("Falta ?url=");
+  let targetUrl;
+  try { targetUrl = decodeURIComponent(raw); new URL(targetUrl); }
+  catch { return res.status(400).send("URL inválida"); }
+
+  const range = req.headers.range;
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Referer": "https://www.youtube.com/",
+    "Origin": "https://www.youtube.com"
+  };
+  if (range) headers["Range"] = range;
+
+  try {
+    const upstream = await axios.get(targetUrl, {
+      responseType: "stream",
+      headers,
+      timeout: 30000
+    });
+    res.status(upstream.status);
+    const passthroughHeaders = ["content-type","content-length","content-range","accept-ranges","cache-control"];
+    passthroughHeaders.forEach(h => { if (upstream.headers[h]) res.setHeader(h, upstream.headers[h]); });
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    upstream.data.pipe(res);
+  } catch (e) {
+    if (!res.headersSent) res.status(502).send("yt-proxy error: " + e.message);
   }
 });
 
