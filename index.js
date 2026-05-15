@@ -5,7 +5,7 @@ const axios = require("axios");
 const cheerio = require("cheerio");
 const ytdl = require("@distube/ytdl-core");
 const playDl = require("play-dl");
-const { execFile } = require("child_process");
+const { execFile, spawn } = require("child_process");
 const { promisify } = require("util");
 const execFileAsync = promisify(execFile);
 const cache = require("./src/cache/dataCache");
@@ -1747,7 +1747,10 @@ async function extractFromYouTubeViaYtDlp(videoUrl) {
     videoUrl,
     "--dump-single-json",
     "--no-warnings",
-    "--format", "best[ext=mp4]/best[protocol=m3u8]/best",
+    // Force web client (H.264/AAC, browser-compatible) instead of ANDROID_VR
+    "--extractor-args", "youtube:player_client=web",
+    // Prefer H.264 mp4 with audio — guaranteed to play in any browser
+    "--format", "best[ext=mp4][vcodec^=avc1]/best[ext=mp4]/best[protocol=m3u8_native]/best",
     "--add-header", "referer:https://www.youtube.com/"
   ], { timeout: 30000 });
   const info = JSON.parse(stdout);
@@ -1884,43 +1887,216 @@ app.get("/stream7", async (req, res) => {
   try {
     if (hostname === "youtube.com" || hostname.endsWith(".youtube.com") || hostname === "youtu.be") {
       console.log(`🎬 stream7 (youtube) → ${decodedUrl}`);
-      const extracted = await extractFromYouTube(decodedUrl);
-
-      if (extracted.type === "m3u8") {
-        m3u8Url = extracted.url;
-        streamReferer = extracted.referer;
-      } else {
-        // For YouTube mp4/regular videos, use iframe embed (most reliable, no IP binding issues)
-        let videoId = null;
-        try {
-          const ytUrl = new URL(decodedUrl);
-          if (ytUrl.hostname === "youtu.be") {
-            videoId = ytUrl.pathname.slice(1).split("?")[0];
-          } else {
-            videoId = ytUrl.searchParams.get("v") || ytUrl.pathname.split("/").pop();
-          }
-        } catch {}
-        const embedUrl = videoId
-          ? `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`
-          : null;
-        if (!embedUrl) return res.status(400).send("No se pudo extraer el ID del video");
+      // Return player immediately — yt-stream handles extraction+piping asynchronously
+      {
+        const proxyUrl = `${baseUrl}/yt-stream?url=${encodeURIComponent(decodedUrl)}`;
+        const vidTitle = "Video";
         return res.send(`<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>YouTube - L3HO</title>
+  <title>${vidTitle} - L3HO</title>
   <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    html,body{width:100%;height:100%;background:#000;overflow:hidden}
-    iframe{width:100%;height:100%;border:none;display:block}
-    #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none}
-    #logo img{height:28px;opacity:.4;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7))}
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    :root{--red:#e74c3c;--red2:#c0392b;--bg:#0a0a0a;--ctrl:#111}
+    html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;color:#fff}
+    #wrap{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000}
+    video{width:100%;height:100%;object-fit:contain;display:block}
+    #loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;z-index:20;gap:16px}
+    .spinner{width:52px;height:52px;border:4px solid rgba(255,255,255,.1);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #loader p{font-size:13px;color:rgba(255,255,255,.5);letter-spacing:.5px}
+    #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none;transition:opacity .4s}
+    #logo img{height:32px;width:auto;opacity:.55;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));transition:opacity .4s}
+    #wrap:hover #logo img{opacity:.18}
+    #controls{position:absolute;bottom:0;left:0;right:0;padding:0 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
+    #wrap:hover #controls,#wrap.showCtrl #controls{opacity:1}
+    #progressWrap{position:relative;height:20px;cursor:pointer;display:flex;align-items:center;margin-bottom:4px}
+    #progressBg{position:absolute;left:0;right:0;height:3px;background:rgba(255,255,255,.2);border-radius:2px;transition:height .15s}
+    #progressWrap:hover #progressBg{height:5px}
+    #progressFill{position:absolute;left:0;height:100%;background:var(--red);border-radius:2px;width:0%;transition:width .2s linear}
+    #progressThumb{position:absolute;width:13px;height:13px;background:#fff;border-radius:50%;top:50%;transform:translateY(-50%) scale(0);transition:transform .15s;box-shadow:0 0 4px rgba(0,0,0,.6);left:0}
+    #progressWrap:hover #progressThumb{transform:translateY(-50%) scale(1)}
+    #btnRow{display:flex;align-items:center;gap:10px}
+    .btn{background:none;border:none;color:#fff;cursor:pointer;padding:6px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+    .btn:hover{background:rgba(255,255,255,.12)}
+    .btn svg{width:20px;height:20px;fill:currentColor}
+    #volSlider{-webkit-appearance:none;appearance:none;width:72px;height:3px;background:rgba(255,255,255,.3);border-radius:2px;outline:none;cursor:pointer}
+    #volSlider::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:#fff;border-radius:50%;cursor:pointer}
+    #timeLabel{font-size:11px;color:rgba(255,255,255,.7);white-space:nowrap;margin-left:2px}
+    #spacer{flex:1}
+    #qualityLabel{font-size:11px;background:rgba(255,255,255,.15);padding:3px 8px;border-radius:4px;color:rgba(255,255,255,.8)}
+    #errOverlay{position:absolute;inset:0;background:rgba(0,0,0,.92);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:30;gap:14px;padding:24px;text-align:center}
+    #errOverlay svg{width:52px;height:52px;fill:var(--red);opacity:.8}
+    #errOverlay h2{font-size:18px;color:#fff}
+    #errOverlay p{font-size:13px;color:rgba(255,255,255,.5);max-width:280px}
+    #retryBtn{background:var(--red);color:#fff;border:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.3px;transition:background .2s}
+    #retryBtn:hover{background:var(--red2)}
+    #tapFx{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5}
+    .tapCircle{width:70px;height:70px;background:rgba(255,255,255,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.5);transition:opacity .25s,transform .25s;backdrop-filter:blur(4px)}
+    .tapCircle.show{opacity:1;transform:scale(1)}
+    .tapCircle svg{width:30px;height:30px;fill:#fff}
   </style>
 </head>
 <body>
-<iframe src="${embedUrl}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
-<div id="logo"><img src="${baseUrl}/attached_assets/1001854641-removebg-preview_1764572556092.png" onerror="this.style.display='none'"></div>
+<div id="wrap">
+  <video id="video" playsinline preload="auto"></video>
+  <div id="loader"><div class="spinner"></div><p>Cargando video...</p></div>
+  <div id="logo"><img src="${baseUrl}/public/ultragol-logo.png" alt="L3HO"></div>
+  <div id="tapFx"><div class="tapCircle" id="tapCircle"><svg viewBox="0 0 24 24" id="tapIcon"><path d="M8 5v14l11-7z"/></svg></div></div>
+  <div id="controls">
+    <div id="progressWrap">
+      <div id="progressBg"><div id="progressFill"></div></div>
+      <div id="progressThumb"></div>
+    </div>
+    <div id="btnRow">
+      <button class="btn" id="btnPlay"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
+      <button class="btn" id="btnMute"><svg viewBox="0 0 24 24" id="volIcon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/></svg></button>
+      <input type="range" id="volSlider" min="0" max="1" step="0.05" value="1">
+      <span id="timeLabel">0:00 / 0:00</span>
+      <div id="spacer"></div>
+      <span id="qualityLabel">MP4</span>
+      <button class="btn" id="btnPip" title="Ventana flotante" style="display:none"><svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
+      <button class="btn" id="btnFs"><svg viewBox="0 0 24 24" id="fsIcon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
+    </div>
+  </div>
+  <div id="errOverlay">
+    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+    <h2>Video no disponible</h2>
+    <p>El video puede haber expirado. Vuelve a cargar la página original.</p>
+    <button id="retryBtn">&#8635; Reintentar</button>
+  </div>
+</div>
+<script>
+(function(){
+  var SRC = ${JSON.stringify(proxyUrl)};
+  var video      = document.getElementById("video");
+  var loader     = document.getElementById("loader");
+  var errOverlay = document.getElementById("errOverlay");
+  var btnPlay    = document.getElementById("btnPlay");
+  var playIcon   = document.getElementById("playIcon");
+  var btnMute    = document.getElementById("btnMute");
+  var volIcon    = document.getElementById("volIcon");
+  var volSlider  = document.getElementById("volSlider");
+  var timeLabel  = document.getElementById("timeLabel");
+  var progressFill  = document.getElementById("progressFill");
+  var progressThumb = document.getElementById("progressThumb");
+  var progressWrap  = document.getElementById("progressWrap");
+  var qualityLabel  = document.getElementById("qualityLabel");
+  var btnFs      = document.getElementById("btnFs");
+  var btnPip     = document.getElementById("btnPip");
+  var wrap       = document.getElementById("wrap");
+  var tapCircle  = document.getElementById("tapCircle");
+  var tapIcon    = document.getElementById("tapIcon");
+  var ctrlTimer;
+
+  var ICONS = {
+    play:  '<path d="M8 5v14l11-7z"/>',
+    pause: '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>',
+    volOn: '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/>',
+    volOff:'<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>',
+    fsOn:  '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>',
+    fsOff: '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>'
+  };
+  function setIcon(el, key){ el.innerHTML = ICONS[key]; }
+
+  function showCtrl(){ wrap.classList.add("showCtrl"); clearTimeout(ctrlTimer); ctrlTimer=setTimeout(()=>wrap.classList.remove("showCtrl"),3000); }
+  wrap.addEventListener("mousemove", showCtrl);
+  wrap.addEventListener("touchstart", showCtrl, {passive:true});
+
+  function togglePlay(){
+    if(video.paused){ video.play(); } else { video.pause(); }
+    var tapTimer;
+    tapCircle.classList.add("show");
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(()=>tapCircle.classList.remove("show"), 600);
+  }
+  btnPlay.addEventListener("click", function(e){ e.stopPropagation(); togglePlay(); });
+  video.addEventListener("click", togglePlay);
+  video.addEventListener("play",  function(){ setIcon(playIcon,"pause"); setIcon(tapIcon,"pause"); });
+  video.addEventListener("pause", function(){ setIcon(playIcon,"play");  setIcon(tapIcon,"play"); });
+
+  volSlider.addEventListener("input", function(){
+    video.volume = this.value; video.muted = this.value == 0;
+    setIcon(volIcon, video.muted ? "volOff" : "volOn");
+  });
+  btnMute.addEventListener("click", function(){
+    video.muted = !video.muted;
+    volSlider.value = video.muted ? 0 : video.volume;
+    setIcon(volIcon, video.muted ? "volOff" : "volOn");
+  });
+
+  function fmtTime(s){ var m=Math.floor(s/60); s=Math.floor(s%60); return m+":"+(s<10?"0":"")+s; }
+  video.addEventListener("timeupdate", function(){
+    if(!video.duration) return;
+    var pct = (video.currentTime/video.duration)*100;
+    progressFill.style.width = pct+"%";
+    progressThumb.style.left = pct+"%";
+    timeLabel.textContent = fmtTime(video.currentTime)+" / "+fmtTime(video.duration);
+  });
+  progressWrap.addEventListener("click", function(e){
+    if(!video.duration) return;
+    var r=this.getBoundingClientRect();
+    video.currentTime = ((e.clientX-r.left)/r.width)*video.duration;
+  });
+
+  video.addEventListener("loadedmetadata", function(){
+    if(video.videoWidth && video.videoHeight){ qualityLabel.textContent = video.videoHeight+"p"; }
+  });
+
+  btnFs.addEventListener("click", function(){
+    var el = document.documentElement;
+    if(!document.fullscreenElement && !document.webkitFullscreenElement){
+      (el.requestFullscreen||el.webkitRequestFullscreen).call(el);
+      setIcon(document.getElementById("fsIcon"),"fsOff");
+    } else {
+      (document.exitFullscreen||document.webkitExitFullscreen).call(document);
+      setIcon(document.getElementById("fsIcon"),"fsOn");
+    }
+  });
+  if(document.pictureInPictureEnabled){
+    btnPip.style.display="flex";
+    btnPip.addEventListener("click", function(){
+      if(document.pictureInPictureElement){ document.exitPictureInPicture().catch(function(){}); }
+      else { video.requestPictureInPicture().catch(function(){}); }
+    });
+  }
+
+  var loaderP = loader.querySelector('p');
+  var dotTimer = setInterval(function(){
+    var t = loaderP.textContent.replace(/\.+$/,'');
+    loaderP.textContent = t + (t.length < loaderP.getAttribute('data-base')||false ? '' : '') + '.';
+    if(loaderP.textContent.length > (loaderP.getAttribute('data-base')||'Cargando video').length + 3)
+      loaderP.textContent = loaderP.getAttribute('data-base') || 'Cargando video';
+  }, 600);
+  loaderP.setAttribute('data-base', loaderP.textContent);
+
+  function hideLoaderAndPlay(){
+    clearInterval(dotTimer);
+    loader.style.display = "none";
+    video.play().catch(function(){});
+  }
+  video.addEventListener("canplay",    hideLoaderAndPlay);
+  video.addEventListener("loadeddata", hideLoaderAndPlay);
+  video.addEventListener("playing",    function(){ loader.style.display="none"; clearInterval(dotTimer); });
+
+  video.addEventListener("error", function(){
+    clearInterval(dotTimer);
+    var code = video.error ? video.error.code : '?';
+    var msg  = video.error ? (video.error.message||'') : '';
+    var codes = {1:'ABORTED',2:'NETWORK',3:'DECODE',4:'FORMAT'};
+    errOverlay.querySelector('p').textContent = 'Error ' + code + ' (' + (codes[code]||'?') + ') ' + msg;
+    errOverlay.style.display="flex"; loader.style.display="none";
+  });
+  document.getElementById("retryBtn").addEventListener("click", function(){
+    errOverlay.style.display="none"; loader.style.display="flex";
+    video.load(); video.play().catch(function(){});
+  });
+
+  video.src = SRC;
+})();
+</script>
 </body>
 </html>`);
       }
@@ -2297,6 +2473,38 @@ app.get("/stream7", async (req, res) => {
     console.error("❌ stream7 error:", error.message);
     res.status(502).send(`No se pudo obtener el stream: ${error.message}`);
   }
+});
+
+// yt-stream: yt-dlp pipes video directly to browser — avoids all CDN URL/IP issues
+app.get("/yt-stream", (req, res) => {
+  const raw = req.query.url;
+  if (!raw) return res.status(400).send("Falta ?url=");
+  let decodedUrl;
+  try { decodedUrl = decodeURIComponent(raw); new URL(decodedUrl); }
+  catch { return res.status(400).send("URL inválida"); }
+
+  const bin = findYtDlp();
+  if (!bin) return res.status(503).send("yt-dlp no disponible");
+
+  res.setHeader("Content-Type", "video/mp4");
+  res.setHeader("Accept-Ranges", "none");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+
+  const proc = spawn(bin, [
+    decodedUrl,
+    "--no-warnings",
+    "--quiet",
+    "--format", "18/best[ext=mp4][acodec!=none][vcodec!=none]/best",
+    "-o", "-"
+  ]);
+
+  proc.stdout.pipe(res);
+  proc.stderr.on("data", (d) => console.error("yt-stream stderr:", d.toString().trim()));
+  proc.on("error", (err) => { if (!res.headersSent) res.status(502).send("yt-stream error: " + err.message); });
+  proc.on("close", (code) => { if (code !== 0) console.log("yt-stream exit:", code); });
+  req.on("close", () => { try { proc.kill(); } catch {} });
 });
 
 app.get("/yt-proxy", async (req, res) => {
