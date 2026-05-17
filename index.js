@@ -1748,9 +1748,9 @@ async function extractFromYouTubeViaYtDlp(videoUrl) {
     "--dump-single-json",
     "--no-warnings",
     // Force web client (H.264/AAC, browser-compatible) instead of ANDROID_VR
-    "--extractor-args", "youtube:player_client=web",
+    "--extractor-args", "youtube:player_client=android",
     // Prefer H.264 mp4 with audio — guaranteed to play in any browser
-    "--format", "best[ext=mp4][vcodec^=avc1]/best[ext=mp4]/best[protocol=m3u8_native]/best",
+    "--format", "18/best[ext=mp4][vcodec^=avc1][acodec!=none]/best[ext=mp4][acodec!=none]/best",
     "--add-header", "referer:https://www.youtube.com/"
   ], { timeout: 30000 });
   const info = JSON.parse(stdout);
@@ -2496,6 +2496,7 @@ app.get("/yt-stream", (req, res) => {
     decodedUrl,
     "--no-warnings",
     "--quiet",
+    "--extractor-args", "youtube:player_client=android",
     "--format", "18/best[ext=mp4][acodec!=none][vcodec!=none]/best",
     "-o", "-"
   ]);
