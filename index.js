@@ -110,7 +110,6 @@ const {
 
 const path = require("path");
 const { sessionConfig, securityHeaders, apiLimiter } = require("./src/middleware/auth");
-const { apiKeyAuth } = require("./src/middleware/apiKeyAuth");
 const adminKeysRouter = require("./src/routes/adminKeys");
 const app = express();
 
@@ -142,8 +141,6 @@ app.get("/login", (req, res) => {
 });
 
 app.use('/api-admin', adminKeysRouter);
-
-app.use(apiKeyAuth);
 
 async function updateAllData() {
   console.log("🔄 Actualizando datos de Liga MX...");
@@ -1827,21 +1824,82 @@ async function extractFromYouTube(videoUrl) {
 }
 
 async function extractM3u8FromBolaloca(bola_url) {
-  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
   // Paso 1: obtener la página de bolaloca y encontrar el iframe del player
   const bola = await axios.get(bola_url, { timeout: 15000, headers: { "User-Agent": UA } });
 
-  // Buscar cualquier iframe de player conocido (hoca6, eveningbad, etc.)
+  // Buscar iframe de player conocido (hoca6, eveningbad, proveseat, etc.)
   const iframeMatch = bola.data.match(
-    /src=["'](https?:\/\/(?:hoca6\.com|eveningbad\.net)\/[^"']+)["']/
+    /src=["'](https?:\/\/(?:hoca6\.com|eveningbad\.net|proveseat\.net)\/[^"']+)["']/
   );
   if (!iframeMatch) throw new Error("No se encontró iframe de player compatible en bolaloca.my");
 
   const playerUrl = iframeMatch[1];
   const playerHost = new URL(playerUrl).hostname;
 
-  // Paso 2: obtener la página del player con Referer de bolaloca
+  // Estrategia para proveseat.net: usa JS obfuscado con detección anti-bot.
+  // Usamos puppeteer-extra + stealth plugin para evadir la detección y
+  // interceptar la URL m3u8 que el player carga dinámicamente.
+  if (playerHost === "proveseat.net" || playerHost.endsWith(".proveseat.net")) {
+    console.log(`🎬 bolaloca → proveseat player, usando Puppeteer+stealth: ${playerUrl}`);
+    const puppeteerExtra = require("puppeteer-extra");
+    const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+    puppeteerExtra.use(StealthPlugin());
+    let browser;
+    try {
+      browser = await puppeteerExtra.launch({
+        headless: "new",
+        executablePath: "/nix/store/qa9cnw4v5xkxyip6mb9kxqfq1z4x2dx1-chromium-138.0.7204.100/bin/chromium-browser",
+        args: [
+          "--no-sandbox", "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage", "--disable-gpu",
+          "--no-first-run", "--disable-infobars",
+          "--window-size=1280,720"
+        ]
+      });
+      const page = await browser.newPage();
+      await page.setViewport({ width: 1280, height: 720 });
+      await page.setUserAgent(UA);
+      await page.setExtraHTTPHeaders({
+        "Accept-Language": "es-MX,es;q=0.9,en;q=0.8",
+        "Referer": bola_url
+      });
+
+      let m3u8Url = null;
+      let streamReferer = playerUrl;
+
+      await page.setRequestInterception(true);
+      page.on("request", req => {
+        const url = req.url();
+        if (url.includes(".m3u8") && !m3u8Url) {
+          m3u8Url = url;
+          streamReferer = req.headers()["referer"] || playerUrl;
+        }
+        req.continue();
+      });
+
+      await page.goto(playerUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+
+      // Esperar hasta 25s por el m3u8 (el player decodifica config antes de cargar)
+      await new Promise(resolve => {
+        const check = setInterval(() => { if (m3u8Url) { clearInterval(check); resolve(); } }, 300);
+        setTimeout(() => { clearInterval(check); resolve(); }, 25000);
+      });
+
+      await browser.close();
+      browser = null;
+
+      if (!m3u8Url) throw new Error("Puppeteer no interceptó ningún .m3u8 en proveseat.net — el stream puede no estar en vivo ahora");
+      console.log(`✅ bolaloca/proveseat m3u8: ${m3u8Url}`);
+      return { m3u8Url, referer: streamReferer };
+    } catch (err) {
+      if (browser) await browser.close().catch(() => {});
+      throw err;
+    }
+  }
+
+  // Paso 2: obtener la página del player con Referer de bolaloca (hoca6, eveningbad)
   const player = await axios.get(playerUrl, {
     timeout: 15000,
     headers: { "User-Agent": UA, "Referer": bola_url }
