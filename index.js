@@ -109,16 +109,22 @@ const {
 } = require("./src/scrapers/estadisticas");
 
 const path = require("path");
+const { sessionConfig, securityHeaders, apiLimiter } = require("./src/middleware/auth");
+const { apiKeyAuth } = require("./src/middleware/apiKeyAuth");
+const adminKeysRouter = require("./src/routes/adminKeys");
 const app = express();
 
 app.set('trust proxy', 1);
 
+app.use(securityHeaders);
 app.use(cors({
   origin: true,
   credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(sessionConfig);
+app.use(apiLimiter);
 
 app.use('/attached_assets', express.static(path.join(__dirname, 'attached_assets')));
 app.use('/public', express.static(path.join(__dirname, 'public'), {
@@ -126,6 +132,18 @@ app.use('/public', express.static(path.join(__dirname, 'public'), {
     res.setHeader('Cache-Control', 'public, max-age=31536000');
   }
 }));
+
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get("/login", (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.use('/api-admin', adminKeysRouter);
+
+app.use(apiKeyAuth);
 
 async function updateAllData() {
   console.log("🔄 Actualizando datos de Liga MX...");
