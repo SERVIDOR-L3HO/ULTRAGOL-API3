@@ -1823,120 +1823,149 @@ async function extractFromYouTube(videoUrl) {
   return extractFromYouTubeViaYtDlp(videoUrl);
 }
 
+// Helpers reutilizables para Puppeteer en bolaloca
+const CHROMIUM_PATH = "/nix/store/qa9cnw4v5xkxyip6mb9kxqfq1z4x2dx1-chromium-138.0.7204.100/bin/chromium-browser";
+const PUPPETEER_ARGS = [
+  "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage",
+  "--disable-gpu", "--no-first-run", "--disable-infobars", "--window-size=1280,720"
+];
+
+async function launchStealthBrowser() {
+  const puppeteerExtra = require("puppeteer-extra");
+  const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+  // Registrar el plugin solo una vez
+  if (!launchStealthBrowser._registered) {
+    puppeteerExtra.use(StealthPlugin());
+    launchStealthBrowser._registered = true;
+  }
+  return puppeteerExtra.launch({ headless: "new", executablePath: CHROMIUM_PATH, args: PUPPETEER_ARGS });
+}
+
 async function extractM3u8FromBolaloca(bola_url) {
   const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-  // Paso 1: obtener la página de bolaloca y encontrar el iframe del player
-  const bola = await axios.get(bola_url, { timeout: 15000, headers: { "User-Agent": UA } });
+  // ──────────────────────────────────────────────────────────────────
+  // PASO 1: Obtener el iframe del player desde bolaloca.my
+  // Primero intento estático (rápido), luego Puppeteer si no hay iframe.
+  // ──────────────────────────────────────────────────────────────────
+  let playerUrl = null;
 
-  // Buscar iframe de player conocido (hoca6, eveningbad, proveseat, etc.)
-  const iframeMatch = bola.data.match(
-    /src=["'](https?:\/\/(?:hoca6\.com|eveningbad\.net|proveseat\.net)\/[^"']+)["']/
-  );
-  if (!iframeMatch) throw new Error("No se encontró iframe de player compatible en bolaloca.my");
+  try {
+    const bola = await axios.get(bola_url, { timeout: 12000, headers: { "User-Agent": UA } });
+    // Regex amplio: cualquier iframe que NO sea del propio bolaloca.my ni ads conocidos
+    const m = bola.data.match(
+      /src=["'](https?:\/\/(?!(?:bolaloca\.my|jnbhi\.com|da\.crimean))[^"']{15,})["']/i
+    );
+    if (m) playerUrl = m[1];
+  } catch(e) { /* silencioso — intentamos con Puppeteer */ }
 
-  const playerUrl = iframeMatch[1];
-  const playerHost = new URL(playerUrl).hostname;
-
-  // Estrategia para proveseat.net: usa JS obfuscado con detección anti-bot.
-  // Usamos puppeteer-extra + stealth plugin para evadir la detección y
-  // interceptar la URL m3u8 que el player carga dinámicamente.
-  if (playerHost === "proveseat.net" || playerHost.endsWith(".proveseat.net")) {
-    console.log(`🎬 bolaloca → proveseat player, usando Puppeteer+stealth: ${playerUrl}`);
-    const puppeteerExtra = require("puppeteer-extra");
-    const StealthPlugin = require("puppeteer-extra-plugin-stealth");
-    puppeteerExtra.use(StealthPlugin());
+  // Si el axios no encontró iframe (página con JS), usar Puppeteer sobre bolaloca.my
+  if (!playerUrl) {
+    console.log(`🔍 bolaloca sin iframe estático, usando Puppeteer para renderizar: ${bola_url}`);
     let browser;
     try {
-      browser = await puppeteerExtra.launch({
-        headless: "new",
-        executablePath: "/nix/store/qa9cnw4v5xkxyip6mb9kxqfq1z4x2dx1-chromium-138.0.7204.100/bin/chromium-browser",
-        args: [
-          "--no-sandbox", "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage", "--disable-gpu",
-          "--no-first-run", "--disable-infobars",
-          "--window-size=1280,720"
-        ]
-      });
+      browser = await launchStealthBrowser();
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 720 });
       await page.setUserAgent(UA);
-      await page.setExtraHTTPHeaders({
-        "Accept-Language": "es-MX,es;q=0.9,en;q=0.8",
-        "Referer": bola_url
-      });
+      await page.goto(bola_url, { waitUntil: "domcontentloaded", timeout: 20000 });
+      await new Promise(r => setTimeout(r, 3000));
+      const iframes = await page.evaluate(() =>
+        Array.from(document.querySelectorAll("iframe[src]"))
+          .map(f => f.src)
+          .filter(s => s && s.startsWith("http") && !s.includes("bolaloca.my"))
+      );
+      await browser.close(); browser = null;
+      if (iframes.length > 0) playerUrl = iframes[0];
+    } catch(e) {
+      if (browser) await browser.close().catch(() => {});
+      throw new Error(`No se pudo obtener iframe de bolaloca.my: ${e.message}`);
+    }
+  }
 
-      let m3u8Url = null;
-      let streamReferer = playerUrl;
+  if (!playerUrl) throw new Error("No se encontró iframe de player en bolaloca.my");
+  console.log(`🎬 bolaloca iframe → ${playerUrl}`);
 
+  // ──────────────────────────────────────────────────────────────────
+  // PASO 2: Detectar tipo de player y extraer m3u8
+  // ──────────────────────────────────────────────────────────────────
+  let playerHtml = "";
+  try {
+    const r = await axios.get(playerUrl, {
+      timeout: 12000,
+      headers: { "User-Agent": UA, "Referer": bola_url }
+    });
+    playerHtml = typeof r.data === "string" ? r.data : JSON.stringify(r.data);
+  } catch(e) { /* puede que no cargue sin JS; seguimos */ }
+
+  // ── Tipo A: bstream.st (proveseat, herdnew, etc.) ──
+  // Detectado por la presencia de `stream.js` + `_econfig` en el HTML
+  if (playerHtml.includes("stream.js") && playerHtml.includes("_econfig")) {
+    console.log(`🎬 bolaloca → bstream.st player (stealth Puppeteer): ${playerUrl}`);
+    let browser;
+    try {
+      browser = await launchStealthBrowser();
+      const page = await browser.newPage();
+      await page.setViewport({ width: 1280, height: 720 });
+      await page.setUserAgent(UA);
+      await page.setExtraHTTPHeaders({ "Accept-Language": "es-MX,es;q=0.9", "Referer": bola_url });
+
+      let m3u8Url = null, streamReferer = playerUrl;
       await page.setRequestInterception(true);
       page.on("request", req => {
-        const url = req.url();
-        if (url.includes(".m3u8") && !m3u8Url) {
-          m3u8Url = url;
+        const u = req.url();
+        if (u.includes(".m3u8") && !m3u8Url) {
+          m3u8Url = u;
           streamReferer = req.headers()["referer"] || playerUrl;
         }
         req.continue();
       });
 
       await page.goto(playerUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
-
-      // Esperar hasta 25s por el m3u8 (el player decodifica config antes de cargar)
       await new Promise(resolve => {
         const check = setInterval(() => { if (m3u8Url) { clearInterval(check); resolve(); } }, 300);
         setTimeout(() => { clearInterval(check); resolve(); }, 25000);
       });
 
-      await browser.close();
-      browser = null;
+      await browser.close(); browser = null;
 
-      if (!m3u8Url) throw new Error("Puppeteer no interceptó ningún .m3u8 en proveseat.net — el stream puede no estar en vivo ahora");
-      console.log(`✅ bolaloca/proveseat m3u8: ${m3u8Url}`);
+      if (!m3u8Url) throw new Error("No hay stream en vivo ahora en este canal (bstream.st)");
+      console.log(`✅ bolaloca/bstream m3u8: ${m3u8Url}`);
       return { m3u8Url, referer: streamReferer };
-    } catch (err) {
+    } catch(err) {
       if (browser) await browser.close().catch(() => {});
       throw err;
     }
   }
 
-  // Paso 2: obtener la página del player con Referer de bolaloca (hoca6, eveningbad)
-  const player = await axios.get(playerUrl, {
-    timeout: 15000,
-    headers: { "User-Agent": UA, "Referer": bola_url }
-  });
-  const html = player.data;
-
-  let m3u8Url = null;
-
-  // Estrategia A: m3u8 directo en el HTML (eveningbad y similares)
-  const directM3u8 = html.match(/https?:\/\/[^\s"'`<>\\]*\.m3u8[^\s"'`<>\\]*/);
+  // ── Tipo B: m3u8 directo en el HTML (eveningbad y similares) ──
+  const directM3u8 = playerHtml.match(/https?:\/\/[^\s"'`<>\\]+\.m3u8[^\s"'`<>\\]*/);
   if (directM3u8) {
-    m3u8Url = directM3u8[0];
+    console.log(`✅ bolaloca/directo m3u8: ${directM3u8[0]}`);
+    return { m3u8Url: directM3u8[0], referer: playerUrl };
   }
 
-  // Estrategia B: array de caracteres ofuscado (hoca6.com)
-  if (!m3u8Url) {
-    const arrMatch = html.match(/return\s*\(\s*\[([^\]]+)\]\.join\(""\)/);
-    if (arrMatch) {
-      const chars = arrMatch[1].match(/"([^"]*)"/g).map(s => s.slice(1, -1));
-      const m3u8Base = chars.join("");
+  // ── Tipo C: array ofuscado (hoca6.com / hoca8.com y similares) ──
+  const arrMatch = playerHtml.match(/return\s*\(\s*\[([^\]]+)\]\.join\(""\)/);
+  if (arrMatch) {
+    const chars = arrMatch[1].match(/"([^"]*)"/g).map(s => s.slice(1, -1));
+    const m3u8Base = chars.join("");
 
-      const part2Match = html.match(/agnlrrtesSaUiuraArbye\s*=\s*\[([^\]]*)\]/);
-      const part2 = part2Match ? part2Match[1].match(/"([^"]*)"/g)?.map(s => s.slice(1, -1)).join("") || "" : "";
+    const part2Match = playerHtml.match(/agnlrrtesSaUiuraArbye\s*=\s*\[([^\]]*)\]/);
+    const part2 = part2Match ? (part2Match[1].match(/"([^"]*)"/g) || []).map(s => s.slice(1, -1)).join("") : "";
 
-      const part3Match = html.match(/id=["']ihgSnuiatrekafctBs["'][^>]*>([^<]*)</);
-      const part3 = part3Match ? part3Match[1].trim() : "";
+    const part3Match = playerHtml.match(/id=["']ihgSnuiatrekafctBs["'][^>]*>([^<]*)</);
+    const part3 = part3Match ? part3Match[1].trim() : "";
 
-      m3u8Url = (m3u8Base + part2 + part3).replace(/\\/g, "");
+    const m3u8Url = (m3u8Base + part2 + part3).replace(/\\/g, "");
+    if (m3u8Url.includes(".m3u8")) {
+      console.log(`✅ bolaloca/hoca m3u8: ${m3u8Url}`);
+      return { m3u8Url, referer: playerUrl };
     }
   }
 
-  if (!m3u8Url || !m3u8Url.includes(".m3u8")) {
-    throw new Error(`No se pudo extraer el stream del player (${playerHost})`);
-  }
-
-  // El referer para el CDN: ambos players necesitan la URL del player como Referer
-  return { m3u8Url, referer: playerUrl };
+  const playerHost = new URL(playerUrl).hostname;
+  throw new Error(`No se pudo extraer el stream del player (${playerHost}) — tipo de player no reconocido`);
 }
 
 app.get("/stream7", async (req, res) => {
@@ -4254,9 +4283,20 @@ cron.schedule("0 */6 * * *", () => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, "0.0.0.0", () => {
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Multi-League Football API activa en puerto ${PORT}`);
   console.log(`📡 Actualizaciones automáticas cada 20 minutos`);
   console.log(`⚽ Ligas disponibles: Liga MX, Premier League, La Liga, Serie A, Bundesliga, Ligue 1`);
   console.log(`🔗 Accede a "/" para ver todos los endpoints disponibles`);
+});
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`⚠️  Puerto ${PORT} ocupado. Reintentando en 3s...`);
+    setTimeout(() => {
+      server.close();
+      server.listen(PORT, "0.0.0.0");
+    }, 3000);
+  } else {
+    throw err;
+  }
 });
