@@ -1423,11 +1423,21 @@ app.get("/transmisiones3", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    res.json(applyBolalocoProxy(data, baseUrl));
+    const proxied = {
+      ...data,
+      transmisiones: (data.transmisiones || []).map(t => ({
+        ...t,
+        enlacesDetalle: (t.enlacesDetalle || []).map(e => ({
+          ...e,
+          url: `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(e.url)}`
+        }))
+      }))
+    };
+    res.json(proxied);
   } catch (error) {
     console.error("Error en /transmisiones3:", error.message);
     res.status(500).json({ 
-      error: "No se pudieron obtener las transmisiones deportivas desde e1link.link",
+      error: "No se pudieron obtener las transmisiones deportivas desde tvtvhd.com",
       detalles: error.message,
       sugerencia: "El sitio web puede estar bloqueando las peticiones. Intenta de nuevo más tarde."
     });
