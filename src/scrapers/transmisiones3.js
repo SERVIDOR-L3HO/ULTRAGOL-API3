@@ -54,22 +54,9 @@ async function scrapTransmisiones3() {
       if (enlaces.length === 0) continue;
 
       transmisiones.push({
-        id:         item.id,
         titulo,
-        evento:     titulo,
-        deporte:    "DEPORTES",
-        liga,
         hora,
-        fecha,
-        logo:       logoUrl,
-        canal:      enlaces[0]?.nombre || "Canal",
-        url:        enlaces[0]?.url    || null,
-        urlBackup:  enlaces[1]?.url    || null,
-        urlBackup2: enlaces[2]?.url    || null,
-        enlaces:    enlaces.map(e => e.url),
-        enlacesDetalle: enlaces,
-        estado:     "En vivo",
-        fuente:     "tvtvhd.com"
+        enlacesDetalle: enlaces
       });
     }
 
