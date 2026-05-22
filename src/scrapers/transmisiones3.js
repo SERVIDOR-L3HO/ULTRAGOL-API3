@@ -4,6 +4,16 @@ const DIARIES_URL = "https://pltvhd.com/diaries.json";
 const IMG_BASE    = "https://cdn.ftvhd.com";
 const BASE_SITE   = "https://tvtvhd.com";
 
+function decodeEmbedUrl(iframePath) {
+  try {
+    const match = iframePath.match(/[?&]r=([^&]+)/);
+    if (match && match[1]) {
+      return Buffer.from(match[1], "base64").toString("utf8");
+    }
+  } catch {}
+  return iframePath.startsWith("http") ? iframePath : `${BASE_SITE}${iframePath}`;
+}
+
 async function scrapTransmisiones3() {
   try {
     console.log("📺 Obteniendo transmisiones desde tvtvhd.com/eventos...");
@@ -37,7 +47,7 @@ async function scrapTransmisiones3() {
         .map(e => {
           const iframePath = e.attributes.embed_iframe;
           const nombre     = e.attributes.embed_name || "Ver";
-          const url        = iframePath.startsWith("http") ? iframePath : `${BASE_SITE}${iframePath}`;
+          const url        = decodeEmbedUrl(iframePath);
           return { nombre, url };
         });
 
