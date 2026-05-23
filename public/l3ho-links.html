@@ -1022,53 +1022,6 @@
             .view-toggle { display: none; }
         }
 
-        /* ── ENDPOINT STATUS BAR ── */
-        .endpoint-bar {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 10px 16px;
-            background: rgba(255,255,255,0.02);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-            position: relative;
-            z-index: 1;
-        }
-
-        .ep-label {
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            color: var(--text-3);
-            margin-right: 4px;
-        }
-
-        .ep-chip {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            color: var(--text-3);
-            transition: all 0.3s;
-        }
-
-        .ep-chip.online { background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.25); color: var(--green); }
-        .ep-chip.offline { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.2); color: var(--red); }
-
-        .ep-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-        .ep-chip.online .ep-dot { animation: pulse-r 1.5s infinite; }
-
-        .ep-refresh-time { margin-left: auto; font-size: 9px; color: var(--text-3); font-family: 'Orbitron', sans-serif; }
 
         /* ── COUNT UP ANIMATION ── */
         @keyframes countUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
@@ -1196,13 +1149,6 @@
 
     <!-- MAIN -->
     <main class="main">
-
-        <!-- ENDPOINT STATUS BAR -->
-        <div class="endpoint-bar" id="endpoint-bar">
-            <span class="ep-label">Endpoints</span>
-            <div id="ep-chips"></div>
-            <span class="ep-refresh-time" id="ep-refresh-time">–</span>
-        </div>
 
         <!-- FILTER PILLS -->
         <div class="filters-bar">
@@ -1452,19 +1398,6 @@
         }).join('');
     }
 
-    /* ── RENDER ENDPOINT STATUS BAR ── */
-    function renderEndpointBar() {
-        const chips = SOURCES.map(s => {
-            const st = sourceStatus[s.key] || 'chk';
-            const cls = st === 'ok' ? 'online' : st === 'err' ? 'offline' : '';
-            return `<div class="ep-chip ${cls}"><span class="ep-dot"></span>${s.label}</div>`;
-        }).join('');
-        document.getElementById('ep-chips').innerHTML = chips;
-        if (lastUpdated) {
-            document.getElementById('ep-refresh-time').textContent = '↻ ' + lastUpdated;
-        }
-    }
-
     /* ── RENDER CARDS ── */
     function renderCards(links) {
         const grid = document.getElementById('events-grid');
@@ -1674,7 +1607,6 @@
 
         // Mark all sources as checking
         SOURCES.forEach(s => { sourceStatus[s.key] = 'chk'; });
-        renderEndpointBar();
         renderSourceList();
 
         try {
@@ -1701,11 +1633,9 @@
 
             updateCounts();
             applyFilters();
-            renderEndpointBar();
 
         } catch(e) {
             SOURCES.forEach(s => { sourceStatus[s.key] = 'err'; });
-            renderEndpointBar();
             renderSourceList();
             document.getElementById('events-grid').innerHTML = `
                 <div class="empty-state">
@@ -1744,7 +1674,6 @@
 
     // Initial source list skeleton
     renderSourceList();
-    renderEndpointBar();
 
     loadData();
 
