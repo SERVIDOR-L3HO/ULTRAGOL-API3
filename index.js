@@ -1677,6 +1677,22 @@ function stream7IsAllowed(url) {
   } catch { return false; }
 }
 
+async function extractM3u8FromTvtvhd(pageUrl) {
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  const resp = await axios.get(pageUrl, {
+    timeout: 15000,
+    headers: {
+      "User-Agent": UA,
+      "Referer": "https://tvtvhd.com/",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    }
+  });
+  const html = resp.data;
+  const match = html.match(/var\s+playbackURL\s*=\s*["']([^"']+\.m3u8[^"']*)["']/);
+  if (!match) throw new Error("No se encontró playbackURL en tvtvhd.com");
+  return { m3u8Url: match[1], referer: "https://tvtvhd.com/" };
+}
+
 async function extractM3u8FromStreamtpnew(pageUrl) {
   const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
   const origin = new URL(pageUrl).origin;
@@ -2234,6 +2250,11 @@ app.get("/stream7", async (req, res) => {
     } else if (hostname === "streamvipx.com" || hostname.endsWith(".streamvipx.com")) {
       console.log(`🎬 stream7 (streamvipx) → ${decodedUrl}`);
       const extracted = await extractM3u8FromStreamvipx(decodedUrl);
+      m3u8Url = extracted.m3u8Url;
+      streamReferer = extracted.referer;
+    } else if (hostname === "tvtvhd.com" || hostname.endsWith(".tvtvhd.com") || hostname === "ftvhd.com" || hostname.endsWith(".ftvhd.com")) {
+      console.log(`🎬 stream7 (tvtvhd) → ${decodedUrl}`);
+      const extracted = await extractM3u8FromTvtvhd(decodedUrl);
       m3u8Url = extracted.m3u8Url;
       streamReferer = extracted.referer;
     } else {
