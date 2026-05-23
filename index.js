@@ -1283,22 +1283,7 @@ app.get("/transmisiones4", async (req, res) => {
       cache.set("transmisiones4", data, 600); // Cache por 10 minutos
     }
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    function applyStream7Proxy(obj) {
-      if (typeof obj === "string") {
-        if (/^https?:\/\//i.test(obj)) {
-          return `${baseUrl}/stream7?url=${encodeURIComponent(obj)}`;
-        }
-        return obj;
-      }
-      if (Array.isArray(obj)) return obj.map(applyStream7Proxy);
-      if (obj && typeof obj === "object") {
-        const result = {};
-        for (const key of Object.keys(obj)) result[key] = applyStream7Proxy(obj[key]);
-        return result;
-      }
-      return obj;
-    }
-    res.json(encodeLinks(applyStream7Proxy(data)));
+    res.json(encodeLinks(normalize4(data, baseUrl)));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1330,6 +1315,128 @@ function encodeLinks(obj, parentKey = null) {
     return result;
   }
   return obj;
+}
+
+/* ── CLEAN JSON NORMALIZERS ───────────────────────────────────────────────
+   Convierten la estructura interna de cada scraper en un JSON limpio con:
+   { partido, canal, link (Base64), fecha, hora }
+────────────────────────────────────────────────────────────────────────── */
+const EXT_PROXY_PFX = 'https://ultragol-api-3.vercel.app/ultragol-l3ho?get=';
+
+function toLocalProxy(baseUrl, rawUrl) {
+  if (!rawUrl) return null;
+  const clean = rawUrl.startsWith(EXT_PROXY_PFX)
+    ? decodeURIComponent(rawUrl.slice(EXT_PROXY_PFX.length))
+    : rawUrl;
+  return `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(clean)}`;
+}
+
+function buildClean(items, fuente) {
+  return {
+    success: true,
+    fuente,
+    total: items.length,
+    actualizado: new Date().toISOString(),
+    transmisiones: items.map(i => ({
+      partido: (i.partido || '').trim(),
+      canal:   (i.canal   || '').trim(),
+      link:    i.link || '',
+      fecha:   (i.fecha   || '').trim(),
+      hora:    (i.hora    || '').trim()
+    }))
+  };
+}
+
+function normalize1(data, baseUrl) { // Rereyano — rokczone.com
+  const prx = u => toLocalProxy(baseUrl, u);
+  const items = [];
+  (data.transmisiones || []).forEach(t => {
+    (t.canales || []).forEach(c => {
+      if (c.links?.principal) items.push({ partido: t.evento || '', canal: c.nombre || '', link: prx(c.links.principal), fecha: t.fecha || '', hora: t.hora || '' });
+      if (c.links?.backup)    items.push({ partido: t.evento || '', canal: (c.nombre || '') + ' (Backup)', link: prx(c.links.backup), fecha: t.fecha || '', hora: t.hora || '' });
+    });
+  });
+  return buildClean(items, 'Rereyano');
+}
+
+function normalize2(data, baseUrl) { // StreamCenter — streamcenter.live
+  const prx = u => toLocalProxy(baseUrl, u);
+  const items = (data.transmisiones || []).filter(t => t.url).map(t => ({
+    partido: t.titulo || t.evento || '',
+    canal:   'StreamCenter',
+    link:    prx(t.url),
+    fecha:   '',
+    hora:    t.hora || ''
+  }));
+  return buildClean(items, 'StreamCenter');
+}
+
+function normalize3(data, baseUrl) { // E1Link — tvtvhd.com
+  const prx = u => toLocalProxy(baseUrl, u);
+  const items = [];
+  (data.transmisiones || []).forEach(t => {
+    (t.enlacesDetalle || []).forEach(e => {
+      const raw = e.urlProxy || e.url;
+      if (raw) items.push({ partido: t.titulo || '', canal: e.nombre || 'Canal', link: prx(raw), fecha: '', hora: t.hora || '' });
+    });
+  });
+  return buildClean(items, 'E1Link');
+}
+
+function normalize4(data, baseUrl) { // SportOnline — sportsonline.st
+  const prx = u => toLocalProxy(baseUrl, u);
+  const items = [];
+  (data.transmisiones || []).forEach(t => {
+    (t.canales || []).forEach(c => {
+      if (c.url) items.push({ partido: t.evento || '', canal: c.nombre || 'SportOnline', link: prx(c.url), fecha: t.fecha || '', hora: t.hora || '' });
+    });
+  });
+  return buildClean(items, 'SportOnline');
+}
+
+function normalize5(data, baseUrl) { // DonRomans — donromans.com
+  const prx = u => toLocalProxy(baseUrl, u);
+  const items = [];
+  const extract = (d, partido, canal, fecha, hora) => {
+    if (typeof d === 'string' && /^https?:\/\//.test(d)) {
+      items.push({ partido, canal, link: prx(d), fecha, hora });
+    } else if (Array.isArray(d)) {
+      d.forEach((v, i) => extract(v, partido, `${canal} ${i + 1}`, fecha, hora));
+    } else if (d && typeof d === 'object') {
+      const u = d.match_url || d.url;
+      if (u) items.push({ partido, canal: `${canal} ${d.stream_source || ''}`.trim(), link: prx(u), fecha, hora });
+      else Object.values(d).forEach(v => extract(v, partido, canal, fecha, hora));
+    }
+  };
+  (data.matches || []).forEach(m => {
+    const partido = m.title || m.eventTitle || '';
+    const fecha   = m.eventDate || '';
+    const hora    = m.hour || '';
+    (m.links || []).forEach(lg => extract(lg.data, partido, lg.type || 'Stream', fecha, hora));
+  });
+  return buildClean(items, 'DonRomans');
+}
+
+function normalize6(data, baseUrl) { // WP Source — streamed.pk
+  const prx = u => toLocalProxy(baseUrl, u);
+  const items = [];
+  (data.transmisiones || []).forEach(t => {
+    (t.fuentes || []).forEach(f => {
+      if (f.url) items.push({ partido: t.titulo || t.evento || '', canal: f.fuente || 'WP Source', link: prx(f.url), fecha: t.fecha || '', hora: t.hora || '' });
+    });
+  });
+  return buildClean(items, 'WP Source');
+}
+
+function normalize7(data, baseUrl) { // Extra — futbollibretv.su
+  const prx = u => toLocalProxy(baseUrl, u);
+  const items = [];
+  (data.transmisiones || []).forEach(t => {
+    (t.canales || []).forEach(c => {
+      if (c.url) items.push({ partido: t.evento || '', canal: c.canal || '', link: prx(c.url), fecha: '', hora: t.hora || '' });
+    });
+  });
+  return buildClean(items, 'Extra');
 }
 
 function applyBolalocoProxy(obj, baseUrl) {
@@ -1377,7 +1484,7 @@ app.get("/transmisiones", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+    res.json(encodeLinks(normalize1(data, baseUrl)));
   } catch (error) {
     console.error("Error en /transmisiones:", error.message);
     res.status(500).json({ 
@@ -1425,7 +1532,7 @@ app.get("/transmisiones2", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+    res.json(encodeLinks(normalize2(data, baseUrl)));
   } catch (error) {
     console.error("Error en /transmisiones2:", error.message);
     res.status(500).json({ 
@@ -1474,17 +1581,7 @@ app.get("/transmisiones3", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const proxied = {
-      ...data,
-      transmisiones: (data.transmisiones || []).map(t => ({
-        ...t,
-        enlacesDetalle: (t.enlacesDetalle || []).map(e => ({
-          ...e,
-          url: `${baseUrl}/stream7?url=${encodeURIComponent(e.url)}`
-        }))
-      }))
-    };
-    res.json(encodeLinks(proxied));
+    res.json(encodeLinks(normalize3(data, baseUrl)));
   } catch (error) {
     console.error("Error en /transmisiones3:", error.message);
     res.status(500).json({ 
@@ -1533,7 +1630,7 @@ app.get("/transmisiones4", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+    res.json(encodeLinks(normalize4(data, baseUrl)));
   } catch (error) {
     console.error("Error en /transmisiones4:", error.message);
     res.status(500).json({ 
@@ -1556,7 +1653,7 @@ app.get("/transmisiones5", async (req, res) => {
         
         if (data && data.success && data.totalMatches > 0) {
           cache.set("transmisiones5", data, 300);
-          return res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+          return res.json(encodeLinks(normalize5(data, baseUrl)));
         } else if (data && !data.success) {
           const staleData = cache.getStale("transmisiones5");
           if (staleData && staleData.success && staleData.totalMatches > 0) {
@@ -1566,7 +1663,7 @@ app.get("/transmisiones5", async (req, res) => {
               advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos de la API.",
               ultimaActualizacion: staleData.timestamp
             };
-            return res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+            return res.json(encodeLinks(normalize5(data, baseUrl)));
           }
           
           if (data.error && data.error.includes("No hay eventos programados")) {
@@ -1600,7 +1697,7 @@ app.get("/transmisiones5", async (req, res) => {
             advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos: " + scrapeError.message,
             ultimaActualizacion: staleData.timestamp
           };
-          return res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+          return res.json(encodeLinks(normalize5(data, baseUrl)));
         }
         
         return res.status(502).json({
@@ -1615,7 +1712,7 @@ app.get("/transmisiones5", async (req, res) => {
       }
     }
     
-    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+    res.json(encodeLinks(normalize5(data, baseUrl)));
   } catch (error) {
     console.error("Error en /transmisiones5:", error.message);
     res.status(500).json({ 
@@ -1655,7 +1752,7 @@ app.get("/transmisiones6", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+    res.json(encodeLinks(normalize6(data, baseUrl)));
   } catch (error) {
     console.error("Error en /transmisiones6:", error.message);
     res.status(500).json({ 
@@ -1691,19 +1788,7 @@ app.get("/transmisiones7", async (req, res) => {
     }
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const dataConProxy = {
-      ...data,
-      transmisiones: (data.transmisiones || []).map(t => ({
-        ...t,
-        canales: (t.canales || []).map(c => ({
-          canal: c.canal,
-          calidad: c.calidad,
-          urlStream: `${baseUrl}/stream7?url=${encodeURIComponent(c.url)}`
-        }))
-      }))
-    };
-
-    res.json(encodeLinks(dataConProxy));
+    res.json(encodeLinks(normalize7(data, baseUrl)));
   } catch (error) {
     console.error("Error en /transmisiones7:", error.message);
     res.status(500).json({
