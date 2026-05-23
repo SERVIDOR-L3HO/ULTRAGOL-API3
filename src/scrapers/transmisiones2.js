@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const GLZ_PROXY = "https://ultragol-api-3.vercel.app/ultragol-l3ho?get=";
+const GLZ_PROXY = null; // Proxy manejado en el endpoint via applyBolalocoProxy
 
 const CATEGORIES_MAP = {
   4:  'Baloncesto',
@@ -110,7 +110,7 @@ async function scrapTransmisiones2() {
           equipo2,
           logo1: logoTeam1 || null,
           logo2: logoTeam2 || null,
-          url: GLZ_PROXY + encodeURIComponent(streamUrl),
+          url: streamUrl,
           urlOriginal: streamUrl,
           estado,
           id

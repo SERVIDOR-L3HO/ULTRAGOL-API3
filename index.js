@@ -1294,12 +1294,19 @@ function applyBolalocoProxy(obj, baseUrl) {
     if (/^https?:\/\/(www\.)?bolaloca\.my/i.test(obj)) {
       return `${baseUrl}/stream7?url=${encodeURIComponent(obj)}`;
     }
-    // Caso 2: URL de bolaloca envuelta en GLZ_PROXY (ultragol-l3ho?get=...)
+    // Caso 2: URL directa de streams.center
+    if (/^https?:\/\/(www\.)?streams\.center/i.test(obj)) {
+      return `${baseUrl}/stream7?url=${encodeURIComponent(obj)}`;
+    }
+    // Caso 3: URL envuelta en GLZ_PROXY externo (ultragol-l3ho?get=...)
     const glzMatch = obj.match(/ultragol-l3ho\?get=(.+)/);
     if (glzMatch) {
       try {
         const inner = decodeURIComponent(glzMatch[1]);
         if (/^https?:\/\/(www\.)?bolaloca\.my/i.test(inner)) {
+          return `${baseUrl}/stream7?url=${encodeURIComponent(inner)}`;
+        }
+        if (/^https?:\/\/(www\.)?streams\.center/i.test(inner)) {
           return `${baseUrl}/stream7?url=${encodeURIComponent(inner)}`;
         }
       } catch {}
@@ -1668,7 +1675,8 @@ const STREAM7_ALLOWED = [
   "zohanayaan.com", "hoca6.com", "83870203.net", "12703830.net", "eveningbad.net",
   "streameasthd.net", "prospectivetoday.fun", "capo7play.com", "streamx550.com",
   "tvtvhd.com", "ftvhd.com", "pltvhd.com", "cdn.ftvhd.com",
-  "fubohd.com"
+  "fubohd.com",
+  "streams.center", "mainstreams.pro"
 ];
 
 function stream7IsAllowed(url) {
@@ -1676,6 +1684,46 @@ function stream7IsAllowed(url) {
     const h = new URL(url).hostname;
     return STREAM7_ALLOWED.some(d => h === d || h.endsWith("." + d));
   } catch { return false; }
+}
+
+async function extractM3u8FromStreamsCenter(pageUrl) {
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  const origin = "https://streams.center";
+
+  // Paso 1: ch*.php → extraer iframe con hls.php?stream=ID
+  const chResp = await axios.get(pageUrl, {
+    timeout: 15000,
+    headers: { "User-Agent": UA, "Referer": "https://streamcenter.live/", "Accept": "text/html" }
+  });
+  const iframeMatch = chResp.data.match(/src=["']\/\/streams\.center\/embed\/(hls\.php\?stream=[^"'\s]+)["']/);
+  if (!iframeMatch) throw new Error("No se encontró el iframe hls.php en streams.center");
+  const hlsUrl = `https://streams.center/embed/${iframeMatch[1]}`;
+
+  // Paso 2: hls.php → extraer input encriptado
+  const hlsResp = await axios.get(hlsUrl, {
+    timeout: 15000,
+    headers: { "User-Agent": UA, "Referer": `${origin}/`, "Accept": "text/html" }
+  });
+  const inputMatch = hlsResp.data.match(/input:\s*["']([A-Za-z0-9+/=]+)["']/);
+  if (!inputMatch) throw new Error("No se encontró el input encriptado en streams.center/hls.php");
+
+  // Paso 3: POST decrypt.php → obtener m3u8
+  const decryptResp = await axios.post(
+    `${origin}/embed/decrypt.php`,
+    new URLSearchParams({ input: inputMatch[1] }).toString(),
+    {
+      timeout: 15000,
+      headers: {
+        "User-Agent": UA,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Referer": hlsUrl,
+        "Origin": origin
+      }
+    }
+  );
+  const m3u8Url = (decryptResp.data || "").trim();
+  if (!m3u8Url || !m3u8Url.includes(".m3u8")) throw new Error("decrypt.php no devolvió un m3u8 válido");
+  return { m3u8Url, referer: `${origin}/` };
 }
 
 async function extractM3u8FromTvtvhd(pageUrl) {
@@ -2009,7 +2057,7 @@ app.get("/stream7", async (req, res) => {
   }
 
   const hostname = new URL(decodedUrl).hostname;
-  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be", "tvtvhd.com", "ftvhd.com", "pltvhd.com"];
+  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be", "tvtvhd.com", "ftvhd.com", "pltvhd.com", "streams.center"];
   if (!playerAllowed.some(d => hostname === d || hostname.endsWith("." + d))) {
     return res.status(403).send("Dominio no permitido");
   }
@@ -2251,6 +2299,11 @@ app.get("/stream7", async (req, res) => {
     } else if (hostname === "streamvipx.com" || hostname.endsWith(".streamvipx.com")) {
       console.log(`🎬 stream7 (streamvipx) → ${decodedUrl}`);
       const extracted = await extractM3u8FromStreamvipx(decodedUrl);
+      m3u8Url = extracted.m3u8Url;
+      streamReferer = extracted.referer;
+    } else if (hostname === "streams.center" || hostname.endsWith(".streams.center")) {
+      console.log(`🎬 stream7 (streams.center) → ${decodedUrl}`);
+      const extracted = await extractM3u8FromStreamsCenter(decodedUrl);
       m3u8Url = extracted.m3u8Url;
       streamReferer = extracted.referer;
     } else if (hostname === "tvtvhd.com" || hostname.endsWith(".tvtvhd.com") || hostname === "ftvhd.com" || hostname.endsWith(".ftvhd.com")) {
