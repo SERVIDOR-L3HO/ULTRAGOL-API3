@@ -1298,11 +1298,39 @@ app.get("/transmisiones4", async (req, res) => {
       }
       return obj;
     }
-    res.json(applyStream7Proxy(data));
+    res.json(encodeLinks(applyStream7Proxy(data)));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
+/* ── ENCODE LINKS ──────────────────────────────────────────────────────────
+   Recorre recursivamente un objeto y codifica en Base64 todas las URLs de
+   streams, excluyendo campos de imágenes/logos para no romper los displays.
+────────────────────────────────────────────────────────────────────────── */
+const ENCODE_SKIP_KEYS = new Set([
+  'logo1','logo2','logoUrl','logo','imagen','flag','thumbnail','image','img',
+  'fuente','source','actualizado','fecha','hora','liga','deporte','sport',
+  'evento','titulo','canal','nombre','idioma','slug','equipo1','equipo2',
+  'descripcion','calidad','estado','info','id','type','key'
+]);
+
+function encodeLinks(obj, parentKey = null) {
+  if (typeof obj === 'string') {
+    if (parentKey && ENCODE_SKIP_KEYS.has(parentKey)) return obj;
+    if (/^https?:\/\//i.test(obj)) {
+      return Buffer.from(obj).toString('base64');
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) return obj.map(item => encodeLinks(item, null));
+  if (obj && typeof obj === 'object') {
+    const result = {};
+    for (const k of Object.keys(obj)) result[k] = encodeLinks(obj[k], k);
+    return result;
+  }
+  return obj;
+}
 
 function applyBolalocoProxy(obj, baseUrl) {
   if (typeof obj === "string") {
@@ -1349,7 +1377,7 @@ app.get("/transmisiones", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    res.json(applyBolalocoProxy(data, baseUrl));
+    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
   } catch (error) {
     console.error("Error en /transmisiones:", error.message);
     res.status(500).json({ 
@@ -1397,7 +1425,7 @@ app.get("/transmisiones2", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    res.json(applyBolalocoProxy(data, baseUrl));
+    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
   } catch (error) {
     console.error("Error en /transmisiones2:", error.message);
     res.status(500).json({ 
@@ -1456,7 +1484,7 @@ app.get("/transmisiones3", async (req, res) => {
         }))
       }))
     };
-    res.json(proxied);
+    res.json(encodeLinks(proxied));
   } catch (error) {
     console.error("Error en /transmisiones3:", error.message);
     res.status(500).json({ 
@@ -1505,7 +1533,7 @@ app.get("/transmisiones4", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    res.json(applyBolalocoProxy(data, baseUrl));
+    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
   } catch (error) {
     console.error("Error en /transmisiones4:", error.message);
     res.status(500).json({ 
@@ -1528,7 +1556,7 @@ app.get("/transmisiones5", async (req, res) => {
         
         if (data && data.success && data.totalMatches > 0) {
           cache.set("transmisiones5", data, 300);
-          return res.json(applyBolalocoProxy(data, baseUrl));
+          return res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
         } else if (data && !data.success) {
           const staleData = cache.getStale("transmisiones5");
           if (staleData && staleData.success && staleData.totalMatches > 0) {
@@ -1538,7 +1566,7 @@ app.get("/transmisiones5", async (req, res) => {
               advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos de la API.",
               ultimaActualizacion: staleData.timestamp
             };
-            return res.json(applyBolalocoProxy(data, baseUrl));
+            return res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
           }
           
           if (data.error && data.error.includes("No hay eventos programados")) {
@@ -1572,7 +1600,7 @@ app.get("/transmisiones5", async (req, res) => {
             advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos: " + scrapeError.message,
             ultimaActualizacion: staleData.timestamp
           };
-          return res.json(applyBolalocoProxy(data, baseUrl));
+          return res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
         }
         
         return res.status(502).json({
@@ -1587,7 +1615,7 @@ app.get("/transmisiones5", async (req, res) => {
       }
     }
     
-    res.json(applyBolalocoProxy(data, baseUrl));
+    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
   } catch (error) {
     console.error("Error en /transmisiones5:", error.message);
     res.status(500).json({ 
@@ -1627,7 +1655,7 @@ app.get("/transmisiones6", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    res.json(applyBolalocoProxy(data, baseUrl));
+    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
   } catch (error) {
     console.error("Error en /transmisiones6:", error.message);
     res.status(500).json({ 
@@ -1675,7 +1703,7 @@ app.get("/transmisiones7", async (req, res) => {
       }))
     };
 
-    res.json(dataConProxy);
+    res.json(encodeLinks(dataConProxy));
   } catch (error) {
     console.error("Error en /transmisiones7:", error.message);
     res.status(500).json({
