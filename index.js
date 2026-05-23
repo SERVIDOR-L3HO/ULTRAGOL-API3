@@ -1283,22 +1283,24 @@ app.get("/transmisiones4", async (req, res) => {
       cache.set("transmisiones4", data, 600); // Cache por 10 minutos
     }
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    function applyStream7Proxy(obj) {
+    const STREAM_KEYS = new Set(["url", "urlStream", "stream", "link"]);
+    const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|ico|bmp)(\?|$)/i;
+    function applyStream7Proxy(obj, key) {
       if (typeof obj === "string") {
-        if (/^https?:\/\//i.test(obj)) {
+        if (STREAM_KEYS.has(key) && /^https?:\/\//i.test(obj) && !IMAGE_EXT.test(obj)) {
           return `${baseUrl}/stream7?url=${encodeURIComponent(obj)}`;
         }
         return obj;
       }
-      if (Array.isArray(obj)) return obj.map(applyStream7Proxy);
+      if (Array.isArray(obj)) return obj.map(item => applyStream7Proxy(item, key));
       if (obj && typeof obj === "object") {
         const result = {};
-        for (const key of Object.keys(obj)) result[key] = applyStream7Proxy(obj[key]);
+        for (const k of Object.keys(obj)) result[k] = applyStream7Proxy(obj[k], k);
         return result;
       }
       return obj;
     }
-    res.json(applyStream7Proxy(data));
+    res.json(applyStream7Proxy(data, null));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
