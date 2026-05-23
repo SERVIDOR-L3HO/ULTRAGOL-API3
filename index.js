@@ -2076,7 +2076,7 @@ app.get("/stream7", async (req, res) => {
   }
 
   const hostname = new URL(decodedUrl).hostname;
-  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be", "tvtvhd.com", "ftvhd.com", "pltvhd.com", "streams.center"];
+  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be", "tvtvhd.com", "ftvhd.com", "pltvhd.com", "streams.center", "sportsonline.st", "sportssonline.click"];
   if (!playerAllowed.some(d => hostname === d || hostname.endsWith("." + d))) {
     return res.status(403).send("Dominio no permitido");
   }
