@@ -1695,7 +1695,7 @@ const STREAM7_ALLOWED = [
   "tvtvhd.com", "ftvhd.com", "pltvhd.com", "cdn.ftvhd.com",
   "fubohd.com",
   "streams.center", "mainstreams.pro",
-  "sportsonline.st"
+  "sportsonline.st", "sportssonline.click"
 ];
 
 function stream7IsAllowed(url) {
