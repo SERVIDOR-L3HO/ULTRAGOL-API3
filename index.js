@@ -1694,7 +1694,8 @@ const STREAM7_ALLOWED = [
   "streameasthd.net", "prospectivetoday.fun", "capo7play.com", "streamx550.com",
   "tvtvhd.com", "ftvhd.com", "pltvhd.com", "cdn.ftvhd.com",
   "fubohd.com",
-  "streams.center", "mainstreams.pro"
+  "streams.center", "mainstreams.pro",
+  "sportsonline.st"
 ];
 
 function stream7IsAllowed(url) {
