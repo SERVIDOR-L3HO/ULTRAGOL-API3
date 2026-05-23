@@ -2063,6 +2063,57 @@ async function extractM3u8FromBolaloca(bola_url) {
   throw new Error(`No se pudo extraer el stream del player (${playerHost}) — tipo de player no reconocido`);
 }
 
+async function extractM3u8FromSportssonline(pageUrl) {
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+  // Paso 1: Obtener iframe de la página sportssonline estáticamente
+  let playerUrl = null;
+  try {
+    const r = await axios.get(pageUrl, { timeout: 12000, headers: { "User-Agent": UA } });
+    const m = r.data.match(/<iframe[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*>/i);
+    if (m) playerUrl = m[1];
+  } catch (e) { /* continúa con puppeteer */ }
+
+  if (!playerUrl) throw new Error("No se encontró iframe de player en la página de sportssonline");
+  console.log(`🎬 sportssonline iframe → ${playerUrl}`);
+
+  // Paso 2: Usar Puppeteer para interceptar la petición .m3u8 del player
+  let browser;
+  try {
+    browser = await launchStealthBrowser();
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setUserAgent(UA);
+    await page.setExtraHTTPHeaders({ "Accept-Language": "es-MX,es;q=0.9", "Referer": pageUrl });
+
+    let m3u8Url = null, streamReferer = playerUrl;
+    await page.setRequestInterception(true);
+    page.on("request", req => {
+      const u = req.url();
+      if (u.includes(".m3u8") && !m3u8Url) {
+        m3u8Url = u;
+        streamReferer = req.headers()["referer"] || playerUrl;
+      }
+      req.continue();
+    });
+
+    await page.goto(playerUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await new Promise(resolve => {
+      const check = setInterval(() => { if (m3u8Url) { clearInterval(check); resolve(); } }, 300);
+      setTimeout(() => { clearInterval(check); resolve(); }, 25000);
+    });
+
+    await browser.close(); browser = null;
+
+    if (!m3u8Url) throw new Error("No hay stream en vivo ahora en este canal");
+    console.log(`✅ sportssonline m3u8: ${m3u8Url}`);
+    return { m3u8Url, referer: streamReferer };
+  } catch (err) {
+    if (browser) await browser.close().catch(() => {});
+    throw err;
+  }
+}
+
 app.get("/stream7", async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).send("Falta el parámetro ?url=");
@@ -2332,32 +2383,9 @@ app.get("/stream7", async (req, res) => {
       streamReferer = extracted.referer;
     } else if (hostname === "sportssonline.click" || hostname.endsWith(".sportssonline.click") || hostname === "sportsonline.st" || hostname.endsWith(".sportsonline.st")) {
       console.log(`🎬 stream7 (sportssonline) → ${decodedUrl}`);
-      const upstreamHtml = await axios.get(decodedUrl, {
-        timeout: 15000,
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-        }
-      }).then(r => r.data).catch(() => null);
-      const iframeMatch = upstreamHtml && upstreamHtml.match(/<iframe[^>]+src=["']([^"']+)["'][^>]*>/i);
-      const embedUrl = iframeMatch ? iframeMatch[1] : null;
-      if (!embedUrl) return res.status(502).send("No se encontró el player en la respuesta del servidor.");
-      return res.send(`<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>En Vivo - L3HO</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    html,body{width:100%;height:100%;background:#000;overflow:hidden}
-    iframe{width:100%;height:100%;border:none;display:block}
-  </style>
-</head>
-<body>
-  <iframe src="${embedUrl}" allowfullscreen allow="autoplay; fullscreen" scrolling="no" frameborder="0"></iframe>
-</body>
-</html>`);
+      const extracted = await extractM3u8FromSportssonline(decodedUrl);
+      m3u8Url = extracted.m3u8Url;
+      streamReferer = extracted.referer;
     } else {
       console.log(`🎬 stream7 → obteniendo player: ${decodedUrl}`);
       const upstream = await axios.get(decodedUrl, {
