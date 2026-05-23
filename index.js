@@ -1667,7 +1667,8 @@ const STREAM7_ALLOWED = [
   "latamvidz1.com", "esvideofy.com", "envivoslatam.org", "ng0pr.envivoslatam.org",
   "zohanayaan.com", "hoca6.com", "83870203.net", "12703830.net", "eveningbad.net",
   "streameasthd.net", "prospectivetoday.fun", "capo7play.com", "streamx550.com",
-  "tvtvhd.com", "ftvhd.com", "pltvhd.com", "cdn.ftvhd.com"
+  "tvtvhd.com", "ftvhd.com", "pltvhd.com", "cdn.ftvhd.com",
+  "fubohd.com"
 ];
 
 function stream7IsAllowed(url) {
