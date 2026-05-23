@@ -1666,7 +1666,8 @@ const STREAM7_REFERER = "https://futbollibretv.su/";
 const STREAM7_ALLOWED = [
   "latamvidz1.com", "esvideofy.com", "envivoslatam.org", "ng0pr.envivoslatam.org",
   "zohanayaan.com", "hoca6.com", "83870203.net", "12703830.net", "eveningbad.net",
-  "streameasthd.net", "prospectivetoday.fun", "capo7play.com", "streamx550.com"
+  "streameasthd.net", "prospectivetoday.fun", "capo7play.com", "streamx550.com",
+  "tvtvhd.com", "ftvhd.com", "pltvhd.com", "cdn.ftvhd.com"
 ];
 
 function stream7IsAllowed(url) {
@@ -1991,7 +1992,7 @@ app.get("/stream7", async (req, res) => {
   }
 
   const hostname = new URL(decodedUrl).hostname;
-  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be"];
+  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be", "tvtvhd.com", "ftvhd.com", "pltvhd.com"];
   if (!playerAllowed.some(d => hostname === d || hostname.endsWith("." + d))) {
     return res.status(403).send("Dominio no permitido");
   }
