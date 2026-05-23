@@ -2086,28 +2086,72 @@ async function extractM3u8FromSportssonline(pageUrl) {
     await page.setUserAgent(UA);
     await page.setExtraHTTPHeaders({ "Accept-Language": "es-MX,es;q=0.9", "Referer": pageUrl });
 
-    let m3u8Url = null, streamReferer = playerUrl;
+    let streamUrl = null, streamReferer = playerUrl;
+    const allRequests = [];
     await page.setRequestInterception(true);
     page.on("request", req => {
       const u = req.url();
-      if (u.includes(".m3u8") && !m3u8Url) {
-        m3u8Url = u;
+      // Log peticiones relevantes (excluir analytics/ads conocidos)
+      if (!u.includes("google") && !u.includes("histats") && !u.includes("awistats") && !u.includes("aclib") && u.startsWith("http")) {
+        allRequests.push(u);
+      }
+      const isStream = u.includes(".m3u8") || u.includes(".mpd") ||
+        u.includes(".ts?") || u.includes("/hls/") || u.includes("/live/");
+      if (isStream && !streamUrl) {
+        streamUrl = u;
         streamReferer = req.headers()["referer"] || playerUrl;
+        console.log(`🔗 sportssonline interceptado: ${u}`);
       }
       req.continue();
     });
 
+    // Interceptar respuestas buscando URLs de stream en JSON o texto
+    page.on("response", async resp => {
+      if (streamUrl) return;
+      const ct = resp.headers()["content-type"] || "";
+      if (ct.includes("json") || ct.includes("javascript")) {
+        try {
+          const txt = await resp.text().catch(() => "");
+          const m = txt.match(/https?:\/\/[^\s"'\\]+\.m3u8[^\s"'\\]*/);
+          if (m) { streamUrl = m[0]; streamReferer = resp.url(); console.log(`🔗 sportssonline response m3u8: ${m[0]}`); }
+        } catch {}
+      }
+    });
+
     await page.goto(playerUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+
+    // Simular clicks para activar el player (meritend tiene "CLICK HERE TO UNMUTE")
+    await new Promise(r => setTimeout(r, 2000));
+    await page.evaluate(() => {
+      // Click en el elemento unmute si existe
+      const unmute = document.getElementById("unmute");
+      if (unmute) unmute.click();
+      // Click en el centro de la página para activar autoplay
+      const el = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+      if (el) el.click();
+      // Click en video o elemento de player
+      const video = document.querySelector("video");
+      if (video) { video.muted = true; video.play().catch(() => {}); }
+      const player = document.querySelector(".clappr-player, #player, .player");
+      if (player) player.click();
+    }).catch(() => {});
+
     await new Promise(resolve => {
-      const check = setInterval(() => { if (m3u8Url) { clearInterval(check); resolve(); } }, 300);
-      setTimeout(() => { clearInterval(check); resolve(); }, 25000);
+      const check = setInterval(() => { if (streamUrl) { clearInterval(check); resolve(); } }, 300);
+      setTimeout(() => { clearInterval(check); resolve(); }, 12000);
     });
 
     await browser.close(); browser = null;
 
-    if (!m3u8Url) throw new Error("No hay stream en vivo ahora en este canal");
-    console.log(`✅ sportssonline m3u8: ${m3u8Url}`);
-    return { m3u8Url, referer: streamReferer };
+    if (!streamUrl) {
+      console.log(`🔍 sportssonline — peticiones capturadas (${allRequests.length}):`);
+      allRequests.slice(0, 20).forEach(u => console.log(`   ${u}`));
+      // Cloudflare bloquea headless — devolver iframe embed directo como fallback
+      console.log(`⚠️ sportssonline → fallback iframe embed: ${playerUrl}`);
+      return { iframeFallback: playerUrl };
+    }
+    console.log(`✅ sportssonline stream: ${streamUrl}`);
+    return { m3u8Url: streamUrl, referer: streamReferer };
   } catch (err) {
     if (browser) await browser.close().catch(() => {});
     throw err;
@@ -2384,6 +2428,24 @@ app.get("/stream7", async (req, res) => {
     } else if (hostname === "sportssonline.click" || hostname.endsWith(".sportssonline.click") || hostname === "sportsonline.st" || hostname.endsWith(".sportsonline.st")) {
       console.log(`🎬 stream7 (sportssonline) → ${decodedUrl}`);
       const extracted = await extractM3u8FromSportssonline(decodedUrl);
+      if (extracted.iframeFallback) {
+        return res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>En Vivo - L3HO</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;background:#000;overflow:hidden}
+    iframe{width:100%;height:100%;border:none;display:block}
+  </style>
+</head>
+<body>
+  <iframe src="${extracted.iframeFallback}" allowfullscreen allow="autoplay; fullscreen" scrolling="no" frameborder="0"></iframe>
+</body>
+</html>`);
+      }
       m3u8Url = extracted.m3u8Url;
       streamReferer = extracted.referer;
     } else {
