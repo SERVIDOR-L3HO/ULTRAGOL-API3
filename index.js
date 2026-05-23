@@ -4042,9 +4042,8 @@ app.get("/api/l3ho-links", async (req, res) => {
           t.canales.forEach(canal => {
             const nombre = `${t.evento} - ${canal.nombre}`;
             if (canal.links) {
-              if (canal.links.hoca) addLink(nombre + " (Hoca)", canal.links.hoca, "Rereyano");
-              if (canal.links.caster) addLink(nombre + " (Caster)", canal.links.caster, "Rereyano");
-              if (canal.links.wigi) addLink(nombre + " (Wigi)", canal.links.wigi, "Rereyano");
+              if (canal.links.principal) addLink(nombre, canal.links.principal, "Rereyano", t.logo1, t.logo2, t.deporte, t.estado, t.hora);
+              if (canal.links.backup) addLink(nombre + " (Backup)", canal.links.backup, "Rereyano", t.logo1, t.logo2, t.deporte, t.estado, t.hora);
             }
           });
         }
@@ -4062,14 +4061,12 @@ app.get("/api/l3ho-links", async (req, res) => {
     
     if (trans3 && trans3.transmisiones) {
       trans3.transmisiones.forEach(t => {
-        if (t.enlace) {
-          const nombre = t.evento || t.canal || "Transmision";
-          addLink(nombre, t.enlace, "E1Link");
-        }
-        if (t.enlaces && Array.isArray(t.enlaces)) {
-          t.enlaces.forEach((enlace, i) => {
-            const nombre = `${t.evento || t.canal || "Transmision"} - Opcion ${i + 1}`;
-            addLink(nombre, enlace, "E1Link");
+        if (t.enlacesDetalle && Array.isArray(t.enlacesDetalle)) {
+          t.enlacesDetalle.forEach((enlace, i) => {
+            const base = t.titulo || t.evento || t.canal || "Transmision";
+            const nombre = `${base} - ${enlace.nombre || `Opcion ${i + 1}`}`;
+            const url = enlace.url || enlace.urlProxy;
+            addLink(nombre, url, "E1Link", null, null, null, null, t.hora);
           });
         }
       });
