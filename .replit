@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "bash", "nix", "python-3.11"]
+modules = ["nodejs-20", "web", "bash", "nix"]
 [agent]
 expertMode = true
 integrations = ["youtube:1.0.0"]
@@ -43,3 +43,5 @@ run = ["node", "index.js"]
 
 [userenv.shared]
 NODE_ENV = "production"
+PUPPETEER_SKIP_DOWNLOAD = "true"
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
