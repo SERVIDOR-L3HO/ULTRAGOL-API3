@@ -1283,24 +1283,22 @@ app.get("/transmisiones4", async (req, res) => {
       cache.set("transmisiones4", data, 600); // Cache por 10 minutos
     }
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const STREAM_KEYS = new Set(["url", "urlStream", "stream", "link"]);
-    const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|ico|bmp)(\?|$)/i;
-    function applyStream7Proxy(obj, key) {
+    function applyStream7Proxy(obj) {
       if (typeof obj === "string") {
-        if (STREAM_KEYS.has(key) && /^https?:\/\//i.test(obj) && !IMAGE_EXT.test(obj)) {
+        if (/^https?:\/\//i.test(obj)) {
           return `${baseUrl}/stream7?url=${encodeURIComponent(obj)}`;
         }
         return obj;
       }
-      if (Array.isArray(obj)) return obj.map(item => applyStream7Proxy(item, key));
+      if (Array.isArray(obj)) return obj.map(applyStream7Proxy);
       if (obj && typeof obj === "object") {
         const result = {};
-        for (const k of Object.keys(obj)) result[k] = applyStream7Proxy(obj[k], k);
+        for (const key of Object.keys(obj)) result[key] = applyStream7Proxy(obj[key]);
         return result;
       }
       return obj;
     }
-    res.json(applyStream7Proxy(data, null));
+    res.json(applyStream7Proxy(data));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1694,8 +1692,7 @@ const STREAM7_ALLOWED = [
   "streameasthd.net", "prospectivetoday.fun", "capo7play.com", "streamx550.com",
   "tvtvhd.com", "ftvhd.com", "pltvhd.com", "cdn.ftvhd.com",
   "fubohd.com",
-  "streams.center", "mainstreams.pro",
-  "sportsonline.st", "sportssonline.click"
+  "streams.center", "mainstreams.pro"
 ];
 
 function stream7IsAllowed(url) {
@@ -2063,101 +2060,6 @@ async function extractM3u8FromBolaloca(bola_url) {
   throw new Error(`No se pudo extraer el stream del player (${playerHost}) — tipo de player no reconocido`);
 }
 
-async function extractM3u8FromSportssonline(pageUrl) {
-  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-  // Paso 1: Obtener iframe de la página sportssonline estáticamente
-  let playerUrl = null;
-  try {
-    const r = await axios.get(pageUrl, { timeout: 12000, headers: { "User-Agent": UA } });
-    const m = r.data.match(/<iframe[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*>/i);
-    if (m) playerUrl = m[1];
-  } catch (e) { /* continúa con puppeteer */ }
-
-  if (!playerUrl) throw new Error("No se encontró iframe de player en la página de sportssonline");
-  console.log(`🎬 sportssonline iframe → ${playerUrl}`);
-
-  // Paso 2: Usar Puppeteer para interceptar la petición .m3u8 del player
-  let browser;
-  try {
-    browser = await launchStealthBrowser();
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 720 });
-    await page.setUserAgent(UA);
-    await page.setExtraHTTPHeaders({ "Accept-Language": "es-MX,es;q=0.9", "Referer": pageUrl });
-
-    let streamUrl = null, streamReferer = playerUrl;
-    const allRequests = [];
-    await page.setRequestInterception(true);
-    page.on("request", req => {
-      const u = req.url();
-      // Log peticiones relevantes (excluir analytics/ads conocidos)
-      if (!u.includes("google") && !u.includes("histats") && !u.includes("awistats") && !u.includes("aclib") && u.startsWith("http")) {
-        allRequests.push(u);
-      }
-      const isStream = u.includes(".m3u8") || u.includes(".mpd") ||
-        u.includes(".ts?") || u.includes("/hls/") || u.includes("/live/");
-      if (isStream && !streamUrl) {
-        streamUrl = u;
-        streamReferer = req.headers()["referer"] || playerUrl;
-        console.log(`🔗 sportssonline interceptado: ${u}`);
-      }
-      req.continue();
-    });
-
-    // Interceptar respuestas buscando URLs de stream en JSON o texto
-    page.on("response", async resp => {
-      if (streamUrl) return;
-      const ct = resp.headers()["content-type"] || "";
-      if (ct.includes("json") || ct.includes("javascript")) {
-        try {
-          const txt = await resp.text().catch(() => "");
-          const m = txt.match(/https?:\/\/[^\s"'\\]+\.m3u8[^\s"'\\]*/);
-          if (m) { streamUrl = m[0]; streamReferer = resp.url(); console.log(`🔗 sportssonline response m3u8: ${m[0]}`); }
-        } catch {}
-      }
-    });
-
-    await page.goto(playerUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
-
-    // Simular clicks para activar el player (meritend tiene "CLICK HERE TO UNMUTE")
-    await new Promise(r => setTimeout(r, 2000));
-    await page.evaluate(() => {
-      // Click en el elemento unmute si existe
-      const unmute = document.getElementById("unmute");
-      if (unmute) unmute.click();
-      // Click en el centro de la página para activar autoplay
-      const el = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
-      if (el) el.click();
-      // Click en video o elemento de player
-      const video = document.querySelector("video");
-      if (video) { video.muted = true; video.play().catch(() => {}); }
-      const player = document.querySelector(".clappr-player, #player, .player");
-      if (player) player.click();
-    }).catch(() => {});
-
-    await new Promise(resolve => {
-      const check = setInterval(() => { if (streamUrl) { clearInterval(check); resolve(); } }, 300);
-      setTimeout(() => { clearInterval(check); resolve(); }, 12000);
-    });
-
-    await browser.close(); browser = null;
-
-    if (!streamUrl) {
-      console.log(`🔍 sportssonline — peticiones capturadas (${allRequests.length}):`);
-      allRequests.slice(0, 20).forEach(u => console.log(`   ${u}`));
-      // Cloudflare bloquea headless — devolver iframe embed directo como fallback
-      console.log(`⚠️ sportssonline → fallback iframe embed: ${playerUrl}`);
-      return { iframeFallback: playerUrl };
-    }
-    console.log(`✅ sportssonline stream: ${streamUrl}`);
-    return { m3u8Url: streamUrl, referer: streamReferer };
-  } catch (err) {
-    if (browser) await browser.close().catch(() => {});
-    throw err;
-  }
-}
-
 app.get("/stream7", async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).send("Falta el parámetro ?url=");
@@ -2171,7 +2073,7 @@ app.get("/stream7", async (req, res) => {
   }
 
   const hostname = new URL(decodedUrl).hostname;
-  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be", "tvtvhd.com", "ftvhd.com", "pltvhd.com", "streams.center", "sportsonline.st", "sportssonline.click"];
+  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be", "tvtvhd.com", "ftvhd.com", "pltvhd.com", "streams.center"];
   if (!playerAllowed.some(d => hostname === d || hostname.endsWith("." + d))) {
     return res.status(403).send("Dominio no permitido");
   }
@@ -2423,29 +2325,6 @@ app.get("/stream7", async (req, res) => {
     } else if (hostname === "tvtvhd.com" || hostname.endsWith(".tvtvhd.com") || hostname === "ftvhd.com" || hostname.endsWith(".ftvhd.com")) {
       console.log(`🎬 stream7 (tvtvhd) → ${decodedUrl}`);
       const extracted = await extractM3u8FromTvtvhd(decodedUrl);
-      m3u8Url = extracted.m3u8Url;
-      streamReferer = extracted.referer;
-    } else if (hostname === "sportssonline.click" || hostname.endsWith(".sportssonline.click") || hostname === "sportsonline.st" || hostname.endsWith(".sportsonline.st")) {
-      console.log(`🎬 stream7 (sportssonline) → ${decodedUrl}`);
-      const extracted = await extractM3u8FromSportssonline(decodedUrl);
-      if (extracted.iframeFallback) {
-        return res.send(`<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>En Vivo - L3HO</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    html,body{width:100%;height:100%;background:#000;overflow:hidden}
-    iframe{width:100%;height:100%;border:none;display:block}
-  </style>
-</head>
-<body>
-  <iframe src="${extracted.iframeFallback}" allowfullscreen allow="autoplay; fullscreen" scrolling="no" frameborder="0"></iframe>
-</body>
-</html>`);
-      }
       m3u8Url = extracted.m3u8Url;
       streamReferer = extracted.referer;
     } else {
