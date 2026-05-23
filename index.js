@@ -2330,6 +2330,34 @@ app.get("/stream7", async (req, res) => {
       const extracted = await extractM3u8FromTvtvhd(decodedUrl);
       m3u8Url = extracted.m3u8Url;
       streamReferer = extracted.referer;
+    } else if (hostname === "sportssonline.click" || hostname.endsWith(".sportssonline.click") || hostname === "sportsonline.st" || hostname.endsWith(".sportsonline.st")) {
+      console.log(`🎬 stream7 (sportssonline) → ${decodedUrl}`);
+      const upstreamHtml = await axios.get(decodedUrl, {
+        timeout: 15000,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        }
+      }).then(r => r.data).catch(() => null);
+      const iframeMatch = upstreamHtml && upstreamHtml.match(/<iframe[^>]+src=["']([^"']+)["'][^>]*>/i);
+      const embedUrl = iframeMatch ? iframeMatch[1] : null;
+      if (!embedUrl) return res.status(502).send("No se encontró el player en la respuesta del servidor.");
+      return res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>En Vivo - L3HO</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;background:#000;overflow:hidden}
+    iframe{width:100%;height:100%;border:none;display:block}
+  </style>
+</head>
+<body>
+  <iframe src="${embedUrl}" allowfullscreen allow="autoplay; fullscreen" scrolling="no" frameborder="0"></iframe>
+</body>
+</html>`);
     } else {
       console.log(`🎬 stream7 → obteniendo player: ${decodedUrl}`);
       const upstream = await axios.get(decodedUrl, {
