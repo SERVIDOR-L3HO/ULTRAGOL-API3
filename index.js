@@ -1282,7 +1282,23 @@ app.get("/transmisiones4", async (req, res) => {
       data = await scrapTransmisiones4();
       cache.set("transmisiones4", data, 600); // Cache por 10 minutos
     }
-    res.json(data);
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    function applyStream7Proxy(obj) {
+      if (typeof obj === "string") {
+        if (/^https?:\/\//i.test(obj)) {
+          return `${baseUrl}/stream7?url=${encodeURIComponent(obj)}`;
+        }
+        return obj;
+      }
+      if (Array.isArray(obj)) return obj.map(applyStream7Proxy);
+      if (obj && typeof obj === "object") {
+        const result = {};
+        for (const key of Object.keys(obj)) result[key] = applyStream7Proxy(obj[key]);
+        return result;
+      }
+      return obj;
+    }
+    res.json(applyStream7Proxy(data));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

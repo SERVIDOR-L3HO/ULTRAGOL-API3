@@ -1,8 +1,6 @@
 const axios = require("axios");
 const { extraerEquiposYLogos } = require("../utils/logoHelper");
 
-const GLZ_PROXY = "https://ultragol-api-3.vercel.app/ultragol-l3ho?get=";
-
 async function scrapTransmisiones4() {
   try {
     const url = "https://sportsonline.st/prog.txt";
@@ -59,7 +57,7 @@ async function scrapTransmisiones4() {
           pais: "Internacional",
           canales: [{
             nombre: "Opción 1",
-            url: GLZ_PROXY + encodeURIComponent(streamUrl)
+            url: streamUrl
           }],
           totalCanales: 1,
           estado: "Programado"
