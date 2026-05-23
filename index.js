@@ -4003,6 +4003,17 @@ app.get("/api/l3ho-links", async (req, res) => {
     }
 
     console.log("📡 Recopilando todos los links de transmisiones...");
+
+    const EXT_PROXY = "https://ultragol-api-3.vercel.app/ultragol-l3ho?get=";
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const localProxy = (url) => {
+      if (!url) return null;
+      // Si ya trae el proxy externo, extrae la URL cruda y aplica el local
+      const raw = url.startsWith(EXT_PROXY)
+        ? decodeURIComponent(url.slice(EXT_PROXY.length))
+        : url;
+      return `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(raw)}`;
+    };
     
     const [trans1, trans2, trans3, trans4, trans5, trans6] = await Promise.all([
       scrapTransmisiones().catch(err => { console.error("Error trans1:", err.message); return null; }),
@@ -4042,8 +4053,8 @@ app.get("/api/l3ho-links", async (req, res) => {
           t.canales.forEach(canal => {
             const nombre = `${t.evento} - ${canal.nombre}`;
             if (canal.links) {
-              if (canal.links.principal) addLink(nombre, canal.links.principal, "Rereyano", t.logo1, t.logo2, t.deporte, t.estado, t.hora);
-              if (canal.links.backup) addLink(nombre + " (Backup)", canal.links.backup, "Rereyano", t.logo1, t.logo2, t.deporte, t.estado, t.hora);
+              if (canal.links.principal) addLink(nombre, localProxy(canal.links.principal), "Rereyano", t.logo1, t.logo2, t.deporte, t.estado, t.hora);
+              if (canal.links.backup) addLink(nombre + " (Backup)", localProxy(canal.links.backup), "Rereyano", t.logo1, t.logo2, t.deporte, t.estado, t.hora);
             }
           });
         }
@@ -4065,8 +4076,8 @@ app.get("/api/l3ho-links", async (req, res) => {
           t.enlacesDetalle.forEach((enlace, i) => {
             const base = t.titulo || t.evento || t.canal || "Transmision";
             const nombre = `${base} - ${enlace.nombre || `Opcion ${i + 1}`}`;
-            const url = enlace.url || enlace.urlProxy;
-            addLink(nombre, url, "E1Link", null, null, null, null, t.hora);
+            const rawUrl = enlace.urlProxy || enlace.url;
+            addLink(nombre, localProxy(rawUrl), "E1Link", null, null, null, null, t.hora);
           });
         }
       });
