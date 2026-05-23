@@ -48,7 +48,8 @@ async function scrapTransmisiones3() {
           const iframePath = e.attributes.embed_iframe;
           const nombre     = e.attributes.embed_name || "Ver";
           const url        = decodeEmbedUrl(iframePath);
-          return { nombre, url };
+          const urlProxy   = iframePath.startsWith("http") ? iframePath : `${BASE_SITE}${iframePath}`;
+          return { nombre, url, urlProxy };
         });
 
       if (enlaces.length === 0) continue;
