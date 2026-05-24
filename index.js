@@ -1490,7 +1490,7 @@ app.get("/transmisiones3", async (req, res) => {
         ...t,
         enlacesDetalle: (t.enlacesDetalle || []).map(e => ({
           ...e,
-          url: `${baseUrl}/stream7?url=${encodeURIComponent(e.url)}`
+          url: `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(e.url)}`
         }))
       }))
     };
