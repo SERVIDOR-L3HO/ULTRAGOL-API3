@@ -1372,8 +1372,18 @@ app.get("/transmisiones", async (req, res) => {
     
     if (!data) {
       console.log("📺 Obteniendo transmisiones deportivas (caché vacío)...");
-      data = await scrapTransmisiones();
-      cache.set("transmisiones", data);
+      try {
+        data = await scrapTransmisiones();
+        cache.set("transmisiones", data);
+      } catch (fetchError) {
+        const staleData = cache.getStale("transmisiones");
+        if (staleData) {
+          console.warn("⚠️ Usando caché stale para transmisiones:", fetchError.message);
+          const baseUrl = `${req.protocol}://${req.get("host")}`;
+          return res.json({ ...encodeLinks(applyBolalocoProxy(staleData, baseUrl)), _stale: true });
+        }
+        throw fetchError;
+      }
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;

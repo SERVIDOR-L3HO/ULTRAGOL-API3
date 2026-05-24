@@ -1,23 +1,32 @@
-const axios = require("axios");
+const { execFile } = require("child_process");
+const { promisify } = require("util");
 const { extraerEquiposYLogos } = require("../utils/logoHelper");
+
+const execFileAsync = promisify(execFile);
 
 const API_URL = "https://rokczone.com/get_agenda.php";
 const GLZ_PROXY = "https://ultragol-api-3.vercel.app/ultragol-l3ho?get=";
+
+async function fetchConCurl(url, timeoutMs = 20000) {
+  const timeoutSec = Math.floor(timeoutMs / 1000);
+  const { stdout } = await execFileAsync("curl", [
+    "-s",
+    "--max-time", String(timeoutSec),
+    "-H", "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+    "-H", "Accept: application/json, */*",
+    "-H", "Accept-Language: es-MX,es;q=0.9,en;q=0.8",
+    "-H", "Referer: https://rokczone.com/",
+    url
+  ], { timeout: timeoutMs + 2000 });
+  return JSON.parse(stdout);
+}
 
 async function scrapTransmisiones() {
   try {
     console.log("📺 Obteniendo transmisiones desde rokczone.com...");
 
-    const response = await axios.get(API_URL, {
-      timeout: 15000,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json, */*",
-        "Accept-Language": "es-MX,es;q=0.9,en;q=0.8"
-      }
-    });
-
-    const matches = response.data.matches || [];
+    const data = await fetchConCurl(API_URL, 20000);
+    const matches = data.matches || [];
 
     const transmisiones = matches.map(match => {
       const canales = (match.channels || []).map(canal => ({
