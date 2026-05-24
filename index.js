@@ -2363,8 +2363,129 @@ app.get("/stream7", async (req, res) => {
     } else if (hostname === "tvtvhd.com" || hostname.endsWith(".tvtvhd.com") || hostname === "ftvhd.com" || hostname.endsWith(".ftvhd.com")) {
       console.log(`🎬 stream7 (tvtvhd) → ${decodedUrl}`);
       const extracted = await extractM3u8FromTvtvhd(decodedUrl);
-      m3u8Url = extracted.m3u8Url;
-      streamReferer = extracted.referer;
+      // fubohd.com CDN bloquea IPs de servidores — enviar m3u8 directo al browser
+      return res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>En Vivo - L3HO</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{--red:#e74c3c;--red2:#c0392b;--bg:#0a0a0a}
+    html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;color:#fff}
+    #wrap{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000}
+    video{width:100%;height:100%;object-fit:contain;display:block}
+    #loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;z-index:20;gap:16px}
+    .spinner{width:52px;height:52px;border:4px solid rgba(255,255,255,.1);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #loader p{font-size:13px;color:rgba(255,255,255,.5);letter-spacing:.5px}
+    #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none}
+    #logo img{height:32px;width:auto;opacity:.55;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7))}
+    #controls{position:absolute;bottom:0;left:0;right:0;padding:0 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
+    #wrap:hover #controls{opacity:1}
+    #btnRow{display:flex;align-items:center;gap:10px}
+    .btn{background:none;border:none;color:#fff;cursor:pointer;padding:6px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+    .btn:hover{background:rgba(255,255,255,.12)}
+    .btn svg{width:20px;height:20px;fill:currentColor}
+    #volSlider{-webkit-appearance:none;appearance:none;width:72px;height:3px;background:rgba(255,255,255,.3);border-radius:2px;outline:none;cursor:pointer}
+    #volSlider::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:#fff;border-radius:50%;cursor:pointer}
+    #spacer{flex:1}
+    #qualityLabel{font-size:11px;background:rgba(255,255,255,.15);padding:3px 8px;border-radius:4px;color:rgba(255,255,255,.8)}
+    #errOverlay{position:absolute;inset:0;background:rgba(0,0,0,.92);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:30;gap:14px;padding:24px;text-align:center}
+    #errOverlay svg{width:52px;height:52px;fill:var(--red);opacity:.8}
+    #errOverlay h2{font-size:18px;color:#fff}
+    #errOverlay p{font-size:13px;color:rgba(255,255,255,.5);max-width:280px}
+    #retryBtn{background:var(--red);color:#fff;border:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .2s}
+    #retryBtn:hover{background:var(--red2)}
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <video id="video" playsinline></video>
+  <div id="loader"><div class="spinner"></div><p>Conectando al stream...</p></div>
+  <div id="logo"><img src="/public/ultragol-logo.png" alt="L3HO"></div>
+  <div id="controls">
+    <div id="btnRow">
+      <button class="btn" id="btnPlay"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
+      <button class="btn" id="btnMute"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/></svg></button>
+      <input type="range" id="volSlider" min="0" max="1" step="0.05" value="1">
+      <div id="spacer"></div>
+      <span id="qualityLabel">LIVE</span>
+      <button class="btn" id="btnFs"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
+    </div>
+  </div>
+  <div id="errOverlay">
+    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+    <h2>Stream no disponible</h2>
+    <p>El canal puede estar fuera de línea o la señal expiró.</p>
+    <button id="retryBtn">&#8635; Reintentar</button>
+  </div>
+</div>
+<script>
+(function(){
+  var M3U8 = ${JSON.stringify(extracted.m3u8Url)};
+  var video = document.getElementById('video');
+  var loader = document.getElementById('loader');
+  var errOverlay = document.getElementById('errOverlay');
+  var playIcon = document.getElementById('playIcon');
+  var PLAY = '<path d="M8 5v14l11-7z"/>';
+  var PAUSE = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+
+  function initPlayer() {
+    errOverlay.style.display = 'none';
+    loader.style.display = 'flex';
+    if (Hls.isSupported()) {
+      var hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+      hls.loadSource(M3U8);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, function(e, data) {
+        loader.style.display = 'none';
+        if (data.levels && data.levels.length) {
+          document.getElementById('qualityLabel').textContent = data.levels[0].height ? data.levels[0].height + 'p' : 'LIVE';
+        }
+        video.play().catch(function(){});
+      });
+      hls.on(Hls.Events.ERROR, function(e, data) {
+        if (data.fatal) { loader.style.display = 'none'; errOverlay.style.display = 'flex'; }
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = M3U8;
+      video.addEventListener('loadedmetadata', function() { loader.style.display = 'none'; video.play().catch(function(){}); });
+      video.addEventListener('error', function() { loader.style.display = 'none'; errOverlay.style.display = 'flex'; });
+    } else {
+      loader.style.display = 'none'; errOverlay.style.display = 'flex';
+    }
+  }
+
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    if (video.paused) { video.play(); } else { video.pause(); }
+  });
+  video.addEventListener('play', function() { playIcon.innerHTML = PAUSE; });
+  video.addEventListener('pause', function() { playIcon.innerHTML = PLAY; });
+
+  var volSlider = document.getElementById('volSlider');
+  volSlider.addEventListener('input', function() { video.volume = this.value; video.muted = this.value == 0; });
+  document.getElementById('btnMute').addEventListener('click', function() {
+    video.muted = !video.muted; volSlider.value = video.muted ? 0 : video.volume;
+  });
+
+  document.getElementById('btnFs').addEventListener('click', function() {
+    var el = document.documentElement;
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+    } else {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    }
+  });
+
+  document.getElementById('retryBtn').addEventListener('click', initPlayer);
+  initPlayer();
+})();
+</script>
+</body>
+</html>`);
     } else {
       console.log(`🎬 stream7 → obteniendo player: ${decodedUrl}`);
       const upstream = await axios.get(decodedUrl, {
