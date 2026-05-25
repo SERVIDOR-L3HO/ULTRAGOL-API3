@@ -1550,7 +1550,8 @@ app.get("/transmisiones4", async (req, res) => {
               finalUrl = `${baseUrl}/stream7?url=${encodeURIComponent(c.url)}`;
             }
           } catch {}
-          return { ...c, url: finalUrl };
+          const proxyUrl = c.url ? `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(c.url)}` : null;
+          return { ...c, url: finalUrl, proxyUrl };
         })
       }))
     };
