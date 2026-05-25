@@ -1488,18 +1488,7 @@ app.get("/transmisiones3", async (req, res) => {
       }
     }
     
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const proxied = {
-      ...data,
-      transmisiones: (data.transmisiones || []).map(t => ({
-        ...t,
-        enlacesDetalle: (t.enlacesDetalle || []).map(e => ({
-          ...e,
-          url: `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(e.url)}`
-        }))
-      }))
-    };
-    res.json(encodeLinks(proxied));
+    res.json(data);
   } catch (error) {
     console.error("Error en /transmisiones3:", error.message);
     res.status(500).json({ 

@@ -4,12 +4,44 @@ const DIARIES_URL = "https://pltvhd.com/diaries.json";
 const IMG_BASE    = "https://cdn.ftvhd.com";
 const BASE_SITE   = "https://tvtvhd.com";
 
+function tryBase64Decode(str) {
+  try {
+    const decoded = Buffer.from(str, "base64").toString("utf8");
+    if (decoded.startsWith("http") || decoded.startsWith("/")) {
+      return decoded;
+    }
+  } catch {}
+  return null;
+}
+
 function decodeEmbedUrl(iframePath) {
   try {
-    const match = iframePath.match(/[?&]r=([^&]+)/);
-    if (match && match[1]) {
-      return Buffer.from(match[1], "base64").toString("utf8");
+    let embedUrl = iframePath;
+
+    const layer1 = tryBase64Decode(iframePath);
+    if (layer1) {
+      embedUrl = layer1;
     }
+
+    const match = embedUrl.match(/[?&]r=([^&]+)/);
+    if (match && match[1]) {
+      const layer2 = tryBase64Decode(match[1]);
+      if (layer2) return layer2;
+      return decodeURIComponent(match[1]);
+    }
+
+    return embedUrl.startsWith("http") ? embedUrl : `${BASE_SITE}${embedUrl}`;
+  } catch {}
+  return iframePath.startsWith("http") ? iframePath : `${BASE_SITE}${iframePath}`;
+}
+
+function getEmbedUrl(iframePath) {
+  try {
+    const layer1 = tryBase64Decode(iframePath);
+    if (layer1) {
+      return layer1.startsWith("http") ? layer1 : `${BASE_SITE}${layer1}`;
+    }
+    return iframePath.startsWith("http") ? iframePath : `${BASE_SITE}${iframePath}`;
   } catch {}
   return iframePath.startsWith("http") ? iframePath : `${BASE_SITE}${iframePath}`;
 }
@@ -48,7 +80,7 @@ async function scrapTransmisiones3() {
           const iframePath = e.attributes.embed_iframe;
           const nombre     = e.attributes.embed_name || "Ver";
           const url        = decodeEmbedUrl(iframePath);
-          const urlProxy   = iframePath.startsWith("http") ? iframePath : `${BASE_SITE}${iframePath}`;
+          const urlProxy   = getEmbedUrl(iframePath);
           return { nombre, url, urlProxy };
         });
 
@@ -57,6 +89,9 @@ async function scrapTransmisiones3() {
       transmisiones.push({
         titulo,
         hora,
+        fecha,
+        liga,
+        logoUrl,
         enlacesDetalle: enlaces
       });
     }
