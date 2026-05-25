@@ -1280,34 +1280,6 @@ app.get("/calendario/todas-las-ligas", async (req, res) => {
   }
 });
 
-app.get("/transmisiones4", async (req, res) => {
-  try {
-    let data = cache.get("transmisiones4");
-    if (!data) {
-      data = await scrapTransmisiones4();
-      cache.set("transmisiones4", data, 600); // Cache por 10 minutos
-    }
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    function applyStream7Proxy(obj) {
-      if (typeof obj === "string") {
-        if (/^https?:\/\//i.test(obj)) {
-          return `${baseUrl}/stream7?url=${encodeURIComponent(obj)}`;
-        }
-        return obj;
-      }
-      if (Array.isArray(obj)) return obj.map(applyStream7Proxy);
-      if (obj && typeof obj === "object") {
-        const result = {};
-        for (const key of Object.keys(obj)) result[key] = applyStream7Proxy(obj[key]);
-        return result;
-      }
-      return obj;
-    }
-    res.json(encodeLinks(applyStream7Proxy(data)));
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 /* ── ENCODE LINKS ──────────────────────────────────────────────────────────
    Recorre recursivamente un objeto y codifica en Base64 todas las URLs de
@@ -1385,14 +1357,13 @@ app.get("/transmisiones", async (req, res) => {
         if (staleData) {
           console.warn("⚠️ Usando caché stale para transmisiones:", fetchError.message);
           const baseUrl = `${req.protocol}://${req.get("host")}`;
-          return res.json({ ...encodeLinks(applyBolalocoProxy(staleData, baseUrl)), _stale: true });
+          return res.json({ ...staleData, _stale: true });
         }
         throw fetchError;
       }
     }
     
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+    res.json(data);
   } catch (error) {
     console.error("Error en /transmisiones:", error.message);
     res.status(500).json({ 
@@ -1439,8 +1410,7 @@ app.get("/transmisiones2", async (req, res) => {
       }
     }
     
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+    res.json(data);
   } catch (error) {
     console.error("Error en /transmisiones2:", error.message);
     res.status(500).json({ 
@@ -1488,18 +1458,7 @@ app.get("/transmisiones3", async (req, res) => {
       }
     }
     
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const proxied = {
-      ...data,
-      transmisiones: (data.transmisiones || []).map(t => ({
-        ...t,
-        enlacesDetalle: (t.enlacesDetalle || []).map(e => ({
-          ...e,
-          url: `${baseUrl}/stream7?url=${encodeURIComponent(e.url)}`
-        }))
-      }))
-    };
-    res.json(proxied);
+    res.json(data);
   } catch (error) {
     console.error("Error en /transmisiones3:", error.message);
     res.status(500).json({ 
@@ -1547,8 +1506,7 @@ app.get("/transmisiones4", async (req, res) => {
       }
     }
     
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+    res.json(data);
   } catch (error) {
     console.error("Error en /transmisiones4:", error.message);
     res.status(500).json({ 
@@ -1571,7 +1529,7 @@ app.get("/transmisiones5", async (req, res) => {
         
         if (data && data.success && data.totalMatches > 0) {
           cache.set("transmisiones5", data, 300);
-          return res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+          return res.json(data);
         } else if (data && !data.success) {
           const staleData = cache.getStale("transmisiones5");
           if (staleData && staleData.success && staleData.totalMatches > 0) {
@@ -1581,7 +1539,7 @@ app.get("/transmisiones5", async (req, res) => {
               advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos de la API.",
               ultimaActualizacion: staleData.timestamp
             };
-            return res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+            return res.json(data);
           }
           
           if (data.error && data.error.includes("No hay eventos programados")) {
@@ -1615,7 +1573,7 @@ app.get("/transmisiones5", async (req, res) => {
             advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos: " + scrapeError.message,
             ultimaActualizacion: staleData.timestamp
           };
-          return res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+          return res.json(data);
         }
         
         return res.status(502).json({
@@ -1630,7 +1588,7 @@ app.get("/transmisiones5", async (req, res) => {
       }
     }
     
-    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+    res.json(data);
   } catch (error) {
     console.error("Error en /transmisiones5:", error.message);
     res.status(500).json({ 
@@ -1669,8 +1627,7 @@ app.get("/transmisiones6", async (req, res) => {
       }
     }
     
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    res.json(encodeLinks(applyBolalocoProxy(data, baseUrl)));
+    res.json(data);
   } catch (error) {
     console.error("Error en /transmisiones6:", error.message);
     res.status(500).json({ 
@@ -1705,20 +1662,7 @@ app.get("/transmisiones7", async (req, res) => {
       }
     }
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const dataConProxy = {
-      ...data,
-      transmisiones: (data.transmisiones || []).map(t => ({
-        ...t,
-        canales: (t.canales || []).map(c => ({
-          canal: c.canal,
-          calidad: c.calidad,
-          urlStream: `${baseUrl}/stream7?url=${encodeURIComponent(c.url)}`
-        }))
-      }))
-    };
-
-    res.json(encodeLinks(dataConProxy));
+    res.json(data);
   } catch (error) {
     console.error("Error en /transmisiones7:", error.message);
     res.status(500).json({
@@ -1753,19 +1697,7 @@ app.get("/transmisiones8", async (req, res) => {
       }
     }
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const dataConProxy = {
-      ...data,
-      transmisiones: (data.transmisiones || []).map(t => ({
-        ...t,
-        opciones: (t.opciones || []).map(op => ({
-          ...op,
-          url: `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(op.url)}`
-        }))
-      }))
-    };
-
-    res.json(encodeLinks(dataConProxy));
+    res.json(data);
   } catch (error) {
     console.error("Error en /transmisiones8:", error.message);
     res.status(500).json({
