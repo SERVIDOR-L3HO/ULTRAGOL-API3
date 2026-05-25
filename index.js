@@ -1681,22 +1681,23 @@ app.get("/transmisiones6", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const stream7Allowed = ["latamvidz1.com","esvideofy.com","bolaloca.my","streamtpnew.com","streamvipx.com","capo7play.com","streamx550.com","youtube.com","youtu.be","tvtvhd.com","ftvhd.com","pltvhd.com","streams.center","embedsports.top"];
     const enriched = {
       ...data,
       transmisiones: (data.transmisiones || []).map(t => ({
         ...t,
         fuentes: (t.fuentes || []).map(f => {
-          // Strip external proxy wrapper to get the raw embed URL for stream7
-          let embedUrl = f.url;
+          let finalUrl = f.url;
           try {
+            // Extraer la URL interna del proxy externo (?get=)
             const parsed = new URL(f.url);
-            const getParam = parsed.searchParams.get("get");
-            if (getParam) embedUrl = getParam;
+            const innerUrl = parsed.searchParams.get("get") || f.url;
+            const innerHostname = new URL(innerUrl).hostname;
+            if (stream7Allowed.some(d => innerHostname === d || innerHostname.endsWith("." + d))) {
+              finalUrl = `${baseUrl}/stream7?url=${encodeURIComponent(innerUrl)}`;
+            }
           } catch {}
-          return {
-            ...f,
-            url: `${baseUrl}/stream7?url=${encodeURIComponent(embedUrl)}`
-          };
+          return { ...f, url: finalUrl };
         })
       }))
     };
@@ -2208,17 +2209,6 @@ app.get("/stream7", async (req, res) => {
   }
 
   let hostname = new URL(decodedUrl).hostname;
-
-  // Si viene envuelta en el proxy externo de ultragol, extraer la URL interna y redirigir
-  if (hostname === "ultragol-api-3.vercel.app" || hostname.endsWith(".ultragol-api-3.vercel.app")) {
-    try {
-      const inner = new URL(decodedUrl).searchParams.get("get");
-      if (inner) {
-        const baseUrl = `${req.protocol}://${req.get("host")}`;
-        return res.redirect(302, `${baseUrl}/stream7?url=${encodeURIComponent(inner)}`);
-      }
-    } catch {}
-  }
 
   const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be", "tvtvhd.com", "ftvhd.com", "pltvhd.com", "streams.center", "sportssonline.click", "embedsports.top"];
   if (!playerAllowed.some(d => hostname === d || hostname.endsWith("." + d))) {
