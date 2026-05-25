@@ -1541,7 +1541,25 @@ app.get("/transmisiones4", async (req, res) => {
       }
     }
     
-    res.json(data);
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const stream7Allowed = ["latamvidz1.com","esvideofy.com","bolaloca.my","streamtpnew.com","streamvipx.com","capo7play.com","streamx550.com","youtube.com","youtu.be","tvtvhd.com","ftvhd.com","pltvhd.com","streams.center"];
+    const enriched = {
+      ...data,
+      transmisiones: (data.transmisiones || []).map(t => ({
+        ...t,
+        canales: (t.canales || []).map(c => {
+          let finalUrl = c.url;
+          try {
+            const hostname = new URL(c.url).hostname;
+            if (stream7Allowed.some(d => hostname === d || hostname.endsWith("." + d))) {
+              finalUrl = `${baseUrl}/stream7?url=${encodeURIComponent(c.url)}`;
+            }
+          } catch {}
+          return { ...c, url: finalUrl };
+        })
+      }))
+    };
+    res.json(enriched);
   } catch (error) {
     console.error("Error en /transmisiones4:", error.message);
     res.status(500).json({ 
