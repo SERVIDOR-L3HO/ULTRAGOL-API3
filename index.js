@@ -2842,104 +2842,416 @@ function buildLivePlayer(m3u8Src, baseUrl) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>En Vivo - L3HO</title>
+  <title>En Vivo — L3HO</title>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
     *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    :root{--red:#e74c3c;--red2:#c0392b;--bg:#0a0a0a;--ctrl:#111}
-    html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;color:#fff}
-    #wrap{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000}
-    video{width:100%;height:100%;object-fit:contain;display:block}
-    #loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;z-index:20;gap:16px}
-    .spinner{width:52px;height:52px;border:4px solid rgba(255,255,255,.1);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite}
+
+    :root{
+      --a:#f59e0b;
+      --b:#f97316;
+      --grad:linear-gradient(135deg,#f59e0b,#f97316);
+      --grad-r:linear-gradient(135deg,#f97316,#f59e0b);
+      --glow:rgba(249,115,22,.45);
+      --glass:rgba(0,0,0,.45);
+      --glass-border:rgba(255,255,255,.12);
+      --bg:#0a0805;
+    }
+
+    html,body{
+      width:100%;height:100%;
+      background:var(--bg);
+      overflow:hidden;
+      font-family:'Inter',system-ui,sans-serif;
+      color:#fff;
+    }
+
+    /* ── Fondo con halo de color ── */
+    #wrap{
+      position:relative;width:100%;height:100%;
+      display:flex;align-items:center;justify-content:center;
+      background:#000;
+    }
+    #wrap::before{
+      content:'';position:absolute;inset:0;
+      background:radial-gradient(ellipse 60% 40% at 50% 100%, rgba(249,115,22,.18) 0%, transparent 70%);
+      pointer-events:none;z-index:1;
+    }
+
+    video{width:100%;height:100%;object-fit:contain;display:block;position:relative;z-index:0}
+
+    /* ── Loader glass ── */
+    #loader{
+      position:absolute;inset:0;z-index:25;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:20px;
+      background:rgba(0,0,0,.88);
+      backdrop-filter:blur(6px);
+    }
+    .spin-ring{
+      width:60px;height:60px;position:relative;
+    }
+    .spin-ring::before,.spin-ring::after{
+      content:'';position:absolute;inset:0;border-radius:50%;
+    }
+    .spin-ring::before{
+      border:3px solid rgba(255,255,255,.08);
+    }
+    .spin-ring::after{
+      border:3px solid transparent;
+      border-top-color:var(--a);
+      border-right-color:var(--b);
+      animation:spin .9s cubic-bezier(.6,.2,.4,.8) infinite;
+    }
     @keyframes spin{to{transform:rotate(360deg)}}
-    #loader p{font-size:13px;color:rgba(255,255,255,.5);letter-spacing:.5px}
-    #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none;transition:opacity .4s}
-    #logo img{height:32px;width:auto;opacity:.55;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));transition:opacity .4s}
-    #wrap:hover #logo img{opacity:.18}
-    #controls{position:absolute;bottom:0;left:0;right:0;padding:0 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
-    #wrap:hover #controls,#wrap.showCtrl #controls{opacity:1}
-    #progressWrap{position:relative;height:20px;cursor:pointer;display:flex;align-items:center;margin-bottom:4px}
-    #progressBg{position:absolute;left:0;right:0;height:3px;background:rgba(255,255,255,.2);border-radius:2px;transition:height .15s}
-    #progressWrap:hover #progressBg{height:5px}
-    #liveBar{position:absolute;left:0;right:0;height:100%;background:linear-gradient(90deg,rgba(231,76,60,.6),rgba(231,76,60,.2));border-radius:2px}
-    #progressFill{position:absolute;left:0;height:100%;background:var(--red);border-radius:2px;width:0%;transition:width .2s linear}
-    #progressThumb{position:absolute;width:13px;height:13px;background:#fff;border-radius:50%;top:50%;transform:translateY(-50%) scale(0);transition:transform .15s;box-shadow:0 0 4px rgba(0,0,0,.6);left:0}
-    #progressWrap:hover #progressThumb{transform:translateY(-50%) scale(1)}
-    #btnRow{display:flex;align-items:center;gap:10px}
-    .btn{background:none;border:none;color:#fff;cursor:pointer;padding:6px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .15s}
-    .btn:hover{background:rgba(255,255,255,.12)}
-    .btn svg{width:20px;height:20px;fill:currentColor}
-    #volSlider{-webkit-appearance:none;appearance:none;width:72px;height:3px;background:rgba(255,255,255,.3);border-radius:2px;outline:none;cursor:pointer}
-    #volSlider::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:#fff;border-radius:50%;cursor:pointer}
-    #spacer{flex:1}
-    #qualityLabel{font-size:11px;background:rgba(255,255,255,.15);padding:3px 8px;border-radius:4px;color:rgba(255,255,255,.8)}
-    #errOverlay{position:absolute;inset:0;background:rgba(0,0,0,.92);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:30;gap:14px;padding:24px;text-align:center}
-    #errOverlay svg{width:52px;height:52px;fill:var(--red);opacity:.8}
-    #errOverlay h2{font-size:18px;color:#fff}
-    #errOverlay p{font-size:13px;color:rgba(255,255,255,.5);max-width:280px}
-    #retryBtn{background:var(--red);color:#fff;border:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.3px;transition:background .2s}
-    #retryBtn:hover{background:var(--red2)}
-    #tapFx{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5}
-    .tapCircle{width:70px;height:70px;background:rgba(255,255,255,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.5);transition:opacity .25s,transform .25s;backdrop-filter:blur(4px)}
+    #loaderText{
+      font-size:13px;font-weight:500;letter-spacing:.8px;
+      background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    }
+    #loaderDots::after{content:'';animation:dots 1.4s steps(4,end) infinite}
+    @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}100%{content:''}}
+
+    /* ── Logo ── */
+    #logo{
+      position:absolute;top:14px;right:14px;z-index:12;
+      pointer-events:none;transition:opacity .5s;
+    }
+    #logo img{height:28px;width:auto;opacity:.6;filter:drop-shadow(0 2px 8px rgba(0,0,0,.8));transition:opacity .5s}
+    #wrap:hover #logo img,#wrap.showCtrl #logo img{opacity:.2}
+
+    /* ── Badge LIVE ── */
+    #liveBadge{
+      position:absolute;top:14px;left:14px;z-index:12;
+      display:flex;align-items:center;gap:6px;
+      padding:5px 10px;border-radius:20px;
+      background:var(--glass);
+      border:1px solid var(--glass-border);
+      backdrop-filter:blur(12px);
+      font-size:11px;font-weight:700;letter-spacing:1.2px;
+      opacity:0;transition:opacity .3s;
+    }
+    #wrap.showCtrl #liveBadge,#wrap:hover #liveBadge{opacity:1}
+    #liveDot{
+      width:8px;height:8px;border-radius:50%;
+      background:var(--grad);
+      box-shadow:0 0 8px var(--glow);
+      animation:pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.7)}}
+
+    /* ── Zona doble-tap izq/der ── */
+    .tapZone{
+      position:absolute;top:0;bottom:0;width:30%;z-index:4;
+      display:flex;align-items:center;justify-content:center;
+    }
+    #tapLeft{left:0}
+    #tapRight{right:0}
+    .tapRipple{
+      width:80px;height:80px;border-radius:50%;
+      background:rgba(245,158,11,.2);border:2px solid rgba(245,158,11,.4);
+      display:flex;align-items:center;justify-content:center;
+      opacity:0;transform:scale(.3);
+      transition:opacity .22s,transform .22s;
+      backdrop-filter:blur(4px);
+      pointer-events:none;
+    }
+    .tapRipple.show{opacity:1;transform:scale(1)}
+    .tapRipple svg{width:28px;height:28px;fill:var(--a)}
+    .tapRipple span{
+      position:absolute;bottom:-22px;
+      font-size:11px;font-weight:600;color:var(--a);
+      white-space:nowrap;
+    }
+
+    /* ── Tap center (play/pause) ── */
+    #tapCenter{
+      position:absolute;inset:0;z-index:3;
+      display:flex;align-items:center;justify-content:center;
+      pointer-events:none;
+    }
+    .tapCircle{
+      width:72px;height:72px;border-radius:50%;
+      background:rgba(0,0,0,.5);border:2px solid rgba(245,158,11,.5);
+      display:flex;align-items:center;justify-content:center;
+      opacity:0;transform:scale(.4);
+      transition:opacity .2s,transform .2s;
+      backdrop-filter:blur(8px);
+      box-shadow:0 0 20px var(--glow);
+    }
     .tapCircle.show{opacity:1;transform:scale(1)}
-    .tapCircle svg{width:30px;height:30px;fill:#fff}
+    .tapCircle svg{width:30px;height:30px;fill:var(--a)}
+
+    /* ── Panel de controles glass ── */
+    #controls{
+      position:absolute;bottom:0;left:0;right:0;z-index:10;
+      padding:0 16px 14px;
+      background:linear-gradient(transparent,rgba(0,0,0,.75) 40%,rgba(0,0,0,.92));
+      opacity:0;transition:opacity .3s;
+    }
+    #wrap:hover #controls,#wrap.showCtrl #controls{opacity:1}
+
+    /* ── Barra de progreso ── */
+    #progressWrap{
+      position:relative;height:22px;cursor:pointer;
+      display:flex;align-items:center;margin-bottom:6px;
+    }
+    #progressTrack{
+      position:absolute;left:0;right:0;height:3px;
+      background:rgba(255,255,255,.15);border-radius:99px;
+      transition:height .15s;overflow:hidden;
+    }
+    #progressWrap:hover #progressTrack{height:5px}
+    #liveBar{
+      position:absolute;inset:0;
+      background:linear-gradient(90deg,rgba(245,158,11,.5),rgba(249,115,22,.2));
+      border-radius:99px;
+    }
+    #progressFill{
+      position:absolute;left:0;top:0;bottom:0;width:0%;
+      background:var(--grad);border-radius:99px;
+    }
+    #progressThumb{
+      position:absolute;width:14px;height:14px;
+      background:#fff;border-radius:50%;
+      top:50%;left:0;transform:translateY(-50%) scale(0);
+      transition:transform .15s;
+      box-shadow:0 0 0 3px rgba(245,158,11,.4),0 2px 6px rgba(0,0,0,.6);
+    }
+    #progressWrap:hover #progressThumb{transform:translateY(-50%) scale(1)}
+
+    /* ── Fila de botones ── */
+    #btnRow{display:flex;align-items:center;gap:4px}
+
+    .btn{
+      background:none;border:none;color:rgba(255,255,255,.85);
+      cursor:pointer;padding:7px;border-radius:8px;
+      display:flex;align-items:center;justify-content:center;
+      transition:color .15s,background .15s;
+      position:relative;
+    }
+    .btn:hover{color:#fff;background:rgba(255,255,255,.1)}
+    .btn:active{background:rgba(245,158,11,.18)}
+    .btn svg{width:20px;height:20px;fill:currentColor}
+
+    /* botón play más grande */
+    #btnPlay{padding:8px}
+    #btnPlay svg{width:24px;height:24px}
+
+    /* ── Volumen ── */
+    #volWrap{display:flex;align-items:center;gap:6px}
+    #volSlider{
+      -webkit-appearance:none;appearance:none;
+      width:68px;height:3px;
+      background:rgba(255,255,255,.25);border-radius:99px;
+      outline:none;cursor:pointer;transition:width .2s;
+    }
+    #volSlider::-webkit-slider-thumb{
+      -webkit-appearance:none;
+      width:13px;height:13px;
+      background:#fff;border-radius:50%;cursor:pointer;
+      box-shadow:0 0 0 2px rgba(245,158,11,.5);
+    }
+    #volPct{font-size:11px;color:rgba(255,255,255,.55);min-width:28px;font-variant-numeric:tabular-nums}
+
+    #spacer{flex:1}
+
+    /* ── Selector de calidad ── */
+    #qualityWrap{position:relative}
+    #btnQuality{
+      font-size:11px;font-weight:600;letter-spacing:.5px;
+      padding:4px 10px;border-radius:20px;
+      background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);
+      color:var(--a);cursor:pointer;transition:all .2s;
+    }
+    #btnQuality:hover{background:rgba(245,158,11,.25);border-color:rgba(245,158,11,.5)}
+    #qualityMenu{
+      position:absolute;bottom:36px;right:0;
+      background:rgba(15,10,5,.92);border:1px solid rgba(245,158,11,.2);
+      border-radius:10px;overflow:hidden;
+      backdrop-filter:blur(16px);
+      display:none;min-width:90px;
+      box-shadow:0 8px 24px rgba(0,0,0,.6),0 0 0 1px rgba(245,158,11,.1);
+    }
+    #qualityMenu.open{display:block}
+    .qItem{
+      padding:9px 14px;font-size:12px;font-weight:500;cursor:pointer;
+      transition:background .15s;color:rgba(255,255,255,.8);
+      display:flex;align-items:center;gap:8px;
+    }
+    .qItem:hover{background:rgba(245,158,11,.15);color:#fff}
+    .qItem.active{color:var(--a);font-weight:700}
+    .qItem.active::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--a);flex-shrink:0}
+    .qItem:not(.active)::before{content:'';width:6px;height:6px;flex-shrink:0}
+
+    /* ── Overlay de error glass ── */
+    #errOverlay{
+      position:absolute;inset:0;z-index:30;
+      display:none;flex-direction:column;align-items:center;justify-content:center;
+      gap:16px;padding:32px;text-align:center;
+      background:rgba(0,0,0,.85);
+      backdrop-filter:blur(12px);
+    }
+    #errIcon{
+      width:64px;height:64px;border-radius:50%;
+      background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);
+      display:flex;align-items:center;justify-content:center;
+    }
+    #errIcon svg{width:32px;height:32px;fill:var(--b)}
+    #errOverlay h2{font-size:18px;font-weight:700;color:#fff}
+    #errOverlay p{font-size:13px;color:rgba(255,255,255,.45);max-width:260px;line-height:1.6}
+    #retryBtn{
+      background:var(--grad);color:#000;border:none;
+      padding:12px 32px;border-radius:999px;
+      font-size:14px;font-weight:700;cursor:pointer;
+      letter-spacing:.3px;transition:opacity .2s,transform .15s;
+      box-shadow:0 4px 16px var(--glow);
+    }
+    #retryBtn:hover{opacity:.88;transform:translateY(-1px)}
+    #retryBtn:active{transform:translateY(0)}
+
+    /* ── Toast de acción ── */
+    #toast{
+      position:absolute;top:50%;left:50%;
+      transform:translate(-50%,-50%) scale(.85);
+      background:rgba(0,0,0,.7);border:1px solid rgba(245,158,11,.25);
+      backdrop-filter:blur(14px);
+      padding:10px 20px;border-radius:999px;
+      font-size:13px;font-weight:600;color:var(--a);
+      pointer-events:none;z-index:20;
+      opacity:0;transition:opacity .2s,transform .2s;
+      white-space:nowrap;
+    }
+    #toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+
+    /* ── Buffer overlay ── */
+    #bufferSpinner{
+      position:absolute;inset:0;z-index:8;
+      display:none;align-items:center;justify-content:center;
+      pointer-events:none;
+    }
+    .bufRing{
+      width:48px;height:48px;border-radius:50%;
+      border:3px solid rgba(255,255,255,.08);
+      border-top-color:var(--a);
+      animation:spin .7s linear infinite;
+    }
   </style>
 </head>
 <body>
 <div id="wrap">
   <video id="video" playsinline></video>
-  <div id="loader"><div class="spinner"></div><p>Conectando al stream...</p></div>
+
+  <!-- Halo glow -->
+  <div id="loader">
+    <div class="spin-ring"></div>
+    <div id="loaderText">CONECTANDO<span id="loaderDots"></span></div>
+  </div>
+
+  <div id="bufferSpinner"><div class="bufRing"></div></div>
+
   <div id="logo"><img src="${baseUrl}/public/ultragol-logo.png" alt="L3HO"></div>
-  <div id="tapFx"><div class="tapCircle" id="tapCircle">
-    <svg viewBox="0 0 24 24" id="tapIcon"><path d="M8 5v14l11-7z"/></svg>
-  </div></div>
+
+  <div id="liveBadge"><div id="liveDot"></div>EN VIVO</div>
+
+  <!-- Doble tap izquierda -->
+  <div class="tapZone" id="tapLeft">
+    <div class="tapRipple" id="rippleLeft">
+      <svg viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/></svg>
+      <span id="seekLeftLabel">-10s</span>
+    </div>
+  </div>
+
+  <!-- Tap centro play/pause -->
+  <div id="tapCenter">
+    <div class="tapCircle" id="tapCircle">
+      <svg viewBox="0 0 24 24" id="tapIcon"><path d="M8 5v14l11-7z"/></svg>
+    </div>
+  </div>
+
+  <!-- Doble tap derecha -->
+  <div class="tapZone" id="tapRight">
+    <div class="tapRipple" id="rippleRight">
+      <svg viewBox="0 0 24 24"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg>
+      <span id="seekRightLabel">+10s</span>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <!-- Controles -->
   <div id="controls">
     <div id="progressWrap">
-      <div id="progressBg">
+      <div id="progressTrack">
         <div id="liveBar"></div>
         <div id="progressFill"></div>
       </div>
       <div id="progressThumb"></div>
     </div>
     <div id="btnRow">
-      <button class="btn" id="btnPlay"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
-      <button class="btn" id="btnMute"><svg viewBox="0 0 24 24" id="volIcon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/></svg></button>
-      <input type="range" id="volSlider" min="0" max="1" step="0.05" value="1">
+      <button class="btn" id="btnPlay" title="Play/Pausa (Espacio)">
+        <svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <div id="volWrap">
+        <button class="btn" id="btnMute" title="Silencio (M)">
+          <svg viewBox="0 0 24 24" id="volIcon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/></svg>
+        </button>
+        <input type="range" id="volSlider" min="0" max="1" step="0.02" value="1">
+        <span id="volPct">100%</span>
+      </div>
       <div id="spacer"></div>
-      <span id="qualityLabel">LIVE</span>
-      <button class="btn" id="btnPip" title="Ventana flotante" style="display:none"><svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
-      <button class="btn" id="btnFs"><svg viewBox="0 0 24 24" id="fsIcon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
+      <div id="qualityWrap">
+        <button id="btnQuality">LIVE</button>
+        <div id="qualityMenu"></div>
+      </div>
+      <button class="btn" id="btnPip" title="Ventana flotante" style="display:none">
+        <svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg>
+      </button>
+      <button class="btn" id="btnFs" title="Pantalla completa (F)">
+        <svg viewBox="0 0 24 24" id="fsIcon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+      </button>
     </div>
   </div>
+
+  <!-- Error -->
   <div id="errOverlay">
-    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+    <div id="errIcon"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></div>
     <h2>Stream no disponible</h2>
-    <p>El canal puede estar fuera de línea o la señal expiró.</p>
-    <button id="retryBtn">&#8635; Reintentar</button>
+    <p>El canal puede estar fuera de línea o la señal expiró. Verifica tu conexión e intenta de nuevo.</p>
+    <button id="retryBtn">&#8635;&nbsp; Reconectar</button>
   </div>
 </div>
+
 <script>
 (function(){
-  var M3U8 = ${JSON.stringify(m3u8Src)};
-  var video      = document.getElementById('video');
-  var loader     = document.getElementById('loader');
-  var errOverlay = document.getElementById('errOverlay');
-  var playIcon   = document.getElementById('playIcon');
-  var volIcon    = document.getElementById('volIcon');
-  var volSlider  = document.getElementById('volSlider');
+  var M3U8        = ${JSON.stringify(m3u8Src)};
+  var video       = document.getElementById('video');
+  var loader      = document.getElementById('loader');
+  var bufSpin     = document.getElementById('bufferSpinner');
+  var errOverlay  = document.getElementById('errOverlay');
+  var playIcon    = document.getElementById('playIcon');
+  var tapIcon     = document.getElementById('tapIcon');
+  var volIcon     = document.getElementById('volIcon');
+  var volSlider   = document.getElementById('volSlider');
+  var volPct      = document.getElementById('volPct');
   var progressFill  = document.getElementById('progressFill');
   var progressThumb = document.getElementById('progressThumb');
   var progressWrap  = document.getElementById('progressWrap');
-  var liveBar    = document.getElementById('liveBar');
-  var qualityLabel = document.getElementById('qualityLabel');
-  var btnFs      = document.getElementById('btnFs');
-  var btnPip     = document.getElementById('btnPip');
-  var wrap       = document.getElementById('wrap');
-  var tapCircle  = document.getElementById('tapCircle');
-  var tapIcon    = document.getElementById('tapIcon');
-  var ctrlTimer;
-  var hls;
+  var liveBar     = document.getElementById('liveBar');
+  var btnQuality  = document.getElementById('btnQuality');
+  var qualityMenu = document.getElementById('qualityMenu');
+  var btnFs       = document.getElementById('btnFs');
+  var btnPip      = document.getElementById('btnPip');
+  var wrap        = document.getElementById('wrap');
+  var tapCircle   = document.getElementById('tapCircle');
+  var rippleLeft  = document.getElementById('rippleLeft');
+  var rippleRight = document.getElementById('rippleRight');
+  var toast       = document.getElementById('toast');
+  var ctrlTimer, toastTimer;
+  var hls, hlsLevels = [], currentLevel = -1;
+  var isLive = true;
 
   var ICONS = {
     play:  '<path d="M8 5v14l11-7z"/>',
@@ -2949,87 +3261,213 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     fsOn:  '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>',
     fsOff: '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>'
   };
-  function setIcon(el, key){ el.innerHTML = ICONS[key]; }
+  function si(el,k){ el.innerHTML = ICONS[k]; }
 
+  /* ── Toast ── */
+  function showToast(msg){
+    clearTimeout(toastTimer);
+    toast.textContent = msg;
+    toast.classList.add('show');
+    toastTimer = setTimeout(function(){ toast.classList.remove('show'); }, 1400);
+  }
+
+  /* ── Mostrar controles ── */
   function showCtrl(){
     wrap.classList.add('showCtrl');
     clearTimeout(ctrlTimer);
-    ctrlTimer = setTimeout(function(){ wrap.classList.remove('showCtrl'); }, 3000);
+    ctrlTimer = setTimeout(function(){ wrap.classList.remove('showCtrl'); }, 3200);
   }
   wrap.addEventListener('mousemove', showCtrl);
   wrap.addEventListener('touchstart', showCtrl, {passive:true});
 
+  /* ── Play / Pause ── */
+  function doPlay(){ video.play().catch(function(){}); }
+  function doPause(){ video.pause(); }
   function togglePlay(){
-    if(video.paused){ video.play(); } else { video.pause(); }
+    if(video.paused){ doPlay(); } else { doPause(); }
     tapCircle.classList.add('show');
     clearTimeout(togglePlay._t);
-    togglePlay._t = setTimeout(function(){ tapCircle.classList.remove('show'); }, 600);
+    togglePlay._t = setTimeout(function(){ tapCircle.classList.remove('show'); }, 650);
   }
   document.getElementById('btnPlay').addEventListener('click', function(e){ e.stopPropagation(); togglePlay(); });
-  video.addEventListener('click', togglePlay);
-  video.addEventListener('play',  function(){ setIcon(playIcon,'pause'); setIcon(tapIcon,'pause'); });
-  video.addEventListener('pause', function(){ setIcon(playIcon,'play');  setIcon(tapIcon,'play'); });
+  video.addEventListener('play',  function(){ si(playIcon,'pause'); si(tapIcon,'pause'); });
+  video.addEventListener('pause', function(){ si(playIcon,'play');  si(tapIcon,'play'); });
 
+  /* ── Doble tap izq/der para adelantar/atrasar 10s ── */
+  var tapCount = {l:0,r:0}, tapTimer = {l:null,r:null};
+  function handleTap(side){
+    var count = (tapCount[side] = (tapCount[side]||0)+1);
+    var ripple = side==='l' ? rippleLeft : rippleRight;
+    clearTimeout(tapTimer[side]);
+    tapTimer[side] = setTimeout(function(){
+      if(count >= 2){
+        var delta = side==='l' ? -10 : 10;
+        if(!isLive && video.duration){ video.currentTime = Math.max(0,Math.min(video.currentTime+delta,video.duration)); }
+        ripple.classList.add('show');
+        setTimeout(function(){ ripple.classList.remove('show'); }, 500);
+        showToast(side==='l' ? '-10s' : '+10s');
+      } else {
+        togglePlay();
+      }
+      tapCount[side]=0;
+    }, 260);
+  }
+  document.getElementById('tapLeft').addEventListener('click', function(e){
+    if(e.target.closest('.btn')) return;
+    handleTap('l');
+  });
+  document.getElementById('tapRight').addEventListener('click', function(e){
+    if(e.target.closest('.btn')) return;
+    handleTap('r');
+  });
+
+  /* ── Volumen ── */
+  function updateVolUI(){
+    var pct = video.muted ? 0 : Math.round(video.volume*100);
+    volSlider.value = video.muted ? 0 : video.volume;
+    volPct.textContent = pct+'%';
+    si(volIcon, video.muted ? 'volOff' : 'volOn');
+  }
   volSlider.addEventListener('input', function(){
-    video.volume = this.value; video.muted = this.value == 0;
-    setIcon(volIcon, video.muted ? 'volOff' : 'volOn');
+    video.volume = +this.value; video.muted = +this.value===0;
+    updateVolUI();
+    showToast((video.muted?0:Math.round(+this.value*100))+'%');
   });
   document.getElementById('btnMute').addEventListener('click', function(){
     video.muted = !video.muted;
-    volSlider.value = video.muted ? 0 : video.volume;
-    setIcon(volIcon, video.muted ? 'volOff' : 'volOn');
+    updateVolUI();
+    showToast(video.muted ? '🔇 Silenciado' : '🔊 ' + Math.round(video.volume*100)+'%');
   });
 
+  /* ── Progreso ── */
+  progressWrap.addEventListener('click', function(e){
+    if(isLive || !video.duration) return;
+    var r = this.getBoundingClientRect();
+    video.currentTime = ((e.clientX-r.left)/r.width)*video.duration;
+  });
+  video.addEventListener('timeupdate', function(){
+    if(isLive || !video.duration) return;
+    var pct = (video.currentTime/video.duration)*100;
+    progressFill.style.width = pct+'%';
+    progressThumb.style.left = pct+'%';
+  });
+
+  /* ── Fullscreen ── */
   btnFs.addEventListener('click', function(){
     var el = document.documentElement;
     if(!document.fullscreenElement && !document.webkitFullscreenElement){
       (el.requestFullscreen||el.webkitRequestFullscreen).call(el);
-      setIcon(document.getElementById('fsIcon'),'fsOff');
+      si(document.getElementById('fsIcon'),'fsOff');
+      showToast('⛶ Pantalla completa');
     } else {
       (document.exitFullscreen||document.webkitExitFullscreen).call(document);
-      setIcon(document.getElementById('fsIcon'),'fsOn');
+      si(document.getElementById('fsIcon'),'fsOn');
     }
   });
 
+  /* ── PiP ── */
   if(document.pictureInPictureEnabled){
     btnPip.style.display='flex';
     btnPip.addEventListener('click', function(){
-      if(document.pictureInPictureElement){ document.exitPictureInPicture().catch(function(){}); }
-      else { video.requestPictureInPicture().catch(function(){}); }
+      if(document.pictureInPictureElement){ document.exitPictureInPicture().catch(function(){}); showToast('Ventana flotante: off'); }
+      else { video.requestPictureInPicture().catch(function(){}); showToast('Ventana flotante: on'); }
     });
   }
 
-  function initPlayer() {
-    errOverlay.style.display = 'none';
-    loader.style.display = 'flex';
-    liveBar.style.display = 'block';
-    progressFill.style.width = '0%';
-    if (hls) { hls.destroy(); hls = null; }
-    if (Hls.isSupported()) {
-      hls = new Hls({ enableWorker: true, lowLatencyMode: true, xhrSetup: function(xhr){ xhr.withCredentials = false; } });
+  /* ── Selector de calidad ── */
+  function buildQualityMenu(){
+    qualityMenu.innerHTML = '';
+    var autoItem = document.createElement('div');
+    autoItem.className = 'qItem' + (currentLevel===-1?' active':'');
+    autoItem.setAttribute('data-level','-1');
+    autoItem.innerHTML = (currentLevel===-1 ? '<span></span>' : '<span></span>') + 'Auto';
+    qualityMenu.appendChild(autoItem);
+    hlsLevels.forEach(function(lvl,i){
+      var item = document.createElement('div');
+      item.className = 'qItem' + (currentLevel===i?' active':'');
+      item.setAttribute('data-level',i);
+      item.textContent = (lvl.height ? lvl.height+'p' : 'Nivel '+(i+1));
+      qualityMenu.appendChild(item);
+    });
+    qualityMenu.querySelectorAll('.qItem').forEach(function(el){
+      el.addEventListener('click', function(){
+        var lvl = parseInt(this.getAttribute('data-level'));
+        if(hls){ hls.currentLevel = lvl; currentLevel = lvl; }
+        btnQuality.textContent = lvl===-1 ? 'AUTO' : (hlsLevels[lvl]&&hlsLevels[lvl].height ? hlsLevels[lvl].height+'p' : 'N'+(lvl+1));
+        buildQualityMenu();
+        qualityMenu.classList.remove('open');
+        showToast('Calidad: ' + btnQuality.textContent);
+      });
+    });
+  }
+  btnQuality.addEventListener('click', function(e){
+    e.stopPropagation();
+    qualityMenu.classList.toggle('open');
+  });
+  document.addEventListener('click', function(){ qualityMenu.classList.remove('open'); });
+
+  /* ── Teclado ── */
+  document.addEventListener('keydown', function(e){
+    if(e.target.tagName==='INPUT') return;
+    if(e.code==='Space'||e.key===' '){ e.preventDefault(); togglePlay(); }
+    else if(e.key==='f'||e.key==='F'){ btnFs.click(); }
+    else if(e.key==='m'||e.key==='M'){ document.getElementById('btnMute').click(); }
+    else if(e.key==='ArrowRight' && !isLive){ video.currentTime=Math.min(video.currentTime+10,video.duration||0); showToast('+10s'); }
+    else if(e.key==='ArrowLeft'  && !isLive){ video.currentTime=Math.max(video.currentTime-10,0); showToast('-10s'); }
+    else if(e.key==='ArrowUp'){   e.preventDefault(); video.volume=Math.min(1,video.volume+.1); video.muted=false; updateVolUI(); showToast(Math.round(video.volume*100)+'%'); }
+    else if(e.key==='ArrowDown'){ e.preventDefault(); video.volume=Math.max(0,video.volume-.1); updateVolUI(); showToast(Math.round(video.volume*100)+'%'); }
+  });
+
+  /* ── Buffer ── */
+  video.addEventListener('waiting',  function(){ bufSpin.style.display='flex'; });
+  video.addEventListener('playing',  function(){ bufSpin.style.display='none'; loader.style.display='none'; });
+  video.addEventListener('canplay',  function(){ loader.style.display='none'; });
+
+  /* ── Inicializar HLS ── */
+  function initPlayer(){
+    errOverlay.style.display='none';
+    loader.style.display='flex';
+    liveBar.style.display='block';
+    progressFill.style.width='0%';
+    if(hls){ hls.destroy(); hls=null; }
+    if(Hls.isSupported()){
+      hls = new Hls({
+        enableWorker:true, lowLatencyMode:true,
+        xhrSetup:function(xhr){ xhr.withCredentials=false; }
+      });
       hls.loadSource(M3U8);
       hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, function(e, data) {
-        loader.style.display = 'none';
-        if (data.levels && data.levels.length && data.levels[0].height) {
-          qualityLabel.textContent = data.levels[0].height + 'p';
+      hls.on(Hls.Events.MANIFEST_PARSED, function(e,data){
+        hlsLevels = data.levels || [];
+        isLive = video.duration === Infinity || !video.duration;
+        if(!isLive){ liveBar.style.display='none'; }
+        if(hlsLevels.length){
+          var h = hlsLevels[hls.currentLevel] || hlsLevels[0];
+          btnQuality.textContent = h && h.height ? h.height+'p' : 'AUTO';
         }
-        video.play().catch(function(){});
+        buildQualityMenu();
+        loader.style.display='none';
+        doPlay();
       });
-      hls.on(Hls.Events.ERROR, function(e, data) {
-        if (data.fatal) { loader.style.display = 'none'; errOverlay.style.display = 'flex'; }
+      hls.on(Hls.Events.LEVEL_SWITCHED, function(e,data){
+        currentLevel = data.level;
+        var h = hlsLevels[data.level];
+        btnQuality.textContent = h && h.height ? h.height+'p' : 'AUTO';
+        buildQualityMenu();
       });
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      hls.on(Hls.Events.ERROR, function(e,data){
+        if(data.fatal){ loader.style.display='none'; errOverlay.style.display='flex'; }
+      });
+    } else if(video.canPlayType('application/vnd.apple.mpegurl')){
       video.src = M3U8;
-      video.addEventListener('loadedmetadata', function() { loader.style.display = 'none'; video.play().catch(function(){}); });
-      video.addEventListener('error', function() { loader.style.display = 'none'; errOverlay.style.display = 'flex'; });
+      video.addEventListener('loadedmetadata', function(){ loader.style.display='none'; doPlay(); });
+      video.addEventListener('error', function(){ loader.style.display='none'; errOverlay.style.display='flex'; });
     } else {
-      loader.style.display = 'none'; errOverlay.style.display = 'flex';
+      loader.style.display='none'; errOverlay.style.display='flex';
     }
   }
 
-  video.addEventListener('playing', function(){ loader.style.display = 'none'; });
-  document.getElementById('retryBtn').addEventListener('click', initPlayer);
+  document.getElementById('retryBtn').addEventListener('click', function(){ showToast('Reconectando...'); initPlayer(); });
   initPlayer();
 })();
 </script>
