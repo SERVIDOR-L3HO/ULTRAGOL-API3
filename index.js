@@ -1750,9 +1750,18 @@ app.get("/streamed-stream", async (req, res) => {
       return serveIframePlayer(embedUrl, `fetch-error: ${fetchErr.message.split(":")[0]}`);
     }
 
-    // Si usa bundle-jw.js (JW Player directo) → el m3u8 se resuelve en el cliente → iframe
+    // Si usa bundle-jw.js (JW Player directo / delta, echo) → extraer m3u8 con Puppeteer
     if (embedHtml.includes("bundle-jw.js") && !embedHtml.includes("embedhd.org")) {
-      return serveIframePlayer(embedUrl, "bundle-jw/client-side");
+      console.log(`🤖 streamed-stream [${source}/${id}] → bundle-jw detectado, usando Puppeteer...`);
+      try {
+        const extracted = await extractM3u8FromEmbedSports(embedUrl);
+        const proxiedM3u8 = `${baseUrl}/hls7?url=${encodeURIComponent(extracted.m3u8Url)}&ref=${encodeURIComponent(extracted.referer)}`;
+        console.log(`🎬 streamed-stream [${source}/${id}] → Puppeteer OK: ${extracted.m3u8Url.substring(0, 80)}...`);
+        return res.send(buildLivePlayer(proxiedM3u8, baseUrl));
+      } catch (puppErr) {
+        console.warn(`⚠️ streamed-stream Puppeteer falló (${puppErr.message.substring(0,60)}), usando iframe`);
+        return serveIframePlayer(embedUrl, `puppet-fail`);
+      }
     }
 
     // Paso 3: extraer iframe src de embedhd.org
