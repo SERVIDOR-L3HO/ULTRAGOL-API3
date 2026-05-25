@@ -1542,7 +1542,7 @@ app.get("/transmisiones4", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const stream7Allowed = ["latamvidz1.com","esvideofy.com","bolaloca.my","streamtpnew.com","streamvipx.com","capo7play.com","streamx550.com","youtube.com","youtu.be","tvtvhd.com","ftvhd.com","pltvhd.com","streams.center"];
+    const stream7Allowed = ["latamvidz1.com","esvideofy.com","bolaloca.my","streamtpnew.com","streamvipx.com","capo7play.com","streamx550.com","youtube.com","youtu.be","tvtvhd.com","ftvhd.com","pltvhd.com","streams.center","sportssonline.click"];
     const enriched = {
       ...data,
       transmisiones: (data.transmisiones || []).map(t => ({
@@ -1767,7 +1767,8 @@ const STREAM7_ALLOWED = [
   "streameasthd.net", "prospectivetoday.fun", "capo7play.com", "streamx550.com",
   "tvtvhd.com", "ftvhd.com", "pltvhd.com", "cdn.ftvhd.com",
   "fubohd.com",
-  "streams.center", "mainstreams.pro"
+  "streams.center", "mainstreams.pro",
+  "sportssonline.click"
 ];
 
 function stream7IsAllowed(url) {
@@ -1815,6 +1816,44 @@ async function extractM3u8FromStreamsCenter(pageUrl) {
   const m3u8Url = (decryptResp.data || "").trim();
   if (!m3u8Url || !m3u8Url.includes(".m3u8")) throw new Error("decrypt.php no devolvió un m3u8 válido");
   return { m3u8Url, referer: `${origin}/` };
+}
+
+async function extractM3u8FromSportsonline(pageUrl) {
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  let browser;
+  try {
+    browser = await launchStealthBrowser();
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setUserAgent(UA);
+    await page.setExtraHTTPHeaders({ "Accept-Language": "es-MX,es;q=0.9", "Referer": "https://sportsonline.st/" });
+
+    let m3u8Found = null;
+    let refererFound = pageUrl;
+    await page.setRequestInterception(true);
+    page.on("request", req => {
+      const u = req.url();
+      if (u.includes(".m3u8") && !m3u8Found) {
+        m3u8Found = u;
+        refererFound = req.headers()["referer"] || pageUrl;
+      }
+      req.continue();
+    });
+
+    await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: 25000 });
+    await new Promise(resolve => {
+      const check = setInterval(() => { if (m3u8Found) { clearInterval(check); resolve(); } }, 300);
+      setTimeout(() => { clearInterval(check); resolve(); }, 20000);
+    });
+
+    await browser.close(); browser = null;
+    if (!m3u8Found) throw new Error("No se detectó m3u8 en sportssonline.click");
+    console.log(`✅ sportssonline m3u8: ${m3u8Found}`);
+    return { m3u8Url: m3u8Found, referer: refererFound };
+  } catch (err) {
+    if (browser) await browser.close().catch(() => {});
+    throw err;
+  }
 }
 
 async function extractM3u8FromTvtvhd(pageUrl) {
@@ -2148,7 +2187,7 @@ app.get("/stream7", async (req, res) => {
   }
 
   const hostname = new URL(decodedUrl).hostname;
-  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be", "tvtvhd.com", "ftvhd.com", "pltvhd.com", "streams.center"];
+  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be", "tvtvhd.com", "ftvhd.com", "pltvhd.com", "streams.center", "sportssonline.click"];
   if (!playerAllowed.some(d => hostname === d || hostname.endsWith("." + d))) {
     return res.status(403).send("Dominio no permitido");
   }
@@ -2395,6 +2434,11 @@ app.get("/stream7", async (req, res) => {
     } else if (hostname === "streams.center" || hostname.endsWith(".streams.center")) {
       console.log(`🎬 stream7 (streams.center) → ${decodedUrl}`);
       const extracted = await extractM3u8FromStreamsCenter(decodedUrl);
+      m3u8Url = extracted.m3u8Url;
+      streamReferer = extracted.referer;
+    } else if (hostname === "sportssonline.click" || hostname.endsWith(".sportssonline.click")) {
+      console.log(`🎬 stream7 (sportssonline) → ${decodedUrl}`);
+      const extracted = await extractM3u8FromSportsonline(decodedUrl);
       m3u8Url = extracted.m3u8Url;
       streamReferer = extracted.referer;
     } else if (hostname === "tvtvhd.com" || hostname.endsWith(".tvtvhd.com") || hostname === "ftvhd.com" || hostname.endsWith(".ftvhd.com")) {
