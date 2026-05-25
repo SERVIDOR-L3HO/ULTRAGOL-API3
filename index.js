@@ -1680,7 +1680,18 @@ app.get("/transmisiones6", async (req, res) => {
       }
     }
     
-    res.json(data);
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const enriched = {
+      ...data,
+      transmisiones: (data.transmisiones || []).map(t => ({
+        ...t,
+        fuentes: (t.fuentes || []).map(f => ({
+          ...f,
+          url: `${baseUrl}/stream7?url=${encodeURIComponent(f.url)}`
+        }))
+      }))
+    };
+    res.json(enriched);
   } catch (error) {
     console.error("Error en /transmisiones6:", error.message);
     res.status(500).json({ 
