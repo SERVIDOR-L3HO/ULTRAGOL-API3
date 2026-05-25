@@ -1685,10 +1685,19 @@ app.get("/transmisiones6", async (req, res) => {
       ...data,
       transmisiones: (data.transmisiones || []).map(t => ({
         ...t,
-        fuentes: (t.fuentes || []).map(f => ({
-          ...f,
-          url: `${baseUrl}/stream7?url=${encodeURIComponent(f.url)}`
-        }))
+        fuentes: (t.fuentes || []).map(f => {
+          // Strip external proxy wrapper to get the raw embed URL for stream7
+          let embedUrl = f.url;
+          try {
+            const parsed = new URL(f.url);
+            const getParam = parsed.searchParams.get("get");
+            if (getParam) embedUrl = getParam;
+          } catch {}
+          return {
+            ...f,
+            url: `${baseUrl}/stream7?url=${encodeURIComponent(embedUrl)}`
+          };
+        })
       }))
     };
     res.json(enriched);
@@ -1779,7 +1788,8 @@ const STREAM7_ALLOWED = [
   "tvtvhd.com", "ftvhd.com", "pltvhd.com", "cdn.ftvhd.com",
   "fubohd.com",
   "streams.center", "mainstreams.pro",
-  "sportssonline.click", "39564828.net"
+  "sportssonline.click", "39564828.net",
+  "embedsports.top"
 ];
 
 function stream7IsAllowed(url) {
