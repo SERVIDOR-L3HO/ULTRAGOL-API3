@@ -2207,8 +2207,20 @@ app.get("/stream7", async (req, res) => {
     return res.status(400).send("URL inválida");
   }
 
-  const hostname = new URL(decodedUrl).hostname;
-  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be", "tvtvhd.com", "ftvhd.com", "pltvhd.com", "streams.center", "sportssonline.click"];
+  let hostname = new URL(decodedUrl).hostname;
+
+  // Si viene envuelta en el proxy externo de ultragol, extraer la URL interna y redirigir
+  if (hostname === "ultragol-api-3.vercel.app" || hostname.endsWith(".ultragol-api-3.vercel.app")) {
+    try {
+      const inner = new URL(decodedUrl).searchParams.get("get");
+      if (inner) {
+        const baseUrl = `${req.protocol}://${req.get("host")}`;
+        return res.redirect(302, `${baseUrl}/stream7?url=${encodeURIComponent(inner)}`);
+      }
+    } catch {}
+  }
+
+  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be", "tvtvhd.com", "ftvhd.com", "pltvhd.com", "streams.center", "sportssonline.click", "embedsports.top"];
   if (!playerAllowed.some(d => hostname === d || hostname.endsWith("." + d))) {
     return res.status(403).send("Dominio no permitido");
   }
