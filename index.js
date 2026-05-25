@@ -54,7 +54,6 @@ const { scrapTransmisiones4 } = require("./src/scrapers/transmisiones4");
 const { scrapTransmisiones5 } = require("./src/scrapers/transmisiones5");
 const { scrapTransmisiones6 } = require("./src/scrapers/transmisiones6");
 const { scrapTransmisiones7 } = require("./src/scrapers/transmisiones7");
-const { scrapTransmisiones8 } = require("./src/scrapers/transmisiones8");
 const { 
   scrapCanales, 
   scrapCanalesPorPais, 
@@ -439,10 +438,6 @@ app.get("/api", (req, res) => {
       transmisiones7: {
         endpoint: "/transmisiones7",
         descripcion: "Agenda deportiva de futbollibretv.su - Partidos con nombre completo, liga, equipos, hora y canales con links decodificados listos para reproducir"
-      },
-      transmisiones8: {
-        endpoint: "/transmisiones8",
-        descripcion: "Transmisiones deportivas de golxu.com - Combina agenda propia con eventos destacados (fútbol, F1, etc.) y matches en vivo/próximos de streamed.pk. Incluye logos, hora, opciones de canal y estado del partido"
       },
       "ultragol-l3ho": {
         endpoint: "/ultragol-l3ho",
@@ -1746,40 +1741,6 @@ app.get("/transmisiones7", async (req, res) => {
   }
 });
 
-app.get("/transmisiones8", async (req, res) => {
-  try {
-    let data = cache.get("transmisiones8");
-
-    if (!data) {
-      console.log("📺 Obteniendo transmisiones desde golxu.com - caché vacío...");
-      try {
-        data = await scrapTransmisiones8();
-        if (data && data.total > 0) {
-          cache.set("transmisiones8", data, 600);
-        }
-      } catch (scrapeError) {
-        const staleData = cache.getStale("transmisiones8");
-        if (staleData && staleData.total > 0) {
-          data = {
-            ...staleData,
-            advertencia: "Datos del caché (pueden no estar actualizados). Error: " + scrapeError.message,
-            ultimaActualizacion: staleData.actualizado
-          };
-        } else {
-          throw scrapeError;
-        }
-      }
-    }
-
-    res.json(data);
-  } catch (error) {
-    console.error("Error en /transmisiones8:", error.message);
-    res.status(500).json({
-      error: "No se pudieron obtener las transmisiones desde golxu.com",
-      detalles: error.message
-    });
-  }
-});
 
 const STREAM7_REFERER = "https://futbollibretv.su/";
 const STREAM7_ALLOWED = [
