@@ -1676,23 +1676,13 @@ app.get("/transmisiones6", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const stream7Allowed = ["latamvidz1.com","esvideofy.com","bolaloca.my","streamtpnew.com","streamvipx.com","capo7play.com","streamx550.com","youtube.com","youtu.be","tvtvhd.com","ftvhd.com","pltvhd.com","streams.center","embedsports.top"];
     const enriched = {
       ...data,
       transmisiones: (data.transmisiones || []).map(t => ({
         ...t,
         fuentes: (t.fuentes || []).map(f => {
-          let finalUrl = f.url;
-          try {
-            // Extraer la URL interna del proxy externo (?get=)
-            const parsed = new URL(f.url);
-            const innerUrl = parsed.searchParams.get("get") || f.url;
-            const innerHostname = new URL(innerUrl).hostname;
-            if (stream7Allowed.some(d => innerHostname === d || innerHostname.endsWith("." + d))) {
-              finalUrl = `${baseUrl}/stream7?url=${encodeURIComponent(innerUrl)}`;
-            }
-          } catch {}
-          return { ...f, url: finalUrl };
+          const streamUrl = `${baseUrl}/streamed-stream?source=${encodeURIComponent(f.fuente)}&id=${encodeURIComponent(f.id)}`;
+          return { ...f, url: streamUrl };
         })
       }))
     };
@@ -1704,6 +1694,38 @@ app.get("/transmisiones6", async (req, res) => {
       detalles: error.message,
       sugerencia: "El sitio web podría estar bloqueando las peticiones o Cloudflare está activo. Intenta de nuevo más tarde."
     });
+  }
+});
+
+app.get("/streamed-stream", async (req, res) => {
+  const { source, id } = req.query;
+  if (!source || !id) return res.status(400).json({ error: "Faltan parámetros ?source= y ?id=" });
+
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  try {
+    const apiResp = await axios.get(`https://streamed.pk/api/stream/${encodeURIComponent(source)}/${encodeURIComponent(id)}`, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://streamed.pk/",
+        "Origin": "https://streamed.pk",
+        "Accept": "application/json"
+      },
+      timeout: 12000
+    });
+
+    const streams = Array.isArray(apiResp.data) ? apiResp.data : [];
+    if (streams.length === 0) {
+      return res.status(404).json({ error: "No se encontró stream para esta fuente" });
+    }
+
+    const streamUrl = streams[0].url;
+    if (!streamUrl) return res.status(502).json({ error: "La API no devolvió una URL de stream" });
+
+    const proxiedM3u8 = `${baseUrl}/hls7?url=${encodeURIComponent(streamUrl)}&ref=${encodeURIComponent("https://streamed.pk/")}`;
+    return res.send(buildLivePlayer(proxiedM3u8, baseUrl));
+  } catch (err) {
+    console.error("❌ streamed-stream error:", err.message);
+    return res.status(500).json({ error: "Error obteniendo stream: " + err.message });
   }
 });
 
