@@ -1878,6 +1878,65 @@ async function extractM3u8FromSportsonline(pageUrl) {
   }
 }
 
+async function extractM3u8FromEmbedSports(pageUrl) {
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+  let browser;
+  try {
+    browser = await launchStealthBrowser();
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setUserAgent(UA);
+    await page.setExtraHTTPHeaders({
+      "Accept-Language": "es-MX,es;q=0.9",
+      "Referer": "https://streamed.pk/"
+    });
+
+    let m3u8Found = null;
+    let refererFound = pageUrl;
+
+    // Interceptar tanto requests como responses para capturar el m3u8
+    await page.setRequestInterception(true);
+    page.on("request", req => {
+      const u = req.url();
+      if ((u.includes(".m3u8") || u.includes("manifest") || u.includes("/hls/")) && !m3u8Found) {
+        m3u8Found = u;
+        refererFound = req.headers()["referer"] || pageUrl;
+      }
+      req.continue();
+    });
+    page.on("response", async resp => {
+      try {
+        const u = resp.url();
+        const ct = resp.headers()["content-type"] || "";
+        if (!m3u8Found && (u.includes(".m3u8") || ct.includes("mpegurl") || ct.includes("x-mpegURL"))) {
+          m3u8Found = u;
+          refererFound = pageUrl;
+        }
+      } catch {}
+    });
+
+    await page.goto(pageUrl, { waitUntil: "networkidle2", timeout: 30000 });
+
+    // Intentar clic en el player para activar la reproducción
+    try {
+      await page.click("#player");
+    } catch {}
+
+    await new Promise(resolve => {
+      const check = setInterval(() => { if (m3u8Found) { clearInterval(check); resolve(); } }, 300);
+      setTimeout(() => { clearInterval(check); resolve(); }, 25000);
+    });
+
+    await browser.close(); browser = null;
+    if (!m3u8Found) throw new Error("No se detectó m3u8 en embedsports.top");
+    console.log(`✅ embedsports m3u8: ${m3u8Found}`);
+    return { m3u8Url: m3u8Found, referer: refererFound };
+  } catch (err) {
+    if (browser) await browser.close().catch(() => {});
+    throw err;
+  }
+}
+
 async function extractM3u8FromTvtvhd(pageUrl) {
   const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
   const resp = await axios.get(pageUrl, {
@@ -2463,6 +2522,11 @@ app.get("/stream7", async (req, res) => {
       console.log(`🎬 stream7 (sportssonline) → ${decodedUrl}`);
       const extracted = await extractM3u8FromSportsonline(decodedUrl);
       return res.send(buildDirectHlsPlayer(extracted.m3u8Url, baseUrl));
+    } else if (hostname === "embedsports.top" || hostname.endsWith(".embedsports.top")) {
+      console.log(`🎬 stream7 (embedsports) → ${decodedUrl}`);
+      const extracted = await extractM3u8FromEmbedSports(decodedUrl);
+      m3u8Url = extracted.m3u8Url;
+      streamReferer = extracted.referer;
     } else if (hostname === "tvtvhd.com" || hostname.endsWith(".tvtvhd.com") || hostname === "ftvhd.com" || hostname.endsWith(".ftvhd.com")) {
       console.log(`🎬 stream7 (tvtvhd) → ${decodedUrl}`);
       // Use a live relay that re-fetches a fresh token on every m3u8 refresh
