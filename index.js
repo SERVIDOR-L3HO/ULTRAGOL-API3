@@ -1702,27 +1702,72 @@ app.get("/streamed-stream", async (req, res) => {
   if (!source || !id) return res.status(400).json({ error: "Faltan parámetros ?source= y ?id=" });
 
   const baseUrl = `${req.protocol}://${req.get("host")}`;
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
   try {
+    // Paso 1: API de streamed.pk → obtener embedUrl
     const apiResp = await axios.get(`https://streamed.pk/api/stream/${encodeURIComponent(source)}/${encodeURIComponent(id)}`, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Referer": "https://streamed.pk/",
-        "Origin": "https://streamed.pk",
-        "Accept": "application/json"
-      },
+      headers: { "User-Agent": UA, "Referer": "https://streamed.pk/", "Origin": "https://streamed.pk", "Accept": "application/json" },
       timeout: 12000
     });
-
     const streams = Array.isArray(apiResp.data) ? apiResp.data : [];
-    if (streams.length === 0) {
-      return res.status(404).json({ error: "No se encontró stream para esta fuente" });
+    if (streams.length === 0) return res.status(404).json({ error: "No se encontró stream para esta fuente" });
+
+    const embedUrl = streams[0].embedUrl;
+    if (!embedUrl) return res.status(502).json({ error: "La API no devolvió embedUrl" });
+
+    // Paso 2: Fetch embedsports.top → extraer iframe src de embedhd.org
+    const embedResp = await axios.get(embedUrl, {
+      headers: { "User-Agent": UA, "Referer": "https://streamed.pk/" },
+      timeout: 10000
+    });
+    const embedHtml = typeof embedResp.data === "string" ? embedResp.data : JSON.stringify(embedResp.data);
+    const iframeMatch = embedHtml.match(/iframe src="(https:\/\/embedhd\.org[^"]+)"/);
+    if (!iframeMatch) return res.status(502).json({ error: "No se encontró iframe de embedhd.org" });
+
+    // Paso 3: Fetch embedhd.org → extraer fid
+    const embedhdResp = await axios.get(iframeMatch[1], {
+      headers: { "User-Agent": UA, "Referer": "https://embedsports.top/" },
+      timeout: 10000
+    });
+    const embedhdHtml = typeof embedhdResp.data === "string" ? embedhdResp.data : JSON.stringify(embedhdResp.data);
+    const fidMatch = embedhdHtml.match(/fid="([^"]+)"/);
+    if (!fidMatch) return res.status(502).json({ error: "No se encontró fid en embedhd.org" });
+    const fid = fidMatch[1];
+
+    // Paso 4: Fetch maestrohd1.php con fid → reconstruir URL m3u8 del array de chars
+    const playerResp = await axios.get(`https://exposestrat.com/maestrohd1.php?player=desktop&live=${encodeURIComponent(fid)}`, {
+      headers: { "User-Agent": UA, "Referer": "https://embedhd.org/" },
+      timeout: 10000
+    });
+    const playerHtml = typeof playerResp.data === "string" ? playerResp.data : JSON.stringify(playerResp.data);
+
+    // Reconstruir la URL m3u8 desde el array de chars ofuscado
+    let m3u8Url = null;
+    const arrayMatches = playerHtml.match(/\[(?:"[^"]{0,4}",?){20,}\]\.join\(""\)/g) || [];
+    for (const arrayStr of arrayMatches) {
+      try {
+        const chars = (arrayStr.match(/"([^"]*)"/g) || []).map(s => s.slice(1, -1).replace(/\\\//g, "/"));
+        const reconstructed = chars.join("");
+        if (reconstructed.includes(".m3u8")) { m3u8Url = reconstructed; break; }
+      } catch {}
     }
 
-    const streamUrl = streams[0].url;
-    if (!streamUrl) return res.status(502).json({ error: "La API no devolvió una URL de stream" });
+    // Fallback: buscar channelId y construir URL desde zohanayaan.com
+    if (!m3u8Url) {
+      const chMatch = playerHtml.match(/channelId\s*:\s*['"]([^'"]+)['"]/);
+      if (chMatch) {
+        const chId = chMatch[1]; // e.g. cdn11.zohanayaan.com:1686/hls/mclevelandguardians
+        m3u8Url = `https://${chId}.m3u8`;
+      }
+    }
 
-    const proxiedM3u8 = `${baseUrl}/hls7?url=${encodeURIComponent(streamUrl)}&ref=${encodeURIComponent("https://streamed.pk/")}`;
+    if (!m3u8Url) return res.status(502).json({ error: "No se pudo extraer la URL m3u8 del player", fid });
+
+    console.log(`🎬 streamed-stream [${source}/${id}] → fid=${fid} → ${m3u8Url.substring(0, 80)}...`);
+    const proxiedM3u8 = `${baseUrl}/hls7?url=${encodeURIComponent(m3u8Url)}&ref=${encodeURIComponent("https://exposestrat.com/")}`;
     return res.send(buildLivePlayer(proxiedM3u8, baseUrl));
+
   } catch (err) {
     console.error("❌ streamed-stream error:", err.message);
     return res.status(500).json({ error: "Error obteniendo stream: " + err.message });
