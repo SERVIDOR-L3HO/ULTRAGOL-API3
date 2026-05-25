@@ -1790,7 +1790,7 @@ const STREAM7_ALLOWED = [
   "fubohd.com",
   "streams.center", "mainstreams.pro",
   "sportssonline.click", "39564828.net",
-  "embedsports.top"
+  "embedsports.top", "strmd.top"
 ];
 
 function stream7IsAllowed(url) {
@@ -1892,7 +1892,8 @@ async function extractM3u8FromEmbedSports(pageUrl) {
     });
 
     let m3u8Found = null;
-    let refererFound = pageUrl;
+    // strmd.top CDN requiere embedsports.top como referer para servir el stream
+    const embedReferer = "https://embedsports.top/";
 
     // Interceptar tanto requests como responses para capturar el m3u8
     await page.setRequestInterception(true);
@@ -1900,7 +1901,6 @@ async function extractM3u8FromEmbedSports(pageUrl) {
       const u = req.url();
       if ((u.includes(".m3u8") || u.includes("manifest") || u.includes("/hls/")) && !m3u8Found) {
         m3u8Found = u;
-        refererFound = req.headers()["referer"] || pageUrl;
       }
       req.continue();
     });
@@ -1910,7 +1910,6 @@ async function extractM3u8FromEmbedSports(pageUrl) {
         const ct = resp.headers()["content-type"] || "";
         if (!m3u8Found && (u.includes(".m3u8") || ct.includes("mpegurl") || ct.includes("x-mpegURL"))) {
           m3u8Found = u;
-          refererFound = pageUrl;
         }
       } catch {}
     });
@@ -1930,7 +1929,7 @@ async function extractM3u8FromEmbedSports(pageUrl) {
     await browser.close(); browser = null;
     if (!m3u8Found) throw new Error("No se detectó m3u8 en embedsports.top");
     console.log(`✅ embedsports m3u8: ${m3u8Found}`);
-    return { m3u8Url: m3u8Found, referer: refererFound };
+    return { m3u8Url: m3u8Found, referer: embedReferer };
   } catch (err) {
     if (browser) await browser.close().catch(() => {});
     throw err;
@@ -2523,10 +2522,25 @@ app.get("/stream7", async (req, res) => {
       const extracted = await extractM3u8FromSportsonline(decodedUrl);
       return res.send(buildDirectHlsPlayer(extracted.m3u8Url, baseUrl));
     } else if (hostname === "embedsports.top" || hostname.endsWith(".embedsports.top")) {
-      console.log(`🎬 stream7 (embedsports) → ${decodedUrl}`);
-      const extracted = await extractM3u8FromEmbedSports(decodedUrl);
-      m3u8Url = extracted.m3u8Url;
-      streamReferer = extracted.referer;
+      console.log(`🎬 stream7 (embedsports) → iframe: ${decodedUrl}`);
+      // strmd.top usa TLS fingerprinting y bloquea Node.js → embebemos iframe directo
+      const iframeHtml = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>En Vivo - L3HO</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;background:#000;overflow:hidden}
+    iframe{width:100%;height:100%;border:none;display:block}
+  </style>
+</head>
+<body>
+  <iframe src="${decodedUrl}" allowfullscreen allow="autoplay; fullscreen" scrolling="no" referrerpolicy="no-referrer"></iframe>
+</body>
+</html>`;
+      return res.send(iframeHtml);
     } else if (hostname === "tvtvhd.com" || hostname.endsWith(".tvtvhd.com") || hostname === "ftvhd.com" || hostname.endsWith(".ftvhd.com")) {
       console.log(`🎬 stream7 (tvtvhd) → ${decodedUrl}`);
       // Use a live relay that re-fetches a fresh token on every m3u8 refresh
@@ -3776,34 +3790,44 @@ app.get("/hls7", async (req, res) => {
   const refParam = req.query.ref ? `&ref=${encodeURIComponent(req.query.ref)}` : "";
 
   try {
+    // Extraer origin del referer para validación CORS del CDN
+    let refOrigin = "";
+    try { refOrigin = new URL(referer).origin; } catch {}
+
     const upstream = await axios.get(decodedUrl, {
       timeout: 15000,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": referer
+        "Referer": referer,
+        "Origin": refOrigin
       }
     });
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const m3u8Origin = new URL(decodedUrl).origin;
     const m3u8Base = decodedUrl.substring(0, decodedUrl.lastIndexOf("/") + 1);
+
+    // Resuelve rutas relativas, absolutas (/path) y completas (http...)
+    function resolveUrl(line) {
+      if (line.startsWith("http")) return line;
+      if (line.startsWith("/")) return m3u8Origin + line;
+      return m3u8Base + line;
+    }
 
     let content = upstream.data;
 
     // Reescribir segmentos .ts primero (evitar que capturemos .ts.m3u8)
     content = content.replace(/^((?!#).+\.ts(?:[?&][^\s]*)?)$/gm, (line) => {
-      const abs = line.startsWith("http") ? line : m3u8Base + line;
-      return `${baseUrl}/hls7-seg?url=${encodeURIComponent(abs)}${refParam}`;
+      return `${baseUrl}/hls7-seg?url=${encodeURIComponent(resolveUrl(line))}${refParam}`;
     });
 
     // Reescribir variantes .m3u8 (incluyendo mono.ts.m3u8, etc.)
     content = content.replace(/^((?!#)(?!.+\/hls7).+\.m3u8[^\s]*)$/gm, (line) => {
-      const abs = line.startsWith("http") ? line : m3u8Base + line;
-      return `${baseUrl}/hls7?url=${encodeURIComponent(abs)}${refParam}`;
+      return `${baseUrl}/hls7?url=${encodeURIComponent(resolveUrl(line))}${refParam}`;
     });
 
     content = content.replace(/URI="([^"]+)"/g, (match, uri) => {
-      const abs = uri.startsWith("http") ? uri : m3u8Base + uri;
-      return `URI="${baseUrl}/hls7-seg?url=${encodeURIComponent(abs)}${refParam}"`;
+      return `URI="${baseUrl}/hls7-seg?url=${encodeURIComponent(resolveUrl(uri))}${refParam}"`;
     });
 
     res.set("Content-Type", "application/vnd.apple.mpegurl");
@@ -3829,12 +3853,16 @@ app.get("/hls7-seg", async (req, res) => {
   const referer = req.query.ref ? req.query.ref : STREAM7_REFERER;
 
   try {
+    let refOrigin = "";
+    try { refOrigin = new URL(referer).origin; } catch {}
+
     const upstream = await axios.get(decodedUrl, {
       timeout: 20000,
       responseType: "arraybuffer",
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": referer
+        "Referer": referer,
+        "Origin": refOrigin
       }
     });
 
