@@ -1704,6 +1704,27 @@ app.get("/streamed-stream", async (req, res) => {
   const baseUrl = `${req.protocol}://${req.get("host")}`;
   const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
+  // Sirve un player iframe directo cuando no podemos extraer m3u8 server-side
+  function serveIframePlayer(embedUrl, label) {
+    console.log(`📺 streamed-stream [${source}/${id}] → iframe fallback (${label}): ${embedUrl}`);
+    return res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>En Vivo - L3HO</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;background:#000;overflow:hidden}
+    iframe{width:100%;height:100%;border:none;display:block}
+  </style>
+</head>
+<body>
+  <iframe src="${embedUrl}" allowfullscreen allow="autoplay; fullscreen" scrolling="no" referrerpolicy="no-referrer"></iframe>
+</body>
+</html>`);
+  }
+
   try {
     // Paso 1: API de streamed.pk → obtener embedUrl
     const apiResp = await axios.get(`https://streamed.pk/api/stream/${encodeURIComponent(source)}/${encodeURIComponent(id)}`, {
@@ -1711,31 +1732,47 @@ app.get("/streamed-stream", async (req, res) => {
       timeout: 12000
     });
     const streams = Array.isArray(apiResp.data) ? apiResp.data : [];
-    if (streams.length === 0) return res.status(404).json({ error: "No se encontró stream para esta fuente" });
+    if (streams.length === 0) return res.status(404).json({ error: "Stream no disponible para esta fuente" });
 
     const embedUrl = streams[0].embedUrl;
     if (!embedUrl) return res.status(502).json({ error: "La API no devolvió embedUrl" });
 
-    // Paso 2: Fetch embedsports.top → extraer iframe src de embedhd.org
-    const embedResp = await axios.get(embedUrl, {
-      headers: { "User-Agent": UA, "Referer": "https://streamed.pk/" },
-      timeout: 10000
-    });
-    const embedHtml = typeof embedResp.data === "string" ? embedResp.data : JSON.stringify(embedResp.data);
-    const iframeMatch = embedHtml.match(/iframe src="(https:\/\/embedhd\.org[^"]+)"/);
-    if (!iframeMatch) return res.status(502).json({ error: "No se encontró iframe de embedhd.org" });
+    // Paso 2: Fetch embedsports.top → detectar tipo de embed
+    let embedHtml = "";
+    try {
+      const embedResp = await axios.get(embedUrl, {
+        headers: { "User-Agent": UA, "Referer": "https://streamed.pk/" },
+        timeout: 8000
+      });
+      embedHtml = typeof embedResp.data === "string" ? embedResp.data : JSON.stringify(embedResp.data);
+    } catch (fetchErr) {
+      // embedsports.top no respondió (TLS fingerprinting o timeout) → fallback iframe
+      return serveIframePlayer(embedUrl, `fetch-error: ${fetchErr.message.split(":")[0]}`);
+    }
 
-    // Paso 3: Fetch embedhd.org → extraer fid
+    // Si usa bundle-jw.js (JW Player directo) → el m3u8 se resuelve en el cliente → iframe
+    if (embedHtml.includes("bundle-jw.js") && !embedHtml.includes("embedhd.org")) {
+      return serveIframePlayer(embedUrl, "bundle-jw/client-side");
+    }
+
+    // Paso 3: extraer iframe src de embedhd.org
+    const iframeMatch = embedHtml.match(/iframe src="(https:\/\/embedhd\.org[^"]+)"/);
+    if (!iframeMatch) {
+      // Estructura desconocida → iframe fallback
+      return serveIframePlayer(embedUrl, "unknown-embed-structure");
+    }
+
+    // Paso 4: Fetch embedhd.org → extraer fid
     const embedhdResp = await axios.get(iframeMatch[1], {
       headers: { "User-Agent": UA, "Referer": "https://embedsports.top/" },
       timeout: 10000
     });
     const embedhdHtml = typeof embedhdResp.data === "string" ? embedhdResp.data : JSON.stringify(embedhdResp.data);
     const fidMatch = embedhdHtml.match(/fid="([^"]+)"/);
-    if (!fidMatch) return res.status(502).json({ error: "No se encontró fid en embedhd.org" });
+    if (!fidMatch) return serveIframePlayer(embedUrl, "no-fid");
     const fid = fidMatch[1];
 
-    // Paso 4: Fetch maestrohd1.php con fid → reconstruir URL m3u8 del array de chars
+    // Paso 5: Fetch maestrohd1.php con fid → reconstruir URL m3u8 del array de chars
     const playerResp = await axios.get(`https://exposestrat.com/maestrohd1.php?player=desktop&live=${encodeURIComponent(fid)}`, {
       headers: { "User-Agent": UA, "Referer": "https://embedhd.org/" },
       timeout: 10000
@@ -1753,16 +1790,14 @@ app.get("/streamed-stream", async (req, res) => {
       } catch {}
     }
 
-    // Fallback: buscar channelId y construir URL desde zohanayaan.com
+    // Fallback: channelId → construir URL base zohanayaan.com
     if (!m3u8Url) {
       const chMatch = playerHtml.match(/channelId\s*:\s*['"]([^'"]+)['"]/);
-      if (chMatch) {
-        const chId = chMatch[1]; // e.g. cdn11.zohanayaan.com:1686/hls/mclevelandguardians
-        m3u8Url = `https://${chId}.m3u8`;
-      }
+      if (chMatch) m3u8Url = `https://${chMatch[1]}.m3u8`;
     }
 
-    if (!m3u8Url) return res.status(502).json({ error: "No se pudo extraer la URL m3u8 del player", fid });
+    // Si aun no hay m3u8 → iframe
+    if (!m3u8Url) return serveIframePlayer(embedUrl, `no-m3u8/fid=${fid}`);
 
     console.log(`🎬 streamed-stream [${source}/${id}] → fid=${fid} → ${m3u8Url.substring(0, 80)}...`);
     const proxiedM3u8 = `${baseUrl}/hls7?url=${encodeURIComponent(m3u8Url)}&ref=${encodeURIComponent("https://exposestrat.com/")}`;
