@@ -3470,8 +3470,9 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     }
     #wrap:hover #bitrateBadge,#wrap.showCtrl #bitrateBadge{opacity:1}
 
-    /* ── Botón compartir ── */
-    #btnShare svg{width:18px;height:18px}
+    /* ── Botón cast ── */
+    #btnCast svg{width:18px;height:18px}
+    #btnCast.casting{color:var(--a)}
   </style>
 </head>
 <body>
@@ -3544,8 +3545,8 @@ function buildLivePlayer(m3u8Src, baseUrl) {
       <button class="btn" id="btnPip" title="Ventana flotante" style="display:none">
         <svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg>
       </button>
-      <button class="btn" id="btnShare" title="Compartir">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
+      <button class="btn" id="btnCast" title="Transmitir en pantalla" style="display:none">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm18-7H5c-1.1 0-2 .9-2 2v3h2v-3h14v10h-5v2h5c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-18 3v2c4.97 0 9 4.03 9 9h2c0-6.08-4.92-11-11-11z"/></svg>
       </button>
       <button class="btn" id="btnFs" title="Pantalla completa (F)">
         <svg viewBox="0 0 24 24" id="fsIcon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
@@ -3796,16 +3797,25 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     }
   }, 2000);
 
-  /* ── Botón compartir ── */
-  document.getElementById('btnShare').addEventListener('click', function(e){
-    e.stopPropagation();
-    var url = window.location.href;
-    if(navigator.share){
-      navigator.share({ title: 'EN VIVO — L3HO', url: url }).catch(function(){});
-    } else if(navigator.clipboard){
-      navigator.clipboard.writeText(url).then(function(){ showToast('🔗 Link copiado'); }).catch(function(){ showToast('🔗 Link copiado'); });
-    } else { showToast('🔗 Link copiado'); }
-  });
+  /* ── Botón Cast (Remote Playback API) ── */
+  var btnCast = document.getElementById('btnCast');
+  if(video.remote){
+    video.remote.watchAvailability(function(available){
+      btnCast.style.display = available ? 'flex' : 'none';
+    }).catch(function(){ btnCast.style.display = 'flex'; });
+    btnCast.addEventListener('click', function(e){
+      e.stopPropagation();
+      video.remote.prompt().then(function(){
+        btnCast.classList.add('casting');
+        showToast('📺 Transmitiendo en pantalla');
+      }).catch(function(err){
+        if(err.name !== 'NotAllowedError'){ showToast('Sin pantallas disponibles'); }
+      });
+    });
+    video.remote.addEventListener('connecting', function(){ btnCast.classList.add('casting'); showToast('📺 Conectando...'); });
+    video.remote.addEventListener('connect',    function(){ btnCast.classList.add('casting'); showToast('📺 Transmitiendo'); });
+    video.remote.addEventListener('disconnect', function(){ btnCast.classList.remove('casting'); showToast('📺 Transmisión finalizada'); });
+  }
 
   /* ── Inicializar HLS con reconexión integrada ── */
   function initPlayer(){
