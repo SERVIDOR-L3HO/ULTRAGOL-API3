@@ -3457,6 +3457,21 @@ function buildLivePlayer(m3u8Src, baseUrl) {
       border-top-color:var(--a);
       animation:spin .7s linear infinite;
     }
+
+    /* ── Bitrate badge ── */
+    #bitrateBadge{
+      position:absolute;bottom:70px;right:14px;z-index:12;
+      padding:4px 9px;border-radius:20px;
+      background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.1);
+      backdrop-filter:blur(10px);
+      font-size:10px;font-weight:600;color:rgba(255,255,255,.55);
+      pointer-events:none;opacity:0;transition:opacity .3s;
+      letter-spacing:.4px;
+    }
+    #wrap:hover #bitrateBadge,#wrap.showCtrl #bitrateBadge{opacity:1}
+
+    /* ── Botón compartir ── */
+    #btnShare svg{width:18px;height:18px}
   </style>
 </head>
 <body>
@@ -3529,11 +3544,16 @@ function buildLivePlayer(m3u8Src, baseUrl) {
       <button class="btn" id="btnPip" title="Ventana flotante" style="display:none">
         <svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg>
       </button>
+      <button class="btn" id="btnShare" title="Compartir">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
+      </button>
       <button class="btn" id="btnFs" title="Pantalla completa (F)">
         <svg viewBox="0 0 24 24" id="fsIcon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
       </button>
     </div>
   </div>
+
+  <div id="bitrateBadge"></div>
 
   <!-- Error -->
   <div id="errOverlay">
@@ -3743,51 +3763,84 @@ function buildLivePlayer(m3u8Src, baseUrl) {
   video.addEventListener('playing',  function(){ bufSpin.style.display='none'; loader.style.display='none'; });
   video.addEventListener('canplay',  function(){ loader.style.display='none'; });
 
-  /* ── Inicializar HLS ── */
+  /* ── Auto-reconexión inteligente ── */
+  var reconnectTimer, reconnectAttempts = 0, maxReconnects = 10;
+  function scheduleReconnect(){
+    if(reconnectAttempts >= maxReconnects){ showToast('❌ Sin señal'); return; }
+    reconnectAttempts++;
+    var wait = Math.min(5000 * reconnectAttempts, 30000);
+    showToast('🔄 Reintentando en ' + Math.round(wait/1000) + 's... (' + reconnectAttempts + '/' + maxReconnects + ')');
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(function(){ initPlayer(); }, wait);
+  }
+
+  /* ── Bloqueo landscape en pantalla completa ── */
+  document.addEventListener('fullscreenchange', function(){
+    if(document.fullscreenElement){
+      try{ screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(function(){}); }catch(e){}
+    } else {
+      try{ screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); }catch(e){}
+    }
+  });
+
+  /* ── Bitrate / calidad de red ── */
+  var bitrateBadge = document.getElementById('bitrateBadge');
+  setInterval(function(){
+    if(!hls) return;
+    var lvl = hls.levels && hls.levels[hls.currentLevel];
+    if(lvl && lvl.bitrate){
+      var kbps = Math.round(lvl.bitrate / 1000);
+      var label = kbps >= 1000 ? (kbps/1000).toFixed(1)+' Mbps' : kbps+' kbps';
+      var dot = kbps >= 3000 ? '🟢' : kbps >= 1000 ? '🟡' : '🔴';
+      bitrateBadge.textContent = dot + ' ' + label;
+    }
+  }, 2000);
+
+  /* ── Botón compartir ── */
+  document.getElementById('btnShare').addEventListener('click', function(e){
+    e.stopPropagation();
+    var url = window.location.href;
+    if(navigator.share){
+      navigator.share({ title: 'EN VIVO — L3HO', url: url }).catch(function(){});
+    } else if(navigator.clipboard){
+      navigator.clipboard.writeText(url).then(function(){ showToast('🔗 Link copiado'); }).catch(function(){ showToast('🔗 Link copiado'); });
+    } else { showToast('🔗 Link copiado'); }
+  });
+
+  /* ── Inicializar HLS con reconexión integrada ── */
   function initPlayer(){
+    clearTimeout(reconnectTimer);
     errOverlay.style.display='none';
     loader.style.display='flex';
     liveBar.style.display='block';
     progressFill.style.width='0%';
     if(hls){ hls.destroy(); hls=null; }
     if(Hls.isSupported()){
-      hls = new Hls({
-        enableWorker:true, lowLatencyMode:true,
-        xhrSetup:function(xhr){ xhr.withCredentials=false; }
-      });
+      hls = new Hls({ enableWorker:true, lowLatencyMode:true, xhrSetup:function(xhr){ xhr.withCredentials=false; } });
       hls.loadSource(M3U8);
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, function(e,data){
         hlsLevels = data.levels || [];
         isLive = video.duration === Infinity || !video.duration;
         if(!isLive){ liveBar.style.display='none'; }
-        if(hlsLevels.length){
-          var h = hlsLevels[hls.currentLevel] || hlsLevels[0];
-          btnQuality.textContent = h && h.height ? h.height+'p' : 'AUTO';
-        }
-        buildQualityMenu();
-        loader.style.display='none';
-        doPlay();
+        if(hlsLevels.length){ var h=hlsLevels[hls.currentLevel]||hlsLevels[0]; btnQuality.textContent=h&&h.height?h.height+'p':'AUTO'; }
+        buildQualityMenu(); loader.style.display='none'; reconnectAttempts=0; doPlay();
       });
       hls.on(Hls.Events.LEVEL_SWITCHED, function(e,data){
-        currentLevel = data.level;
-        var h = hlsLevels[data.level];
-        btnQuality.textContent = h && h.height ? h.height+'p' : 'AUTO';
-        buildQualityMenu();
+        currentLevel=data.level; var h=hlsLevels[data.level];
+        btnQuality.textContent=h&&h.height?h.height+'p':'AUTO'; buildQualityMenu();
       });
       hls.on(Hls.Events.ERROR, function(e,data){
-        if(data.fatal){ loader.style.display='none'; errOverlay.style.display='flex'; }
+        if(data.fatal){ loader.style.display='none'; errOverlay.style.display='flex'; scheduleReconnect(); }
       });
     } else if(video.canPlayType('application/vnd.apple.mpegurl')){
-      video.src = M3U8;
-      video.addEventListener('loadedmetadata', function(){ loader.style.display='none'; doPlay(); });
-      video.addEventListener('error', function(){ loader.style.display='none'; errOverlay.style.display='flex'; });
-    } else {
-      loader.style.display='none'; errOverlay.style.display='flex';
-    }
+      video.src=M3U8;
+      video.addEventListener('loadedmetadata',function(){ loader.style.display='none'; doPlay(); });
+      video.addEventListener('error',function(){ loader.style.display='none'; errOverlay.style.display='flex'; scheduleReconnect(); });
+    } else { loader.style.display='none'; errOverlay.style.display='flex'; }
   }
 
-  document.getElementById('retryBtn').addEventListener('click', function(){ showToast('Reconectando...'); initPlayer(); });
+  document.getElementById('retryBtn').addEventListener('click', function(){ reconnectAttempts=0; showToast('🔄 Reconectando...'); initPlayer(); });
   initPlayer();
 })();
 </script>
