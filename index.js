@@ -2639,6 +2639,12 @@ app.get("/stream7", async (req, res) => {
 
     const proxiedM3u8 = `${baseUrl}/hls7?url=${encodeURIComponent(m3u8Url)}&ref=${encodeURIComponent(streamReferer || "")}`;
 
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("X-Frame-Options", "ALLOWALL");
+    res.set("Cache-Control", "no-cache");
+    return res.send(buildLivePlayer(proxiedM3u8, baseUrl));
+
     const playerPageUrl = `${baseUrl}/stream7?url=${encodeURIComponent(decodedUrl)}`;
     const playerHtml = `<!DOCTYPE html>
 <html lang="es">
