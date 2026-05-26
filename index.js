@@ -2375,8 +2375,6 @@ app.get("/stream7", async (req, res) => {
     #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none;transition:opacity .4s}
     #logo img{height:52px;width:auto;opacity:.15;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));transition:opacity .4s}
     #wrap:hover #logo img{opacity:.06}
-    #watermark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2}
-    #watermark img{width:200px;opacity:.06;transform:rotate(-15deg);filter:drop-shadow(0 2px 8px rgba(0,0,0,.5))}
     #controls{position:absolute;bottom:0;left:0;right:0;padding:0 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
     #wrap:hover #controls,#wrap.showCtrl #controls{opacity:1}
     #progressWrap{position:relative;height:20px;cursor:pointer;display:flex;align-items:center;margin-bottom:4px}
@@ -2411,7 +2409,6 @@ app.get("/stream7", async (req, res) => {
   <video id="video" playsinline preload="auto"></video>
   <div id="loader"><div class="spinner"></div><p>Cargando video...</p></div>
   <div id="logo"><img src="${baseUrl}/public/ultragol-logo.png" alt="L3HO"></div>
-  <div id="watermark"><img src="${baseUrl}/public/ultragol-logo.png" alt=""></div>
   <div id="tapFx"><div class="tapCircle" id="tapCircle"><svg viewBox="0 0 24 24" id="tapIcon"><path d="M8 5v14l11-7z"/></svg></div></div>
   <div id="controls">
     <div id="progressWrap">
@@ -2675,8 +2672,6 @@ app.get("/stream7", async (req, res) => {
     #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none;transition:opacity .4s}
     #logo img{height:52px;width:auto;opacity:.15;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));transition:opacity .4s}
     #wrap:hover #logo img{opacity:.06}
-    #watermark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2}
-    #watermark img{width:200px;opacity:.06;transform:rotate(-15deg);filter:drop-shadow(0 2px 8px rgba(0,0,0,.5))}
 
     /* ── Controles custom ── */
     #controls{position:absolute;bottom:0;left:0;right:0;padding:0 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
@@ -3069,8 +3064,6 @@ function buildDirectHlsPlayer(m3u8Src, baseUrl) {
     #loader p{font-size:13px;color:rgba(255,255,255,.5)}
     #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none}
     #logo img{height:52px;opacity:.15;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7))}
-    #watermark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2}
-    #watermark img{width:200px;opacity:.06;transform:rotate(-15deg);filter:drop-shadow(0 2px 8px rgba(0,0,0,.5))}
     #controls{position:absolute;bottom:0;left:0;right:0;padding:0 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
     #wrap:hover #controls,#wrap.showCtrl #controls{opacity:1}
     #btnRow{display:flex;align-items:center;gap:10px;margin-top:6px}
@@ -3094,7 +3087,6 @@ function buildDirectHlsPlayer(m3u8Src, baseUrl) {
   <video id="video" playsinline></video>
   <div id="loader"><div class="spinner"></div><p>Conectando al stream...</p></div>
   <div id="logo"><img src="${baseUrl}/public/ultragol-logo.png" alt="L3HO"></div>
-  <div id="watermark"><img src="${baseUrl}/public/ultragol-logo.png" alt=""></div>
   <div id="controls">
     <div id="btnRow">
       <button class="btn" id="btnPlay"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
@@ -3248,8 +3240,6 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     }
     #logo img{height:52px;width:auto;opacity:.15;filter:drop-shadow(0 2px 8px rgba(0,0,0,.8));transition:opacity .5s}
     #wrap:hover #logo img,#wrap.showCtrl #logo img{opacity:.06}
-    #watermark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2}
-    #watermark img{width:200px;opacity:.06;transform:rotate(-15deg);filter:drop-shadow(0 2px 8px rgba(0,0,0,.5))}
 
     /* ── Badge LIVE ── */
     #liveBadge{
@@ -3482,7 +3472,6 @@ function buildLivePlayer(m3u8Src, baseUrl) {
   <div id="bufferSpinner"><div class="bufRing"></div></div>
 
   <div id="logo"><img src="${baseUrl}/public/ultragol-logo.png" alt="L3HO"></div>
-  <div id="watermark"><img src="${baseUrl}/public/ultragol-logo.png" alt=""></div>
 
   <div id="liveBadge"><div id="liveDot"></div>EN VIVO</div>
 
