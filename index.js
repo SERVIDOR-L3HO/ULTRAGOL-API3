@@ -2373,7 +2373,7 @@ app.get("/stream7", async (req, res) => {
     @keyframes spin{to{transform:rotate(360deg)}}
     #loader p{font-size:13px;color:rgba(255,255,255,.5);letter-spacing:.5px}
     #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none;transition:opacity .4s}
-    #logo img{height:40px;width:auto;opacity:.15;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));transition:opacity .4s}
+    #logo img{height:52px;width:auto;opacity:.15;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));transition:opacity .4s}
     #wrap:hover #logo img{opacity:.06}
     #controls{position:absolute;bottom:0;left:0;right:0;padding:0 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
     #wrap:hover #controls,#wrap.showCtrl #controls{opacity:1}
@@ -2670,7 +2670,7 @@ app.get("/stream7", async (req, res) => {
 
     /* ── Logo Ultragol ── */
     #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none;transition:opacity .4s}
-    #logo img{height:40px;width:auto;opacity:.15;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));transition:opacity .4s}
+    #logo img{height:52px;width:auto;opacity:.15;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));transition:opacity .4s}
     #wrap:hover #logo img{opacity:.06}
 
     /* ── Controles custom ── */
@@ -3063,7 +3063,7 @@ function buildDirectHlsPlayer(m3u8Src, baseUrl) {
     @keyframes spin{to{transform:rotate(360deg)}}
     #loader p{font-size:13px;color:rgba(255,255,255,.5)}
     #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none}
-    #logo img{height:40px;opacity:.15;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7))}
+    #logo img{height:52px;opacity:.15;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7))}
     #controls{position:absolute;bottom:0;left:0;right:0;padding:0 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
     #wrap:hover #controls,#wrap.showCtrl #controls{opacity:1}
     #btnRow{display:flex;align-items:center;gap:10px;margin-top:6px}
@@ -3238,7 +3238,7 @@ function buildLivePlayer(m3u8Src, baseUrl) {
       position:absolute;top:14px;right:14px;z-index:12;
       pointer-events:none;transition:opacity .5s;
     }
-    #logo img{height:40px;width:auto;opacity:.15;filter:drop-shadow(0 2px 8px rgba(0,0,0,.8));transition:opacity .5s}
+    #logo img{height:52px;width:auto;opacity:.15;filter:drop-shadow(0 2px 8px rgba(0,0,0,.8));transition:opacity .5s}
     #wrap:hover #logo img,#wrap.showCtrl #logo img{opacity:.06}
 
     /* ── Badge LIVE ── */
