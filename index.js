@@ -1410,16 +1410,16 @@ app.get("/transmisiones2", async (req, res) => {
     const enriched = {
       ...data,
       transmisiones: (data.transmisiones || []).map(t => {
-        let stream7Url = null;
+        let finalUrl = t.url;
         if (t.url) {
           try {
             const hostname = new URL(t.url).hostname;
             if (stream7Allowed.some(d => hostname === d || hostname.endsWith("." + d))) {
-              stream7Url = `${baseUrl}/stream7?url=${encodeURIComponent(t.url)}`;
+              finalUrl = `${baseUrl}/stream7?url=${encodeURIComponent(t.url)}`;
             }
           } catch {}
         }
-        return { ...t, stream7Url };
+        return { ...t, url: finalUrl };
       })
     };
     res.json(enriched);
