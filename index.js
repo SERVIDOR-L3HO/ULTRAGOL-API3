@@ -62,6 +62,8 @@ const {
   scrapCanalesPremium
 } = require("./src/scrapers/canales");
 
+const { scrapCanales2 } = require("./src/scrapers/canales2");
+
 const { 
   scrapMarcadoresLigaMX,
   scrapMarcadoresPremier,
@@ -4389,6 +4391,32 @@ app.get("/canales/premium", async (req, res) => {
     res.status(500).json({ 
       error: "No se pudieron obtener los canales premium",
       detalles: error.message 
+    });
+  }
+});
+
+
+app.get("/canales2", async (req, res) => {
+  try {
+    const conStreams = req.query.streams === "true";
+    const cacheKey = conStreams ? "canales2_streams" : "canales2";
+
+    let data = cache.get(cacheKey);
+
+    if (!data) {
+      console.log(`📺 Obteniendo canales2 desde tvplusgratis2.com (streams=${conStreams}) - caché vacío...`);
+      data = await scrapCanales2(conStreams);
+      if (data.success) {
+        cache.set(cacheKey, data, 1800);
+      }
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /canales2:", error.message);
+    res.status(500).json({
+      error: "No se pudieron obtener los canales de tvplusgratis2.com",
+      detalles: error.message
     });
   }
 });
