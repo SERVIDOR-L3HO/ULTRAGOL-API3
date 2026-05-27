@@ -2364,50 +2364,72 @@ app.get("/stream7", async (req, res) => {
   <title>${vidTitle} - L3HO</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    :root{--red:#e74c3c;--red2:#c0392b;--bg:#0a0a0a;--ctrl:#111}
+    :root{--a:#f59e0b;--b:#f97316;--grad:linear-gradient(135deg,#f59e0b,#f97316);--glow:rgba(249,115,22,.45);--bg:#0a0805}
     html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;color:#fff}
     #wrap{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000}
     video{width:100%;height:100%;object-fit:contain;display:block}
     #loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;z-index:20;gap:16px}
-    .spinner{width:52px;height:52px;border:4px solid rgba(255,255,255,.1);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite}
+    .spin-ring{width:48px;height:48px;border-radius:50%;border:3px solid transparent;border-top-color:#f59e0b;border-right-color:#f97316;animation:spin .9s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
-    #loader p{font-size:13px;color:rgba(255,255,255,.5);letter-spacing:.5px}
+    #loader p{font-size:12px;color:var(--a);letter-spacing:.8px;font-weight:600}
     #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none;transition:opacity .4s}
-    #logo img{height:52px;width:auto;opacity:.15;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));transition:opacity .4s}
-    #wrap:hover #logo img{opacity:.06}
+    #logo img{height:48px;width:auto;opacity:.12;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));transition:opacity .4s}
+    #wrap:hover #logo img{opacity:.05}
     #controls{position:absolute;bottom:0;left:0;right:0;padding:0 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
     #wrap:hover #controls,#wrap.showCtrl #controls{opacity:1}
     #progressWrap{position:relative;height:20px;cursor:pointer;display:flex;align-items:center;margin-bottom:4px}
     #progressBg{position:absolute;left:0;right:0;height:3px;background:rgba(255,255,255,.2);border-radius:2px;transition:height .15s}
     #progressWrap:hover #progressBg{height:5px}
-    #progressFill{position:absolute;left:0;height:100%;background:var(--red);border-radius:2px;width:0%;transition:width .2s linear}
-    #progressThumb{position:absolute;width:13px;height:13px;background:#fff;border-radius:50%;top:50%;transform:translateY(-50%) scale(0);transition:transform .15s;box-shadow:0 0 4px rgba(0,0,0,.6);left:0}
+    #progressFill{position:absolute;left:0;height:100%;background:var(--grad);border-radius:2px;width:0%;transition:width .2s linear}
+    #progressThumb{position:absolute;width:12px;height:12px;background:#fff;border-radius:50%;top:50%;transform:translateY(-50%) scale(0);transition:transform .15s;box-shadow:0 0 4px rgba(0,0,0,.6);left:0}
     #progressWrap:hover #progressThumb{transform:translateY(-50%) scale(1)}
     #btnRow{display:flex;align-items:center;gap:10px}
-    .btn{background:none;border:none;color:#fff;cursor:pointer;padding:6px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .15s}
-    .btn:hover{background:rgba(255,255,255,.12)}
-    .btn svg{width:20px;height:20px;fill:currentColor}
-    #volSlider{-webkit-appearance:none;appearance:none;width:72px;height:3px;background:rgba(255,255,255,.3);border-radius:2px;outline:none;cursor:pointer}
-    #volSlider::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:#fff;border-radius:50%;cursor:pointer}
+    .btn{background:none;border:none;color:rgba(255,255,255,.75);cursor:pointer;padding:6px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+    .btn:hover{background:rgba(255,255,255,.1)}
+    .btn:active{background:rgba(245,158,11,.18)}
+    .btn svg{width:20px;height:20px;fill:url(#iconGrad)}
+    #volWrap{position:relative}
+    #volPanel{
+      position:absolute;bottom:calc(100% + 12px);left:50%;
+      transform:translateX(-50%) translateY(8px) scale(.9);
+      transform-origin:bottom center;
+      display:flex;flex-direction:column;align-items:center;gap:6px;
+      padding:10px 8px;border-radius:14px;
+      background:rgba(10,8,5,.88);border:1px solid rgba(245,158,11,.25);
+      backdrop-filter:blur(16px);box-shadow:0 8px 24px rgba(0,0,0,.6);
+      opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:20;
+    }
+    #volPanel.open{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0) scale(1)}
+    #volPct{font-size:10px;font-weight:700;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    #volTrack{position:relative;width:8px;height:80px;background:rgba(255,255,255,.12);border-radius:4px;overflow:visible}
+    #volFill{position:absolute;bottom:0;left:0;width:100%;border-radius:4px;background:var(--grad);transition:height .07s linear}
+    #volThumb{position:absolute;left:50%;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(245,158,11,.7);transition:bottom .07s linear;pointer-events:none;z-index:2}
+    #volSlider{position:absolute;inset:-6px;opacity:0;cursor:pointer;writing-mode:vertical-lr;direction:rtl;width:calc(100% + 12px);height:calc(100% + 12px);touch-action:none}
     #timeLabel{font-size:11px;color:rgba(255,255,255,.7);white-space:nowrap;margin-left:2px}
     #spacer{flex:1}
-    #qualityLabel{font-size:11px;background:rgba(255,255,255,.15);padding:3px 8px;border-radius:4px;color:rgba(255,255,255,.8)}
     #errOverlay{position:absolute;inset:0;background:rgba(0,0,0,.92);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:30;gap:14px;padding:24px;text-align:center}
-    #errOverlay svg{width:52px;height:52px;fill:var(--red);opacity:.8}
+    #errOverlay svg{width:52px;height:52px;fill:var(--a);opacity:.8}
     #errOverlay h2{font-size:18px;color:#fff}
     #errOverlay p{font-size:13px;color:rgba(255,255,255,.5);max-width:280px}
-    #retryBtn{background:var(--red);color:#fff;border:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.3px;transition:background .2s}
-    #retryBtn:hover{background:var(--red2)}
+    #retryBtn{background:var(--grad);color:#fff;border:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .2s}
+    #retryBtn:hover{opacity:.85}
     #tapFx{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5}
-    .tapCircle{width:70px;height:70px;background:rgba(255,255,255,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.5);transition:opacity .25s,transform .25s;backdrop-filter:blur(4px)}
+    .tapCircle{width:70px;height:70px;background:rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.5);transition:opacity .25s,transform .25s;backdrop-filter:blur(4px)}
     .tapCircle.show{opacity:1;transform:scale(1)}
-    .tapCircle svg{width:30px;height:30px;fill:#fff}
+    .tapCircle svg{width:30px;height:30px;fill:url(#iconGrad)}
   </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute;overflow:hidden">
+  <defs>
+    <linearGradient id="iconGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+  </defs>
+</svg>
 <div id="wrap">
   <video id="video" playsinline preload="auto"></video>
-  <div id="loader"><div class="spinner"></div><p>Cargando video...</p></div>
+  <div id="loader"><div class="spin-ring"></div><p>Cargando video...</p></div>
   <div id="logo"><img src="${baseUrl}/public/ultragol-logo.png" alt="L3HO"></div>
   <div id="tapFx"><div class="tapCircle" id="tapCircle"><svg viewBox="0 0 24 24" id="tapIcon"><path d="M8 5v14l11-7z"/></svg></div></div>
   <div id="controls">
@@ -2417,11 +2439,21 @@ app.get("/stream7", async (req, res) => {
     </div>
     <div id="btnRow">
       <button class="btn" id="btnPlay"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
-      <button class="btn" id="btnMute"><svg viewBox="0 0 24 24" id="volIcon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/></svg></button>
-      <input type="range" id="volSlider" min="0" max="1" step="0.05" value="1">
+      <div id="volWrap">
+        <button class="btn" id="btnMute" title="Volumen (M)">
+          <svg viewBox="0 0 24 24" id="volIcon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/></svg>
+        </button>
+        <div id="volPanel">
+          <span id="volPct">100%</span>
+          <div id="volTrack">
+            <div id="volFill" style="height:100%"></div>
+            <div id="volThumb" style="bottom:calc(100% - 6px)"></div>
+            <input type="range" id="volSlider" min="0" max="100" step="1" value="100">
+          </div>
+        </div>
+      </div>
       <span id="timeLabel">0:00 / 0:00</span>
       <div id="spacer"></div>
-      <span id="qualityLabel">MP4</span>
       <button class="btn" id="btnPip" title="Ventana flotante" style="display:none"><svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
       <button class="btn" id="btnFs"><svg viewBox="0 0 24 24" id="fsIcon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
     </div>
@@ -2443,12 +2475,15 @@ app.get("/stream7", async (req, res) => {
   var playIcon   = document.getElementById("playIcon");
   var btnMute    = document.getElementById("btnMute");
   var volIcon    = document.getElementById("volIcon");
+  var volPanel   = document.getElementById("volPanel");
+  var volFill    = document.getElementById("volFill");
+  var volThumb   = document.getElementById("volThumb");
+  var volPct     = document.getElementById("volPct");
   var volSlider  = document.getElementById("volSlider");
   var timeLabel  = document.getElementById("timeLabel");
   var progressFill  = document.getElementById("progressFill");
   var progressThumb = document.getElementById("progressThumb");
   var progressWrap  = document.getElementById("progressWrap");
-  var qualityLabel  = document.getElementById("qualityLabel");
   var btnFs      = document.getElementById("btnFs");
   var btnPip     = document.getElementById("btnPip");
   var wrap       = document.getElementById("wrap");
@@ -2482,15 +2517,24 @@ app.get("/stream7", async (req, res) => {
   video.addEventListener("play",  function(){ setIcon(playIcon,"pause"); setIcon(tapIcon,"pause"); });
   video.addEventListener("pause", function(){ setIcon(playIcon,"play");  setIcon(tapIcon,"play"); });
 
-  volSlider.addEventListener("input", function(){
-    video.volume = this.value; video.muted = this.value == 0;
-    setIcon(volIcon, video.muted ? "volOff" : "volOn");
+  var volPanelTimer;
+  function updateVolUIYT(){
+    var pct = video.muted ? 0 : Math.round(video.volume*100);
+    volSlider.value = pct; volPct.textContent = pct+"%";
+    volFill.style.height = pct+"%"; volThumb.style.bottom = "calc("+pct+"% - 6px)";
+    setIcon(volIcon, (video.muted||pct===0) ? "volOff" : "volOn");
+  }
+  function openVolPanelYT(){volPanel.classList.add("open");clearTimeout(volPanelTimer);volPanelTimer=setTimeout(function(){volPanel.classList.remove("open");},3000);}
+  document.getElementById("btnMute").addEventListener("click",function(e){
+    e.stopPropagation();
+    if(!volPanel.classList.contains("open")){openVolPanelYT();}
+    else{video.muted=!video.muted;updateVolUIYT();clearTimeout(volPanelTimer);volPanelTimer=setTimeout(function(){volPanel.classList.remove("open");},1800);}
   });
-  btnMute.addEventListener("click", function(){
-    video.muted = !video.muted;
-    volSlider.value = video.muted ? 0 : video.volume;
-    setIcon(volIcon, video.muted ? "volOff" : "volOn");
+  volSlider.addEventListener("input",function(){
+    var v=+this.value/100; video.volume=v; video.muted=v===0;
+    updateVolUIYT(); clearTimeout(volPanelTimer); volPanelTimer=setTimeout(function(){volPanel.classList.remove("open");},2500);
   });
+  wrap.addEventListener("click",function(e){if(!e.target.closest("#volWrap"))volPanel.classList.remove("open");});
 
   function fmtTime(s){ var m=Math.floor(s/60); s=Math.floor(s%60); return m+":"+(s<10?"0":"")+s; }
   video.addEventListener("timeupdate", function(){
@@ -2506,9 +2550,6 @@ app.get("/stream7", async (req, res) => {
     video.currentTime = ((e.clientX-r.left)/r.width)*video.duration;
   });
 
-  video.addEventListener("loadedmetadata", function(){
-    if(video.videoWidth && video.videoHeight){ qualityLabel.textContent = video.videoHeight+"p"; }
-  });
 
   btnFs.addEventListener("click", function(){
     var el = document.documentElement;
@@ -2645,335 +2686,6 @@ app.get("/stream7", async (req, res) => {
     res.set("Cache-Control", "no-cache");
     return res.send(buildLivePlayer(proxiedM3u8, baseUrl));
 
-    const playerPageUrl = `${baseUrl}/stream7?url=${encodeURIComponent(decodedUrl)}`;
-    const playerHtml = `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>En Vivo - L3HO</title>
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    :root{--red:#e74c3c;--red2:#c0392b;--bg:#0a0a0a;--ctrl:#111}
-    html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;color:#fff}
-
-    /* ── Wrapper ── */
-    #wrap{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000}
-    video{width:100%;height:100%;object-fit:contain;display:block}
-
-    /* ── Spinner de carga ── */
-    #loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;z-index:20;gap:16px}
-    .spinner{width:52px;height:52px;border:4px solid rgba(255,255,255,.1);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    #loader p{font-size:13px;color:rgba(255,255,255,.5);letter-spacing:.5px}
-
-    /* ── Logo Ultragol ── */
-    #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none;transition:opacity .4s}
-    #logo img{height:52px;width:auto;opacity:.15;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));transition:opacity .4s}
-    #wrap:hover #logo img{opacity:.06}
-
-    /* ── Controles custom ── */
-    #controls{position:absolute;bottom:0;left:0;right:0;padding:0 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
-    #wrap:hover #controls,#wrap.showCtrl #controls{opacity:1}
-
-    /* Progress bar */
-    #progressWrap{position:relative;height:20px;cursor:pointer;display:flex;align-items:center;margin-bottom:4px}
-    #progressBg{position:absolute;left:0;right:0;height:3px;background:rgba(255,255,255,.2);border-radius:2px;transition:height .15s}
-    #progressWrap:hover #progressBg{height:5px}
-    #progressFill{position:absolute;left:0;height:100%;background:var(--red);border-radius:2px;width:0%;transition:width .2s linear}
-    #progressThumb{position:absolute;width:13px;height:13px;background:#fff;border-radius:50%;top:50%;transform:translateY(-50%) scale(0);transition:transform .15s;box-shadow:0 0 4px rgba(0,0,0,.6);left:0}
-    #progressWrap:hover #progressThumb{transform:translateY(-50%) scale(1)}
-    #liveBar{position:absolute;left:0;right:0;height:100%;background:linear-gradient(90deg,rgba(231,76,60,.6),rgba(231,76,60,.2));border-radius:2px}
-
-    /* Botones */
-    #btnRow{display:flex;align-items:center;gap:10px}
-    .btn{background:none;border:none;color:#fff;cursor:pointer;padding:6px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .15s}
-    .btn:hover{background:rgba(255,255,255,.12)}
-    .btn svg{width:20px;height:20px;fill:currentColor}
-    #volSlider{-webkit-appearance:none;appearance:none;width:72px;height:3px;background:rgba(255,255,255,.3);border-radius:2px;outline:none;cursor:pointer}
-    #volSlider::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:#fff;border-radius:50%;cursor:pointer}
-    #timeLabel{font-size:11px;color:rgba(255,255,255,.7);white-space:nowrap;margin-left:2px}
-    #spacer{flex:1}
-    #qualityLabel{font-size:11px;background:rgba(255,255,255,.15);padding:3px 8px;border-radius:4px;color:rgba(255,255,255,.8)}
-
-    /* ── Overlay error ── */
-    #errOverlay{position:absolute;inset:0;background:rgba(0,0,0,.92);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:30;gap:14px;padding:24px;text-align:center}
-    #errOverlay svg{width:52px;height:52px;fill:var(--red);opacity:.8}
-    #errOverlay h2{font-size:18px;color:#fff}
-    #errOverlay p{font-size:13px;color:rgba(255,255,255,.5);max-width:280px}
-    #retryBtn{background:var(--red);color:#fff;border:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.3px;transition:background .2s}
-    #retryBtn:hover{background:var(--red2)}
-
-    /* ── Centro play/pause tap ── */
-    #tapFx{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5}
-    .tapCircle{width:70px;height:70px;background:rgba(255,255,255,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.5);transition:opacity .25s,transform .25s;backdrop-filter:blur(4px)}
-    .tapCircle.show{opacity:1;transform:scale(1)}
-    .tapCircle svg{width:30px;height:30px;fill:#fff}
-  </style>
-</head>
-<body>
-<div id="wrap">
-  <video id="video" playsinline></video>
-
-  <!-- Loader -->
-  <div id="loader">
-    <div class="spinner"></div>
-    <p>Conectando al stream...</p>
-  </div>
-
-  <!-- Logo Ultragol -->
-  <div id="logo">
-    <img src="/public/ultragol-logo.png" alt="Ultragol">
-  </div>
-
-  <!-- Tap feedback (centro) -->
-  <div id="tapFx"><div class="tapCircle" id="tapCircle">
-    <svg viewBox="0 0 24 24" id="tapIcon"><path d="M8 5v14l11-7z"/></svg>
-  </div></div>
-
-  <!-- Controles -->
-  <div id="controls">
-    <div id="progressWrap" id="progressBar">
-      <div id="progressBg">
-        <div id="liveBar" style="display:none"></div>
-        <div id="progressFill"></div>
-      </div>
-      <div id="progressThumb"></div>
-    </div>
-    <div id="btnRow">
-      <button class="btn" id="btnPlay" title="Play/Pause">
-        <svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg>
-      </button>
-      <button class="btn" id="btnMute" title="Silenciar">
-        <svg viewBox="0 0 24 24" id="volIcon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/></svg>
-      </button>
-      <input type="range" id="volSlider" min="0" max="1" step="0.05" value="1">
-      <span id="timeLabel">EN VIVO</span>
-      <div id="spacer"></div>
-      <span id="qualityLabel">HD</span>
-      <button class="btn" id="btnPip" title="Ventana flotante (PiP)" style="display:none">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg>
-      </button>
-      <button class="btn" id="btnFs" title="Pantalla completa">
-        <svg viewBox="0 0 24 24" id="fsIcon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
-      </button>
-    </div>
-  </div>
-
-  <!-- Error overlay -->
-  <div id="errOverlay">
-    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-    <h2>Stream no disponible</h2>
-    <p>El canal puede no estar transmitiendo en este momento.</p>
-    <button id="retryBtn">&#8635; Reintentar</button>
-  </div>
-</div>
-
-<script>
-(function(){
-  var SRC = "${proxiedM3u8}";
-  var video    = document.getElementById("video");
-  var loader   = document.getElementById("loader");
-  var errOverlay = document.getElementById("errOverlay");
-  var btnPlay  = document.getElementById("btnPlay");
-  var playIcon = document.getElementById("playIcon");
-  var btnMute  = document.getElementById("btnMute");
-  var volIcon  = document.getElementById("volIcon");
-  var volSlider= document.getElementById("volSlider");
-  var timeLabel= document.getElementById("timeLabel");
-  var progressFill = document.getElementById("progressFill");
-  var progressThumb= document.getElementById("progressThumb");
-  var progressWrap = document.getElementById("progressWrap");
-  var liveBar  = document.getElementById("liveBar");
-  var qualityLabel = document.getElementById("qualityLabel");
-  var btnFs    = document.getElementById("btnFs");
-  var btnPip   = document.getElementById("btnPip");
-  var wrap     = document.getElementById("wrap");
-  var tapCircle= document.getElementById("tapCircle");
-  var tapIcon  = document.getElementById("tapIcon");
-  var retries  = 0;
-  var maxRetries = 3;
-  var hlsInstance = null;
-  var isLive = true;
-  var ctrlTimer;
-
-  /* ── Icons ── */
-  var ICONS = {
-    play:  '<path d="M8 5v14l11-7z"/>',
-    pause: '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>',
-    volOn: '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/>',
-    volOff:'<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>',
-    fsOn:  '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>',
-    fsOff: '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>'
-  };
-
-  function setIcon(el, key){ el.innerHTML = ICONS[key]; }
-
-  /* ── Show/hide loader ── */
-  function showLoader(msg){ loader.querySelector("p").textContent = msg||"Conectando al stream..."; loader.style.display="flex"; }
-  function hideLoader(){ loader.style.display="none"; }
-  function showError(){ errOverlay.style.display="flex"; loader.style.display="none"; }
-
-  /* ── Controls auto-hide ── */
-  function showCtrl(){ wrap.classList.add("showCtrl"); clearTimeout(ctrlTimer); ctrlTimer=setTimeout(()=>wrap.classList.remove("showCtrl"),3000); }
-  wrap.addEventListener("mousemove", showCtrl);
-  wrap.addEventListener("touchstart", showCtrl, {passive:true});
-
-  /* ── Play/Pause ── */
-  function togglePlay(){
-    if(video.paused){ video.play(); setIcon(playIcon,"pause"); setIcon(tapIcon,"pause"); }
-    else { video.pause(); setIcon(playIcon,"play"); setIcon(tapIcon,"play"); }
-    flashTap();
-  }
-  btnPlay.addEventListener("click", function(e){ e.stopPropagation(); togglePlay(); });
-  video.addEventListener("click", togglePlay);
-  video.addEventListener("play",  function(){ setIcon(playIcon,"pause"); });
-  video.addEventListener("pause", function(){ setIcon(playIcon,"play"); });
-
-  /* ── Tap circle feedback ── */
-  var tapTimer;
-  function flashTap(){
-    tapCircle.classList.add("show");
-    clearTimeout(tapTimer);
-    tapTimer = setTimeout(()=>tapCircle.classList.remove("show"), 600);
-  }
-
-  /* ── Volume ── */
-  volSlider.addEventListener("input", function(){
-    video.volume = this.value;
-    video.muted = this.value == 0;
-    setIcon(volIcon, video.muted ? "volOff" : "volOn");
-  });
-  btnMute.addEventListener("click", function(){
-    video.muted = !video.muted;
-    volSlider.value = video.muted ? 0 : video.volume;
-    setIcon(volIcon, video.muted ? "volOff" : "volOn");
-  });
-
-  /* ── Progress ── */
-  function updateProgress(){
-    if(isLive || !video.duration){ return; }
-    var pct = (video.currentTime / video.duration) * 100;
-    progressFill.style.width = pct + "%";
-    progressThumb.style.left = pct + "%";
-    var cur = fmtTime(video.currentTime), dur = fmtTime(video.duration);
-    timeLabel.textContent = cur + " / " + dur;
-  }
-  video.addEventListener("timeupdate", updateProgress);
-
-  function fmtTime(s){ var m=Math.floor(s/60); s=Math.floor(s%60); return m+":"+(s<10?"0":"")+s; }
-
-  progressWrap.addEventListener("click", function(e){
-    if(isLive||!video.duration) return;
-    var r=this.getBoundingClientRect();
-    video.currentTime = ((e.clientX-r.left)/r.width)*video.duration;
-  });
-
-  /* ── Fullscreen ── */
-  btnFs.addEventListener("click", function(){
-    var el = document.documentElement;
-    if(!document.fullscreenElement && !document.webkitFullscreenElement){
-      (el.requestFullscreen||el.webkitRequestFullscreen).call(el);
-      setIcon(document.getElementById("fsIcon"),"fsOff");
-    } else {
-      (document.exitFullscreen||document.webkitExitFullscreen).call(document);
-      setIcon(document.getElementById("fsIcon"),"fsOn");
-    }
-  });
-
-  /* ── Picture-in-Picture ── */
-  if(document.pictureInPictureEnabled){
-    btnPip.style.display = "flex";
-    btnPip.addEventListener("click", function(){
-      if(document.pictureInPictureElement){
-        document.exitPictureInPicture().catch(function(){});
-      } else {
-        video.requestPictureInPicture().catch(function(){});
-      }
-    });
-    video.addEventListener("enterpictureinpicture", function(){
-      btnPip.title = "Salir de ventana flotante";
-      btnPip.style.opacity = "1";
-      btnPip.querySelector("svg").style.fill = "var(--red)";
-    });
-    video.addEventListener("leavepictureinpicture", function(){
-      btnPip.title = "Ventana flotante (PiP)";
-      btnPip.querySelector("svg").style.fill = "currentColor";
-    });
-  }
-
-  /* ── HLS Player ── */
-  function initPlayer(){
-    showLoader(retries>0 ? "Reintentando... ("+retries+"/"+maxRetries+")" : "Conectando al stream...");
-    errOverlay.style.display = "none";
-
-    if(hlsInstance){ hlsInstance.destroy(); hlsInstance=null; }
-
-    if(Hls.isSupported()){
-      var hls = new Hls({
-        maxBufferLength: 20,
-        liveSyncDurationCount: 3,
-        manifestLoadingMaxRetry: 3,
-        levelLoadingMaxRetry: 3,
-        enableWorker: true
-      });
-      hlsInstance = hls;
-      hls.loadSource(SRC);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, function(e, data){
-        hideLoader();
-        isLive = video.duration === Infinity || isNaN(video.duration);
-        if(isLive){
-          liveBar.style.display="block";
-          progressFill.style.width="100%";
-          timeLabel.textContent="EN VIVO";
-        }
-        // Quality label
-        var lvl = hls.levels[hls.currentLevel];
-        if(lvl && lvl.height){ qualityLabel.textContent = lvl.height+"p"; }
-        video.play().catch(function(){});
-        retries = 0;
-      });
-
-      hls.on(Hls.Events.LEVEL_SWITCHED, function(e, data){
-        var lvl = hls.levels[data.level];
-        if(lvl && lvl.height){ qualityLabel.textContent = lvl.height+"p"; }
-      });
-
-      hls.on(Hls.Events.ERROR, function(e, data){
-        if(data.fatal){
-          hls.destroy(); hlsInstance=null;
-          if(retries < maxRetries){
-            retries++;
-            showLoader("Error, reintentando... ("+retries+"/"+maxRetries+")");
-            setTimeout(initPlayer, 3000);
-          } else { showError(); }
-        }
-      });
-    } else if(video.canPlayType("application/vnd.apple.mpegurl")){
-      video.src = SRC;
-      video.addEventListener("loadedmetadata", function(){ hideLoader(); video.play().catch(function(){}); });
-      video.addEventListener("error", function(){
-        if(retries<maxRetries){ retries++; setTimeout(initPlayer,3000); }
-        else showError();
-      });
-    } else { showError(); }
-  }
-
-  document.getElementById("retryBtn").addEventListener("click", function(){ retries=0; initPlayer(); });
-  initPlayer();
-})();
-</script>
-</body>
-</html>`;
-
-    res.set("Content-Type", "text/html; charset=utf-8");
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("X-Frame-Options", "ALLOWALL");
-    res.set("Cache-Control", "no-cache");
-    res.send(playerHtml);
   } catch (error) {
     console.error("❌ stream7 error:", error.message);
     res.status(502).send(`No se pudo obtener el stream: ${error.message}`);
@@ -3050,51 +2762,69 @@ function buildDirectHlsPlayer(m3u8Src, baseUrl) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>En Vivo - L3HO</title>
+  <title>En Vivo — L3HO</title>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
     *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    :root{--red:#e74c3c;--red2:#c0392b;--bg:#0a0a0a}
+    :root{--a:#f59e0b;--b:#f97316;--grad:linear-gradient(135deg,#f59e0b,#f97316);--glow:rgba(249,115,22,.45);--bg:#0a0805}
     html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;color:#fff}
     #wrap{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000}
     video{width:100%;height:100%;object-fit:contain;display:block}
     #loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;z-index:20;gap:16px}
-    .spinner{width:52px;height:52px;border:4px solid rgba(255,255,255,.1);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite}
+    .spin-ring{width:48px;height:48px;border-radius:50%;border:3px solid transparent;border-top-color:#f59e0b;border-right-color:#f97316;animation:spin .9s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
-    #loader p{font-size:13px;color:rgba(255,255,255,.5)}
+    #loader p{font-size:12px;color:var(--a);letter-spacing:.8px;font-weight:600}
     #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none}
-    #logo img{height:52px;opacity:.15;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7))}
+    #logo img{height:48px;opacity:.12;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7))}
+    #liveBadge{
+      position:absolute;top:12px;left:12px;z-index:12;
+      display:flex;align-items:center;gap:4px;
+      padding:3px 8px;border-radius:20px;
+      background:rgba(0,0,0,.72);border:1px solid rgba(245,158,11,.45);
+      backdrop-filter:blur(10px);
+      font-size:9.5px;font-weight:700;letter-spacing:1px;opacity:1;
+      animation:badgeGlow 2.4s ease-in-out infinite;
+    }
+    @keyframes badgeGlow{
+      0%,100%{box-shadow:0 0 0 0 rgba(249,115,22,0),0 0 6px rgba(245,158,11,.2)}
+      50%{box-shadow:0 0 0 3px rgba(249,115,22,.18),0 0 10px rgba(245,158,11,.35)}
+    }
+    #liveDot{width:6px;height:6px;border-radius:50%;background:var(--grad);box-shadow:0 0 6px var(--glow);animation:dotPulse 1.8s ease-in-out infinite}
+    @keyframes dotPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.65)}}
     #controls{position:absolute;bottom:0;left:0;right:0;padding:0 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
     #wrap:hover #controls,#wrap.showCtrl #controls{opacity:1}
     #btnRow{display:flex;align-items:center;gap:10px;margin-top:6px}
-    .btn{background:none;border:none;color:#fff;cursor:pointer;padding:6px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .15s}
-    .btn:hover{background:rgba(255,255,255,.12)}
-    .btn svg{width:20px;height:20px;fill:currentColor}
-    #timeLabel{font-size:11px;color:rgba(255,255,255,.7);margin-left:2px}
+    .btn{background:none;border:none;color:rgba(255,255,255,.75);cursor:pointer;padding:6px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
+    .btn:hover{background:rgba(255,255,255,.1)}
+    .btn:active{background:rgba(245,158,11,.18)}
+    .btn svg{width:20px;height:20px;fill:url(#iconGrad)}
     #spacer{flex:1}
-    #qualityLabel{font-size:11px;background:rgba(255,255,255,.15);padding:3px 8px;border-radius:4px;color:rgba(255,255,255,.8)}
-    #liveBadge{font-size:11px;font-weight:700;background:var(--red);padding:3px 8px;border-radius:4px;letter-spacing:.5px}
     #errOverlay{position:absolute;inset:0;background:rgba(0,0,0,.92);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:30;gap:14px;padding:24px;text-align:center}
-    #errOverlay svg{width:52px;height:52px;fill:var(--red);opacity:.8}
+    #errOverlay svg{width:52px;height:52px;fill:var(--a);opacity:.8}
     #errOverlay h2{font-size:18px}
     #errOverlay p{font-size:13px;color:rgba(255,255,255,.5);max-width:280px}
-    #retryBtn{background:var(--red);color:#fff;border:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
-    #retryBtn:hover{background:var(--red2)}
+    #retryBtn{background:var(--grad);color:#fff;border:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .2s}
+    #retryBtn:hover{opacity:.85}
   </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute;overflow:hidden">
+  <defs>
+    <linearGradient id="iconGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+  </defs>
+</svg>
 <div id="wrap">
   <video id="video" playsinline></video>
-  <div id="loader"><div class="spinner"></div><p>Conectando al stream...</p></div>
+  <div id="loader"><div class="spin-ring"></div><p>CONECTANDO...</p></div>
   <div id="logo"><img src="${baseUrl}/public/ultragol-logo.png" alt="L3HO"></div>
+  <div id="liveBadge"><div id="liveDot"></div>EN VIVO</div>
   <div id="controls">
     <div id="btnRow">
       <button class="btn" id="btnPlay"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
       <button class="btn" id="btnMute"><svg viewBox="0 0 24 24" id="volIcon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/></svg></button>
-      <span id="timeLabel">EN VIVO</span>
       <div id="spacer"></div>
-      <span id="liveBadge">EN VIVO</span>
-      <span id="qualityLabel">HD</span>
       <button class="btn" id="btnFs"><svg viewBox="0 0 24 24" id="fsIcon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
     </div>
   </div>
@@ -4267,53 +3997,89 @@ app.get("/canal-player", (req, res) => {
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
     *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    :root{--red:#e74c3c;--red2:#c0392b;--bg:#0d0d0d;--card:#161616;--border:#222}
+    :root{--a:#f59e0b;--b:#f97316;--grad:linear-gradient(135deg,#f59e0b,#f97316);--glow:rgba(249,115,22,.45);--bg:#0a0805}
     html,body{width:100%;height:100%;background:var(--bg);font-family:'Segoe UI',Arial,sans-serif;color:#fff;overflow:hidden}
 
-    /* ── Player ── */
     #playerWrap{position:relative;width:100%;height:100%;background:#000}
     video{width:100%;height:100%;object-fit:contain;display:block}
 
     #loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;z-index:20;gap:14px}
-    .spinner{width:48px;height:48px;border:4px solid rgba(255,255,255,.1);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite}
+    .spin-ring{width:48px;height:48px;border-radius:50%;border:3px solid transparent;border-top-color:#f59e0b;border-right-color:#f97316;animation:spin .9s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
-    #loader p{font-size:13px;color:rgba(255,255,255,.5)}
+    #loader p{font-size:12px;color:var(--a);letter-spacing:.8px;font-weight:600}
+
+    #liveBadge{
+      position:absolute;top:12px;left:12px;z-index:12;
+      display:flex;align-items:center;gap:4px;
+      padding:3px 8px;border-radius:20px;
+      background:rgba(0,0,0,.72);border:1px solid rgba(245,158,11,.45);
+      backdrop-filter:blur(10px);font-size:9.5px;font-weight:700;letter-spacing:1px;opacity:1;
+      animation:badgeGlow 2.4s ease-in-out infinite;
+    }
+    @keyframes badgeGlow{
+      0%,100%{box-shadow:0 0 0 0 rgba(249,115,22,0),0 0 6px rgba(245,158,11,.2)}
+      50%{box-shadow:0 0 0 3px rgba(249,115,22,.18),0 0 10px rgba(245,158,11,.35)}
+    }
+    #liveDot{width:6px;height:6px;border-radius:50%;background:var(--grad);box-shadow:0 0 6px var(--glow);animation:dotPulse 1.8s ease-in-out infinite}
+    @keyframes dotPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.65)}}
 
     #controls{position:absolute;bottom:0;left:0;right:0;padding:0 12px 8px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
     #playerWrap:hover #controls,#playerWrap.showCtrl #controls{opacity:1}
     #progressWrap{position:relative;height:18px;cursor:pointer;display:flex;align-items:center;margin-bottom:2px}
     #progressBg{position:absolute;left:0;right:0;height:3px;background:rgba(255,255,255,.2);border-radius:2px}
     #progressWrap:hover #progressBg{height:5px}
-    #liveBar{position:absolute;left:0;right:0;height:100%;background:linear-gradient(90deg,rgba(231,76,60,.6),rgba(231,76,60,.2));border-radius:2px}
-    #progressFill{position:absolute;left:0;height:100%;background:var(--red);border-radius:2px;width:0%}
+    #liveBar{position:absolute;left:0;right:0;height:100%;background:linear-gradient(90deg,rgba(245,158,11,.5),rgba(249,115,22,.2));border-radius:2px}
+    #progressFill{position:absolute;left:0;height:100%;background:var(--grad);border-radius:2px;width:0%}
     #btnRow{display:flex;align-items:center;gap:8px}
-    .btn{background:none;border:none;color:#fff;cursor:pointer;padding:5px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .15s}
-    .btn:hover{background:rgba(255,255,255,.12)}
-    .btn svg{width:20px;height:20px;fill:currentColor}
-    #volSlider{-webkit-appearance:none;appearance:none;width:64px;height:3px;background:rgba(255,255,255,.3);border-radius:2px;outline:none;cursor:pointer}
-    #volSlider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;background:#fff;border-radius:50%;cursor:pointer}
+    .btn{background:none;border:none;color:rgba(255,255,255,.75);cursor:pointer;padding:5px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+    .btn:hover{background:rgba(255,255,255,.1)}
+    .btn:active{background:rgba(245,158,11,.18)}
+    .btn svg{width:20px;height:20px;fill:url(#iconGrad)}
+    #volWrap{position:relative}
+    #volPanel{
+      position:absolute;bottom:calc(100% + 12px);left:50%;
+      transform:translateX(-50%) translateY(8px) scale(.9);transform-origin:bottom center;
+      display:flex;flex-direction:column;align-items:center;gap:6px;
+      padding:10px 8px;border-radius:14px;
+      background:rgba(10,8,5,.88);border:1px solid rgba(245,158,11,.25);
+      backdrop-filter:blur(16px);box-shadow:0 8px 24px rgba(0,0,0,.6);
+      opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:20;
+    }
+    #volPanel.open{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0) scale(1)}
+    #volPct{font-size:10px;font-weight:700;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    #volTrack{position:relative;width:8px;height:80px;background:rgba(255,255,255,.12);border-radius:4px;overflow:visible}
+    #volFill{position:absolute;bottom:0;left:0;width:100%;border-radius:4px;background:var(--grad);transition:height .07s linear}
+    #volThumb{position:absolute;left:50%;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(245,158,11,.7);transition:bottom .07s linear;pointer-events:none;z-index:2}
+    #volSlider{position:absolute;inset:-6px;opacity:0;cursor:pointer;writing-mode:vertical-lr;direction:rtl;width:calc(100% + 12px);height:calc(100% + 12px);touch-action:none}
     #timeLabel{font-size:11px;color:rgba(255,255,255,.7);white-space:nowrap;margin-left:2px}
     #spacer{flex:1}
-    #qualityLabel{font-size:11px;background:rgba(255,255,255,.15);padding:2px 7px;border-radius:4px;color:rgba(255,255,255,.8)}
 
     #errOverlay{position:absolute;inset:0;background:rgba(0,0,0,.92);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:30;gap:12px;padding:24px;text-align:center}
-    #errOverlay svg{width:48px;height:48px;fill:var(--red);opacity:.8}
+    #errOverlay svg{width:48px;height:48px;fill:var(--a);opacity:.8}
     #errOverlay h2{font-size:17px}
     #errOverlay p{font-size:12px;color:rgba(255,255,255,.5);max-width:260px}
-    #retryBtn{background:var(--red);color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s}
-    #retryBtn:hover{background:var(--red2)}
+    #retryBtn{background:var(--grad);color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .2s}
+    #retryBtn:hover{opacity:.85}
 
     #tapFx{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5}
     .tapCircle{width:64px;height:64px;background:rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.5);transition:opacity .25s,transform .25s;backdrop-filter:blur(4px)}
     .tapCircle.show{opacity:1;transform:scale(1)}
-    .tapCircle svg{width:28px;height:28px;fill:#fff}
+    .tapCircle svg{width:28px;height:28px;fill:url(#iconGrad)}
 
   </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute;overflow:hidden">
+  <defs>
+    <linearGradient id="iconGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+  </defs>
+</svg>
 <div id="playerWrap">
   <video id="video" playsinline></video>
-  <div id="loader"><div class="spinner"></div><p>Conectando al stream...</p></div>
+  <div id="loader"><div class="spin-ring"></div><p>Conectando al stream...</p></div>
+  <div id="liveBadge"><div id="liveDot"></div>EN VIVO</div>
   <div id="tapFx"><div class="tapCircle" id="tapCircle">
     <svg viewBox="0 0 24 24" id="tapIcon"><path d="M8 5v14l11-7z"/></svg>
   </div></div>
@@ -4323,11 +4089,21 @@ app.get("/canal-player", (req, res) => {
     </div>
     <div id="btnRow">
       <button class="btn" id="btnPlay"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
-      <button class="btn" id="btnMute"><svg viewBox="0 0 24 24" id="volIcon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/></svg></button>
-      <input type="range" id="volSlider" min="0" max="1" step="0.05" value="1">
+      <div id="volWrap">
+        <button class="btn" id="btnMute" title="Volumen">
+          <svg viewBox="0 0 24 24" id="volIcon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/></svg>
+        </button>
+        <div id="volPanel">
+          <span id="volPct">100%</span>
+          <div id="volTrack">
+            <div id="volFill" style="height:100%"></div>
+            <div id="volThumb" style="bottom:calc(100% - 6px)"></div>
+            <input type="range" id="volSlider" min="0" max="100" step="1" value="100">
+          </div>
+        </div>
+      </div>
       <span id="timeLabel">EN VIVO</span>
       <div id="spacer"></div>
-      <span id="qualityLabel">HD</span>
       <button class="btn" id="btnPip" title="PiP" style="display:none"><svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
       <button class="btn" id="btnFs"><svg viewBox="0 0 24 24" id="fsIcon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
     </div>
@@ -4351,11 +4127,14 @@ app.get("/canal-player", (req, res) => {
   var playIcon = document.getElementById("playIcon");
   var btnMute = document.getElementById("btnMute");
   var volIcon = document.getElementById("volIcon");
+  var volPanel = document.getElementById("volPanel");
+  var volFill = document.getElementById("volFill");
+  var volThumb = document.getElementById("volThumb");
+  var volPct = document.getElementById("volPct");
   var volSlider = document.getElementById("volSlider");
   var timeLabel = document.getElementById("timeLabel");
   var progressFill = document.getElementById("progressFill");
   var liveBar = document.getElementById("liveBar");
-  var qualityLabel = document.getElementById("qualityLabel");
   var btnFs = document.getElementById("btnFs");
   var btnPip = document.getElementById("btnPip");
   var wrap = document.getElementById("playerWrap");
@@ -4394,8 +4173,24 @@ app.get("/canal-player", (req, res) => {
   var tapTimer;
   function flashTap(){tapCircle.classList.add("show");clearTimeout(tapTimer);tapTimer=setTimeout(()=>tapCircle.classList.remove("show"),600);}
 
-  volSlider.addEventListener("input",function(){video.volume=this.value;video.muted=this.value==0;setIcon(volIcon,video.muted?"volOff":"volOn");});
-  btnMute.addEventListener("click",function(){video.muted=!video.muted;volSlider.value=video.muted?0:video.volume;setIcon(volIcon,video.muted?"volOff":"volOn");});
+  var volPanelTimer;
+  function updateVolUICanal(){
+    var pct=video.muted?0:Math.round(video.volume*100);
+    volSlider.value=pct;volPct.textContent=pct+"%";
+    volFill.style.height=pct+"%";volThumb.style.bottom="calc("+pct+"% - 6px)";
+    setIcon(volIcon,(video.muted||pct===0)?"volOff":"volOn");
+  }
+  function openVolPanelCanal(){volPanel.classList.add("open");clearTimeout(volPanelTimer);volPanelTimer=setTimeout(function(){volPanel.classList.remove("open");},3000);}
+  btnMute.addEventListener("click",function(e){
+    e.stopPropagation();
+    if(!volPanel.classList.contains("open")){openVolPanelCanal();}
+    else{video.muted=!video.muted;updateVolUICanal();clearTimeout(volPanelTimer);volPanelTimer=setTimeout(function(){volPanel.classList.remove("open");},1800);}
+  });
+  volSlider.addEventListener("input",function(){
+    var v=+this.value/100;video.volume=v;video.muted=v===0;
+    updateVolUICanal();clearTimeout(volPanelTimer);volPanelTimer=setTimeout(function(){volPanel.classList.remove("open");},2500);
+  });
+  wrap.addEventListener("click",function(e){if(!e.target.closest("#volWrap"))volPanel.classList.remove("open");});
 
   btnFs.addEventListener("click",function(){
     var el=document.documentElement;
@@ -4424,13 +4219,9 @@ app.get("/canal-player", (req, res) => {
         hideLoader();
         isLive=video.duration===Infinity||isNaN(video.duration);
         if(isLive){liveBar.style.display="block";progressFill.style.width="100%";timeLabel.textContent="EN VIVO";}
-        var lvl=hls.levels[hls.currentLevel];
-        if(lvl&&lvl.height){qualityLabel.textContent=lvl.height+"p";}
         video.play().catch(function(){});retries=0;
       });
-      hls.on(Hls.Events.LEVEL_SWITCHED,function(e,data){
-        var lvl=hls.levels[data.level];if(lvl&&lvl.height){qualityLabel.textContent=lvl.height+"p";}
-      });
+      hls.on(Hls.Events.LEVEL_SWITCHED,function(e,data){});
       hls.on(Hls.Events.ERROR,function(e,data){
         if(data.fatal){hls.destroy();hlsInstance=null;
           if(retries<maxRetries){retries++;showLoader("Error, reintentando... ("+retries+"/"+maxRetries+")");setTimeout(function(){initPlayer(STREAMS[currentIdx].url);},3000);}
