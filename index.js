@@ -3473,6 +3473,21 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     /* ── Botón cast ── */
     #btnCast svg{width:18px;height:18px}
     #btnCast.casting{color:var(--a)}
+
+    /* ── Zoom ── */
+    video{transform-origin:center center;transition:transform .3s cubic-bezier(.25,.46,.45,.94)}
+    #wrap{overflow:hidden}
+    #btnZoom.zoomed{color:var(--a)}
+    #zoomBadge{
+      position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:13;
+      padding:4px 12px;border-radius:999px;
+      background:rgba(0,0,0,.6);border:1px solid rgba(245,158,11,.35);
+      backdrop-filter:blur(12px);
+      font-size:11px;font-weight:700;color:var(--a);letter-spacing:.6px;
+      pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;
+      transform:translateX(-50%) translateY(-6px);
+    }
+    #zoomBadge.show{opacity:1;transform:translateX(-50%) translateY(0)}
   </style>
 </head>
 <body>
@@ -3542,6 +3557,9 @@ function buildLivePlayer(m3u8Src, baseUrl) {
         <button id="btnQuality">LIVE</button>
         <div id="qualityMenu"></div>
       </div>
+      <button class="btn" id="btnZoom" title="Zoom (Z)">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/><path d="M12 10h-2v2H9v-2H7V9h2V7h1v2h2v1z"/></svg>
+      </button>
       <button class="btn" id="btnPip" title="Ventana flotante" style="display:none">
         <svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg>
       </button>
@@ -3555,6 +3573,7 @@ function buildLivePlayer(m3u8Src, baseUrl) {
   </div>
 
   <div id="bitrateBadge"></div>
+  <div id="zoomBadge">🔍 1×</div>
 
   <!-- Error -->
   <div id="errOverlay">
@@ -3715,6 +3734,31 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     });
   }
 
+  /* ── Zoom ── */
+  var zoomLevels = [1, 1.25, 1.5, 1.75, 2];
+  var zoomIdx = 0;
+  var btnZoom = document.getElementById('btnZoom');
+  var zoomBadge = document.getElementById('zoomBadge');
+  var zoomBadgeTimer;
+  function applyZoom(showBadge){
+    var scale = zoomLevels[zoomIdx];
+    video.style.transform = scale === 1 ? '' : 'scale('+scale+')';
+    btnZoom.classList.toggle('zoomed', scale !== 1);
+    if(showBadge){
+      var label = scale === 1 ? '🔍 1×' : '🔍 ' + scale + '×';
+      zoomBadge.textContent = label;
+      zoomBadge.classList.add('show');
+      clearTimeout(zoomBadgeTimer);
+      zoomBadgeTimer = setTimeout(function(){ zoomBadge.classList.remove('show'); }, 1500);
+      showToast(label);
+    }
+  }
+  btnZoom.addEventListener('click', function(e){
+    e.stopPropagation();
+    zoomIdx = (zoomIdx + 1) % zoomLevels.length;
+    applyZoom(true);
+  });
+
   /* ── Selector de calidad ── */
   function buildQualityMenu(){
     qualityMenu.innerHTML = '';
@@ -3752,6 +3796,7 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     if(e.target.tagName==='INPUT') return;
     if(e.code==='Space'||e.key===' '){ e.preventDefault(); togglePlay(); }
     else if(e.key==='f'||e.key==='F'){ btnFs.click(); }
+    else if(e.key==='z'||e.key==='Z'){ btnZoom.click(); }
     else if(e.key==='m'||e.key==='M'){ document.getElementById('btnMute').click(); }
     else if(e.key==='ArrowRight' && !isLive){ video.currentTime=Math.min(video.currentTime+10,video.duration||0); showToast('+10s'); }
     else if(e.key==='ArrowLeft'  && !isLive){ video.currentTime=Math.max(video.currentTime-10,0); showToast('-10s'); }
