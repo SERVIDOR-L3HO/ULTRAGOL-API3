@@ -3361,11 +3361,11 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     }
     .btn:hover{color:#fff;background:rgba(255,255,255,.1)}
     .btn:active{background:rgba(245,158,11,.18)}
-    .btn svg{width:20px;height:20px;fill:currentColor}
+    .btn svg{width:20px;height:20px;fill:url(#iconGrad)}
 
     /* botón play más grande */
     #btnPlay{padding:8px}
-    #btnPlay svg{width:24px;height:24px}
+    #btnPlay svg{width:24px;height:24px;fill:url(#iconGrad)}
 
     /* ── Volumen popup ── */
     #volWrap{position:relative}
@@ -3416,7 +3416,7 @@ function buildLivePlayer(m3u8Src, baseUrl) {
       touch-action:none;
     }
     #volIcon8{
-      width:14px;height:14px;fill:rgba(255,255,255,.3);flex-shrink:0;
+      width:14px;height:14px;fill:url(#iconGradFade);flex-shrink:0;
     }
 
     #spacer{flex:1}
@@ -3496,6 +3496,19 @@ function buildLivePlayer(m3u8Src, baseUrl) {
   </style>
 </head>
 <body>
+<!-- SVG gradient defs for icon fills -->
+<svg width="0" height="0" style="position:absolute;overflow:hidden">
+  <defs>
+    <linearGradient id="iconGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+    <linearGradient id="iconGradFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity=".35"/>
+      <stop offset="100%" stop-color="#f97316" stop-opacity=".35"/>
+    </linearGradient>
+  </defs>
+</svg>
 <div id="wrap">
   <video id="video" playsinline></video>
 
