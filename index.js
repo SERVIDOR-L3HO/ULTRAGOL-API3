@@ -3180,8 +3180,16 @@ function buildLivePlayer(m3u8Src, baseUrl) {
       --bg:#0a0805;
     }
 
-    html,body{
-      width:100%;height:100%;
+    html{
+      width:100%;
+      height:100%;
+      height:-webkit-fill-available;
+    }
+    body{
+      width:100%;
+      height:100%;
+      height:100dvh;
+      min-height:-webkit-fill-available;
       background:var(--bg);
       overflow:hidden;
       font-family:'Inter',system-ui,sans-serif;
@@ -3474,9 +3482,9 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     #btnCast svg{width:18px;height:18px}
     #btnCast.casting{color:var(--a)}
 
-    /* ── Zoom ── */
-    video{transform-origin:center center;transition:transform .3s cubic-bezier(.25,.46,.45,.94)}
-    #wrap{overflow:hidden}
+    /* ── Zoom + pan ── */
+    video{transform-origin:center center;will-change:transform;touch-action:none}
+    #wrap{overflow:hidden;touch-action:none}
     #btnZoom.zoomed{color:var(--a)}
     #zoomBadge{
       position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:13;
@@ -3484,8 +3492,9 @@ function buildLivePlayer(m3u8Src, baseUrl) {
       background:rgba(0,0,0,.6);border:1px solid rgba(245,158,11,.35);
       backdrop-filter:blur(12px);
       font-size:11px;font-weight:700;color:var(--a);letter-spacing:.6px;
-      pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;
-      transform:translateX(-50%) translateY(-6px);
+      pointer-events:none;opacity:0;
+      transition:opacity .25s,transform .25s;
+      transform:translateX(-50%) translateY(-8px);
     }
     #zoomBadge.show{opacity:1;transform:translateX(-50%) translateY(0)}
   </style>
@@ -3734,30 +3743,101 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     });
   }
 
-  /* ── Zoom ── */
+  /* ── Zoom + pinch-to-zoom + pan ── */
   var zoomLevels = [1, 1.25, 1.5, 1.75, 2];
   var zoomIdx = 0;
+  var curScale = 1, panX = 0, panY = 0;
   var btnZoom = document.getElementById('btnZoom');
   var zoomBadge = document.getElementById('zoomBadge');
   var zoomBadgeTimer;
-  function applyZoom(showBadge){
-    var scale = zoomLevels[zoomIdx];
-    video.style.transform = scale === 1 ? '' : 'scale('+scale+')';
-    btnZoom.classList.toggle('zoomed', scale !== 1);
-    if(showBadge){
-      var label = scale === 1 ? '🔍 1×' : '🔍 ' + scale + '×';
-      zoomBadge.textContent = label;
-      zoomBadge.classList.add('show');
-      clearTimeout(zoomBadgeTimer);
-      zoomBadgeTimer = setTimeout(function(){ zoomBadge.classList.remove('show'); }, 1500);
-      showToast(label);
-    }
+
+  function clampPan(){
+    var maxX = (curScale - 1) * wrap.clientWidth  / 2;
+    var maxY = (curScale - 1) * wrap.clientHeight / 2;
+    panX = Math.max(-maxX, Math.min(maxX, panX));
+    panY = Math.max(-maxY, Math.min(maxY, panY));
   }
+
+  function applyTransform(animated){
+    if(animated){ video.style.transition = 'transform .3s cubic-bezier(.25,.46,.45,.94)'; }
+    else { video.style.transition = 'none'; }
+    if(curScale <= 1){
+      curScale = 1; panX = 0; panY = 0;
+      video.style.transform = '';
+    } else {
+      clampPan();
+      video.style.transform = 'translate('+panX+'px,'+panY+'px) scale('+curScale+')';
+    }
+    btnZoom.classList.toggle('zoomed', curScale > 1);
+  }
+
+  function showZoomBadge(scale){
+    var s = Math.round(scale * 100) / 100;
+    var label = s <= 1 ? '🔍 Normal' : '🔍 ' + s + '×';
+    zoomBadge.textContent = label;
+    zoomBadge.classList.add('show');
+    clearTimeout(zoomBadgeTimer);
+    zoomBadgeTimer = setTimeout(function(){ zoomBadge.classList.remove('show'); }, 1600);
+    showToast(label);
+  }
+
+  /* Button cycles preset levels */
   btnZoom.addEventListener('click', function(e){
     e.stopPropagation();
     zoomIdx = (zoomIdx + 1) % zoomLevels.length;
-    applyZoom(true);
+    curScale = zoomLevels[zoomIdx];
+    panX = 0; panY = 0;
+    applyTransform(true);
+    showZoomBadge(curScale);
   });
+
+  /* ── Pinch-to-zoom + one-finger pan ── */
+  var pinchStartDist = 0, pinchStartScale = 1;
+  var panStartX = 0, panStartY = 0, panStartTX = 0, panStartTY = 0;
+  var isPinching = false, isPanning = false;
+
+  function touchDist(t){ var dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY; return Math.sqrt(dx*dx+dy*dy); }
+
+  wrap.addEventListener('touchstart', function(e){
+    if(e.touches.length === 2){
+      isPinching = true; isPanning = false;
+      pinchStartDist  = touchDist(e.touches);
+      pinchStartScale = curScale;
+    } else if(e.touches.length === 1 && curScale > 1){
+      isPanning = true; isPinching = false;
+      panStartX  = panX; panStartY  = panY;
+      panStartTX = e.touches[0].clientX;
+      panStartTY = e.touches[0].clientY;
+    }
+  }, {passive:true});
+
+  wrap.addEventListener('touchmove', function(e){
+    if(isPinching && e.touches.length === 2){
+      e.preventDefault();
+      var dist = touchDist(e.touches);
+      curScale = Math.max(1, Math.min(3, pinchStartScale * dist / pinchStartDist));
+      /* Sync zoomIdx to nearest preset */
+      var ni = 0;
+      zoomLevels.forEach(function(l,i){ if(Math.abs(l-curScale)<Math.abs(zoomLevels[ni]-curScale)) ni=i; });
+      zoomIdx = ni;
+      applyTransform(false);
+    } else if(isPanning && e.touches.length === 1 && curScale > 1){
+      e.preventDefault();
+      panX = panStartX + (e.touches[0].clientX - panStartTX);
+      panY = panStartY + (e.touches[0].clientY - panStartTY);
+      applyTransform(false);
+    }
+  }, {passive:false});
+
+  wrap.addEventListener('touchend', function(e){
+    if(e.touches.length < 2) isPinching = false;
+    if(e.touches.length === 0){
+      isPanning = false;
+      /* Snap back to 1× if barely zoomed */
+      if(curScale < 1.08){ curScale = 1; panX = 0; panY = 0; zoomIdx = 0; applyTransform(true); }
+      showZoomBadge(curScale);
+    }
+  }, {passive:true});
 
   /* ── Selector de calidad ── */
   function buildQualityMenu(){
