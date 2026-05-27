@@ -14,10 +14,11 @@ async function scrapCanales2({ pais, categoria, buscar, limite } = {}) {
   console.log("📺 Obteniendo canales de IPTV-org (iptv-org.github.io)...");
 
   try {
-    const [channels, streams, countries] = await Promise.all([
+    const [channels, streams, countries, logos] = await Promise.all([
       fetchJson(`${IPTV_API}/channels.json`),
       fetchJson(`${IPTV_API}/streams.json`),
-      fetchJson(`${IPTV_API}/countries.json`)
+      fetchJson(`${IPTV_API}/countries.json`),
+      fetchJson(`${IPTV_API}/logos.json`)
     ]);
 
     // Mapa de streams por canal
@@ -25,6 +26,15 @@ async function scrapCanales2({ pais, categoria, buscar, limite } = {}) {
     for (const s of streams) {
       if (!streamMap[s.channel]) streamMap[s.channel] = [];
       streamMap[s.channel].push(s.url);
+    }
+
+    // Mapa de logos por canal (preferir in_use=true)
+    const logoMap = {};
+    for (const l of logos) {
+      if (!l.channel) continue;
+      if (!logoMap[l.channel] || l.in_use) {
+        logoMap[l.channel] = l.url;
+      }
     }
 
     // Mapa de países
@@ -40,7 +50,7 @@ async function scrapCanales2({ pais, categoria, buscar, limite } = {}) {
         const info = countryMap[c.country] || { nombre: c.country || "Desconocido", bandera: null };
         return {
           nombre: c.name,
-          logo: c.logo || null,
+          logo: logoMap[c.id] || null,
           pais: info.nombre,
           codigoPais: c.country || null,
           bandera: info.bandera,
