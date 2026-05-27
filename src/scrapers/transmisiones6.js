@@ -3,6 +3,7 @@ const axios = require("axios");
 const BASE_DOMAIN =
   process.env.BASE_URL ||
   (process.env.REPLIT_DEV_DOMAIN && `https://${process.env.REPLIT_DEV_DOMAIN}`) ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`) ||
   (process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`) ||
   (process.env.RAILWAY_STATIC_URL && `https://${process.env.RAILWAY_STATIC_URL}`) ||
   process.env.RENDER_EXTERNAL_URL ||
