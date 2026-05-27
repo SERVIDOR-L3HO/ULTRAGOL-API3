@@ -4398,14 +4398,19 @@ app.get("/canales/premium", async (req, res) => {
 
 app.get("/canales2", async (req, res) => {
   try {
-    const conStreams = req.query.streams === "true";
-    const cacheKey = conStreams ? "canales2_streams" : "canales2";
+    const { pais, categoria, buscar, limite } = req.query;
+    const tienesFiltros = pais || categoria || buscar || limite;
+
+    // Sin filtros: usar caché de 30 min
+    const cacheKey = tienesFiltros
+      ? `canales2_${pais||""}_${categoria||""}_${buscar||""}_${limite||""}`
+      : "canales2";
 
     let data = cache.get(cacheKey);
 
     if (!data) {
-      console.log(`📺 Obteniendo canales2 desde tvplusgratis2.com (streams=${conStreams}) - caché vacío...`);
-      data = await scrapCanales2(conStreams);
+      console.log("📺 Obteniendo canales2 desde IPTV-org - caché vacío...");
+      data = await scrapCanales2({ pais, categoria, buscar, limite });
       if (data.success) {
         cache.set(cacheKey, data, 1800);
       }
@@ -4415,7 +4420,7 @@ app.get("/canales2", async (req, res) => {
   } catch (error) {
     console.error("Error en /canales2:", error.message);
     res.status(500).json({
-      error: "No se pudieron obtener los canales de tvplusgratis2.com",
+      error: "No se pudieron obtener los canales de IPTV-org",
       detalles: error.message
     });
   }

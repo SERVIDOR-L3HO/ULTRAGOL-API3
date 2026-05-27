@@ -1,161 +1,111 @@
 const axios = require("axios");
-const cheerio = require("cheerio");
 
-const BASE_URL = "https://www.tvplusgratis2.com";
+const IPTV_API = "https://iptv-org.github.io/api";
 
-const HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-  "Accept-Language": "es-MX,es;q=0.9,en;q=0.8",
-  "Accept-Encoding": "gzip, deflate, br",
-  "Referer": "https://www.google.com/",
-  "Connection": "keep-alive",
-  "Cache-Control": "no-cache"
-};
-
-async function fetchPage(url, timeout = 12000) {
+async function fetchJson(url) {
   const res = await axios.get(url, {
-    headers: HEADERS,
-    timeout,
-    maxRedirects: 5
+    timeout: 30000,
+    headers: { "Accept": "application/json" }
   });
   return res.data;
 }
 
-async function getStreamFromPage(pageUrl) {
-  try {
-    const html = await fetchPage(pageUrl, 10000);
-    const $ = cheerio.load(html);
-
-    // Buscar m3u8 directas en el HTML
-    const m3u8Match = html.match(/https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/);
-    if (m3u8Match) return { tipo: "m3u8", url: m3u8Match[0] };
-
-    // Buscar iframes de reproductores (excluir anuncios)
-    const iframes = [];
-    $("iframe").each((_, el) => {
-      const src = $(el).attr("src") || $(el).attr("data-src") || "";
-      if (
-        src &&
-        src !== "" &&
-        !src.includes("ads") &&
-        !src.includes("doubleclick") &&
-        !src.includes("google") &&
-        !src.includes("facebook")
-      ) {
-        iframes.push(src.startsWith("http") ? src : BASE_URL + src);
-      }
-    });
-
-    if (iframes.length > 0) return { tipo: "iframe", url: iframes[0] };
-
-    return { tipo: "pagina", url: pageUrl };
-  } catch {
-    return { tipo: "pagina", url: pageUrl };
-  }
-}
-
-async function scrapCanales2(conStreams = false) {
-  console.log("📺 Obteniendo canales de tvplusgratis2.com...");
+async function scrapCanales2({ pais, categoria, buscar, limite } = {}) {
+  console.log("📺 Obteniendo canales de IPTV-org (iptv-org.github.io)...");
 
   try {
-    const html = await fetchPage(BASE_URL);
-    const $ = cheerio.load(html);
+    const [channels, streams, countries] = await Promise.all([
+      fetchJson(`${IPTV_API}/channels.json`),
+      fetchJson(`${IPTV_API}/streams.json`),
+      fetchJson(`${IPTV_API}/countries.json`)
+    ]);
 
-    const canalesMap = new Map();
+    // Mapa de streams por canal
+    const streamMap = {};
+    for (const s of streams) {
+      if (!streamMap[s.channel]) streamMap[s.channel] = [];
+      streamMap[s.channel].push(s.url);
+    }
 
-    // Selector principal: todos los enlaces a páginas -en-vivo
-    $("a").each((_, el) => {
-      const href = $(el).attr("href") || "";
-      if (!href.includes("-en-vivo")) return;
+    // Mapa de países
+    const countryMap = {};
+    for (const c of countries) {
+      countryMap[c.code] = { nombre: c.name, bandera: c.flag || null };
+    }
 
-      const fullUrl = href.startsWith("http") ? href : BASE_URL + "/" + href.replace(/^\//, "");
-      if (canalesMap.has(fullUrl)) return;
-
-      const img = $(el).find("img").first();
-      let nombre = img.attr("alt") || $(el).attr("title") || $(el).text().trim();
-      nombre = nombre
-        .replace(/en\s*vivo/gi, "")
-        .replace(/ver\s*/gi, "")
-        .replace(/\s{2,}/g, " ")
-        .trim();
-
-      if (!nombre) return;
-
-      let logo = img.attr("src") || img.attr("data-src") || img.attr("data-lazy-src") || null;
-      if (logo && !logo.startsWith("http")) logo = BASE_URL + "/" + logo.replace(/^\//, "");
-
-      canalesMap.set(fullUrl, { nombre, logo: logo || null, pagina: fullUrl });
-    });
-
-    // Fallback: buscar imágenes dentro de enlaces -en-vivo
-    if (canalesMap.size === 0) {
-      $("img").each((_, el) => {
-        const parent = $(el).closest("a");
-        const href = parent.attr("href") || "";
-        if (!href.includes("-en-vivo")) return;
-
-        const fullUrl = href.startsWith("http") ? href : BASE_URL + "/" + href.replace(/^\//, "");
-        if (canalesMap.has(fullUrl)) return;
-
-        const nombre = ($(el).attr("alt") || "").replace(/en\s*vivo/gi, "").trim();
-        if (!nombre) return;
-
-        let logo = $(el).attr("src") || $(el).attr("data-src") || null;
-        if (logo && !logo.startsWith("http")) logo = BASE_URL + "/" + logo.replace(/^\//, "");
-
-        canalesMap.set(fullUrl, { nombre, logo: logo || null, pagina: fullUrl });
+    // Solo canales que tienen al menos un stream
+    let canales = channels
+      .filter(c => streamMap[c.id] && streamMap[c.id].length > 0)
+      .map(c => {
+        const info = countryMap[c.country] || { nombre: c.country || "Desconocido", bandera: null };
+        return {
+          nombre: c.name,
+          logo: c.logo || null,
+          pais: info.nombre,
+          codigoPais: c.country || null,
+          bandera: info.bandera,
+          categorias: c.categories || [],
+          idiomas: c.languages || [],
+          sitioWeb: c.website || null,
+          streams: streamMap[c.id]
+        };
       });
+
+    // Filtros opcionales
+    if (pais) {
+      const p = pais.toLowerCase();
+      canales = canales.filter(c =>
+        c.codigoPais?.toLowerCase() === p ||
+        c.pais?.toLowerCase().includes(p)
+      );
     }
 
-    let canales = Array.from(canalesMap.values());
-    console.log(`🔎 Encontrados ${canales.length} canales`);
-
-    // Obtener streams solo si se solicita explícitamente
-    if (conStreams && canales.length > 0) {
-      console.log("🔗 Obteniendo streams de cada canal (puede tardar)...");
-      const BATCH = 10;
-      for (let i = 0; i < canales.length; i += BATCH) {
-        const lote = canales.slice(i, i + BATCH);
-        const resultados = await Promise.all(lote.map(c => getStreamFromPage(c.pagina)));
-        resultados.forEach((r, idx) => {
-          canales[i + idx].streamTipo = r.tipo;
-          canales[i + idx].streamUrl = r.url;
-        });
-      }
-    } else {
-      canales = canales.map(c => ({
-        ...c,
-        streamTipo: "pagina",
-        streamUrl: c.pagina
-      }));
+    if (categoria) {
+      const cat = categoria.toLowerCase();
+      canales = canales.filter(c =>
+        c.categorias.some(x => x.toLowerCase().includes(cat))
+      );
     }
 
-    console.log(`✅ tvplusgratis2.com: ${canales.length} canales obtenidos`);
+    if (buscar) {
+      const q = buscar.toLowerCase();
+      canales = canales.filter(c => c.nombre.toLowerCase().includes(q));
+    }
+
+    if (limite && !isNaN(parseInt(limite))) {
+      canales = canales.slice(0, parseInt(limite));
+    }
+
+    console.log(`✅ IPTV-org: ${canales.length} canales con streams disponibles`);
 
     return {
       success: true,
-      fuente: "tvplusgratis2.com",
-      sitio: BASE_URL,
+      fuente: "iptv-org (github.com/iptv-org/iptv)",
+      sitio: "https://iptv-org.github.io",
       totalCanales: canales.length,
-      streamsResueltos: conStreams,
-      nota: conStreams
-        ? "streamUrl contiene el iframe/m3u8 extraído de cada canal"
-        : "Usa ?streams=true para resolver el iframe/m3u8 de cada canal (más lento)",
+      totalConStreams: canales.length,
+      filtros: { pais: pais || null, categoria: categoria || null, buscar: buscar || null },
+      nota: "Cada canal incluye uno o más streams M3U8 directos. Puedes filtrar con ?pais=MX, ?categoria=sports, ?buscar=espn, ?limite=50",
       actualizado: new Date().toISOString(),
       canales: canales.map(c => ({
         nombre: c.nombre,
         logo: c.logo,
-        pagina: c.pagina,
-        streamTipo: c.streamTipo,
-        streamUrl: c.streamUrl
+        pais: c.pais,
+        codigoPais: c.codigoPais,
+        bandera: c.bandera,
+        categorias: c.categorias,
+        idiomas: c.idiomas,
+        sitioWeb: c.sitioWeb,
+        totalStreams: c.streams.length,
+        streamPrincipal: c.streams[0],
+        streams: c.streams
       }))
     };
   } catch (error) {
     console.error("❌ Error en scrapCanales2:", error.message);
     return {
       success: false,
-      fuente: "tvplusgratis2.com",
+      fuente: "iptv-org",
       error: error.message,
       totalCanales: 0,
       canales: []
@@ -163,4 +113,4 @@ async function scrapCanales2(conStreams = false) {
   }
 }
 
-module.exports = { scrapCanales2, getStreamFromPage };
+module.exports = { scrapCanales2 };
