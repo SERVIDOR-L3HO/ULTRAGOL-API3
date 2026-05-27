@@ -3367,51 +3367,59 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     #btnPlay{padding:8px}
     #btnPlay svg{width:24px;height:24px}
 
-    /* ── Volumen ── */
-    #volWrap{display:flex;align-items:center;gap:6px}
+    /* ── Volumen popup ── */
+    #volWrap{position:relative}
+    #volPanel{
+      position:absolute;bottom:calc(100% + 14px);left:50%;
+      transform:translateX(-50%) translateY(8px) scale(.9);
+      transform-origin:bottom center;
+      width:42px;padding:12px 0 10px;
+      background:rgba(8,6,3,.94);
+      border:1px solid rgba(245,158,11,.22);
+      border-radius:21px;
+      backdrop-filter:blur(22px);
+      box-shadow:0 12px 40px rgba(0,0,0,.75),0 0 0 1px rgba(245,158,11,.07),inset 0 1px 0 rgba(255,255,255,.06);
+      display:flex;flex-direction:column;align-items:center;gap:8px;
+      opacity:0;pointer-events:none;
+      transition:opacity .22s,transform .22s;
+      z-index:20;
+    }
+    #volPanel.open{opacity:1;pointer-events:all;transform:translateX(-50%) translateY(0) scale(1)}
+    #volPct{
+      font-size:10px;font-weight:800;letter-spacing:.4px;
+      background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+      min-height:13px;line-height:1;
+    }
+    #volTrack{
+      position:relative;width:4px;height:88px;
+      background:rgba(255,255,255,.08);border-radius:99px;
+      overflow:visible;
+    }
+    #volFill{
+      position:absolute;bottom:0;left:0;right:0;border-radius:99px;
+      background:linear-gradient(to top,var(--b),var(--a));
+      box-shadow:0 0 12px rgba(249,115,22,.55);
+      transition:height .07s linear;
+    }
+    #volThumb{
+      position:absolute;left:50%;transform:translateX(-50%);
+      width:13px;height:13px;border-radius:50%;
+      background:#fff;
+      box-shadow:0 0 0 2px rgba(245,158,11,.7),0 2px 8px rgba(0,0,0,.6);
+      transition:bottom .07s linear;
+      pointer-events:none;z-index:2;
+    }
     #volSlider{
-      -webkit-appearance:none;appearance:none;
-      width:68px;height:3px;
-      background:rgba(255,255,255,.25);border-radius:99px;
-      outline:none;cursor:pointer;transition:width .2s;
+      position:absolute;inset:-6px;opacity:0;cursor:pointer;
+      writing-mode:vertical-lr;direction:rtl;
+      width:calc(100% + 12px);height:calc(100% + 12px);
+      touch-action:none;
     }
-    #volSlider::-webkit-slider-thumb{
-      -webkit-appearance:none;
-      width:13px;height:13px;
-      background:#fff;border-radius:50%;cursor:pointer;
-      box-shadow:0 0 0 2px rgba(245,158,11,.5);
+    #volIcon8{
+      width:14px;height:14px;fill:rgba(255,255,255,.3);flex-shrink:0;
     }
-    #volPct{font-size:11px;color:rgba(255,255,255,.55);min-width:28px;font-variant-numeric:tabular-nums}
 
     #spacer{flex:1}
-
-    /* ── Selector de calidad ── */
-    #qualityWrap{position:relative}
-    #btnQuality{
-      font-size:11px;font-weight:600;letter-spacing:.5px;
-      padding:4px 10px;border-radius:20px;
-      background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);
-      color:var(--a);cursor:pointer;transition:all .2s;
-    }
-    #btnQuality:hover{background:rgba(245,158,11,.25);border-color:rgba(245,158,11,.5)}
-    #qualityMenu{
-      position:absolute;bottom:36px;right:0;
-      background:rgba(15,10,5,.92);border:1px solid rgba(245,158,11,.2);
-      border-radius:10px;overflow:hidden;
-      backdrop-filter:blur(16px);
-      display:none;min-width:90px;
-      box-shadow:0 8px 24px rgba(0,0,0,.6),0 0 0 1px rgba(245,158,11,.1);
-    }
-    #qualityMenu.open{display:block}
-    .qItem{
-      padding:9px 14px;font-size:12px;font-weight:500;cursor:pointer;
-      transition:background .15s;color:rgba(255,255,255,.8);
-      display:flex;align-items:center;gap:8px;
-    }
-    .qItem:hover{background:rgba(245,158,11,.15);color:#fff}
-    .qItem.active{color:var(--a);font-weight:700}
-    .qItem.active::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--a);flex-shrink:0}
-    .qItem:not(.active)::before{content:'';width:6px;height:6px;flex-shrink:0}
 
     /* ── Overlay de error glass ── */
     #errOverlay{
@@ -3439,19 +3447,7 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     #retryBtn:hover{opacity:.88;transform:translateY(-1px)}
     #retryBtn:active{transform:translateY(0)}
 
-    /* ── Toast de acción ── */
-    #toast{
-      position:absolute;top:50%;left:50%;
-      transform:translate(-50%,-50%) scale(.85);
-      background:rgba(0,0,0,.7);border:1px solid rgba(245,158,11,.25);
-      backdrop-filter:blur(14px);
-      padding:10px 20px;border-radius:999px;
-      font-size:13px;font-weight:600;color:var(--a);
-      pointer-events:none;z-index:20;
-      opacity:0;transition:opacity .2s,transform .2s;
-      white-space:nowrap;
-    }
-    #toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+    /* toast removed */
 
     /* ── Buffer overlay ── */
     #bufferSpinner{
@@ -3538,9 +3534,6 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     </div>
   </div>
 
-  <!-- Toast -->
-  <div id="toast"></div>
-
   <!-- Controles -->
   <div id="controls">
     <div id="progressWrap">
@@ -3555,17 +3548,20 @@ function buildLivePlayer(m3u8Src, baseUrl) {
         <svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg>
       </button>
       <div id="volWrap">
-        <button class="btn" id="btnMute" title="Silencio (M)">
+        <button class="btn" id="btnMute" title="Volumen (M)">
           <svg viewBox="0 0 24 24" id="volIcon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/></svg>
         </button>
-        <input type="range" id="volSlider" min="0" max="1" step="0.02" value="1">
-        <span id="volPct">100%</span>
+        <div id="volPanel">
+          <span id="volPct">100%</span>
+          <div id="volTrack">
+            <div id="volFill" style="height:100%"></div>
+            <div id="volThumb" style="bottom:calc(100% - 6px)"></div>
+            <input type="range" id="volSlider" min="0" max="100" step="1" value="100">
+          </div>
+          <svg id="volIcon8" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+        </div>
       </div>
       <div id="spacer"></div>
-      <div id="qualityWrap">
-        <button id="btnQuality">LIVE</button>
-        <div id="qualityMenu"></div>
-      </div>
       <button class="btn" id="btnZoom" title="Zoom (Z)">
         <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/><path d="M12 10h-2v2H9v-2H7V9h2V7h1v2h2v1z"/></svg>
       </button>
@@ -3609,16 +3605,13 @@ function buildLivePlayer(m3u8Src, baseUrl) {
   var progressThumb = document.getElementById('progressThumb');
   var progressWrap  = document.getElementById('progressWrap');
   var liveBar     = document.getElementById('liveBar');
-  var btnQuality  = document.getElementById('btnQuality');
-  var qualityMenu = document.getElementById('qualityMenu');
   var btnFs       = document.getElementById('btnFs');
   var btnPip      = document.getElementById('btnPip');
   var wrap        = document.getElementById('wrap');
   var tapCircle   = document.getElementById('tapCircle');
   var rippleLeft  = document.getElementById('rippleLeft');
   var rippleRight = document.getElementById('rippleRight');
-  var toast       = document.getElementById('toast');
-  var ctrlTimer, toastTimer;
+  var ctrlTimer;
   var hls, hlsLevels = [], currentLevel = -1;
   var isLive = true;
 
@@ -3632,13 +3625,7 @@ function buildLivePlayer(m3u8Src, baseUrl) {
   };
   function si(el,k){ el.innerHTML = ICONS[k]; }
 
-  /* ── Toast ── */
-  function showToast(msg){
-    clearTimeout(toastTimer);
-    toast.textContent = msg;
-    toast.classList.add('show');
-    toastTimer = setTimeout(function(){ toast.classList.remove('show'); }, 1400);
-  }
+  function showToast(){}
 
   /* ── Mostrar controles ── */
   function showCtrl(){
@@ -3690,22 +3677,54 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     handleTap('r');
   });
 
-  /* ── Volumen ── */
+  /* ── Volumen popup ── */
+  var volPanel  = document.getElementById('volPanel');
+  var volFill   = document.getElementById('volFill');
+  var volThumb  = document.getElementById('volThumb');
+  var volPct    = document.getElementById('volPct');
+  var volSlider = document.getElementById('volSlider');
+  var volPanelTimer;
+
   function updateVolUI(){
-    var pct = video.muted ? 0 : Math.round(video.volume*100);
-    volSlider.value = video.muted ? 0 : video.volume;
-    volPct.textContent = pct+'%';
-    si(volIcon, video.muted ? 'volOff' : 'volOn');
+    var pct = video.muted ? 0 : Math.round(video.volume * 100);
+    volSlider.value = pct;
+    volPct.textContent = pct + '%';
+    volFill.style.height  = pct + '%';
+    volThumb.style.bottom = 'calc(' + pct + '% - 6px)';
+    si(volIcon, video.muted || pct === 0 ? 'volOff' : 'volOn');
   }
-  volSlider.addEventListener('input', function(){
-    video.volume = +this.value; video.muted = +this.value===0;
-    updateVolUI();
-    showToast((video.muted?0:Math.round(+this.value*100))+'%');
+
+  function openVolPanel(){
+    volPanel.classList.add('open');
+    clearTimeout(volPanelTimer);
+    volPanelTimer = setTimeout(closeVolPanel, 3000);
+  }
+  function closeVolPanel(){ volPanel.classList.remove('open'); }
+
+  document.getElementById('btnMute').addEventListener('click', function(e){
+    e.stopPropagation();
+    if(!volPanel.classList.contains('open')){
+      openVolPanel();
+    } else {
+      video.muted = !video.muted;
+      updateVolUI();
+      clearTimeout(volPanelTimer);
+      volPanelTimer = setTimeout(closeVolPanel, 1800);
+    }
   });
-  document.getElementById('btnMute').addEventListener('click', function(){
-    video.muted = !video.muted;
+
+  volSlider.addEventListener('input', function(){
+    var v = +this.value / 100;
+    video.volume = v; video.muted = v === 0;
     updateVolUI();
-    showToast(video.muted ? '🔇 Silenciado' : '🔊 ' + Math.round(video.volume*100)+'%');
+    clearTimeout(volPanelTimer);
+    volPanelTimer = setTimeout(closeVolPanel, 2500);
+  });
+  volSlider.addEventListener('touchstart', function(){ clearTimeout(volPanelTimer); }, {passive:true});
+
+  /* Close panel when tapping outside */
+  wrap.addEventListener('click', function(e){
+    if(!e.target.closest('#volWrap')) closeVolPanel();
   });
 
   /* ── Progreso ── */
@@ -3778,7 +3797,6 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     zoomBadge.classList.add('show');
     clearTimeout(zoomBadgeTimer);
     zoomBadgeTimer = setTimeout(function(){ zoomBadge.classList.remove('show'); }, 1600);
-    showToast(label);
   }
 
   /* Button cycles preset levels */
@@ -3839,37 +3857,6 @@ function buildLivePlayer(m3u8Src, baseUrl) {
     }
   }, {passive:true});
 
-  /* ── Selector de calidad ── */
-  function buildQualityMenu(){
-    qualityMenu.innerHTML = '';
-    var autoItem = document.createElement('div');
-    autoItem.className = 'qItem' + (currentLevel===-1?' active':'');
-    autoItem.setAttribute('data-level','-1');
-    autoItem.innerHTML = (currentLevel===-1 ? '<span></span>' : '<span></span>') + 'Auto';
-    qualityMenu.appendChild(autoItem);
-    hlsLevels.forEach(function(lvl,i){
-      var item = document.createElement('div');
-      item.className = 'qItem' + (currentLevel===i?' active':'');
-      item.setAttribute('data-level',i);
-      item.textContent = (lvl.height ? lvl.height+'p' : 'Nivel '+(i+1));
-      qualityMenu.appendChild(item);
-    });
-    qualityMenu.querySelectorAll('.qItem').forEach(function(el){
-      el.addEventListener('click', function(){
-        var lvl = parseInt(this.getAttribute('data-level'));
-        if(hls){ hls.currentLevel = lvl; currentLevel = lvl; }
-        btnQuality.textContent = lvl===-1 ? 'AUTO' : (hlsLevels[lvl]&&hlsLevels[lvl].height ? hlsLevels[lvl].height+'p' : 'N'+(lvl+1));
-        buildQualityMenu();
-        qualityMenu.classList.remove('open');
-        showToast('Calidad: ' + btnQuality.textContent);
-      });
-    });
-  }
-  btnQuality.addEventListener('click', function(e){
-    e.stopPropagation();
-    qualityMenu.classList.toggle('open');
-  });
-  document.addEventListener('click', function(){ qualityMenu.classList.remove('open'); });
 
   /* ── Teclado ── */
   document.addEventListener('keydown', function(e){
@@ -3958,12 +3945,10 @@ function buildLivePlayer(m3u8Src, baseUrl) {
         hlsLevels = data.levels || [];
         isLive = video.duration === Infinity || !video.duration;
         if(!isLive){ liveBar.style.display='none'; }
-        if(hlsLevels.length){ var h=hlsLevels[hls.currentLevel]||hlsLevels[0]; btnQuality.textContent=h&&h.height?h.height+'p':'AUTO'; }
-        buildQualityMenu(); loader.style.display='none'; reconnectAttempts=0; doPlay();
+        loader.style.display='none'; reconnectAttempts=0; doPlay();
       });
       hls.on(Hls.Events.LEVEL_SWITCHED, function(e,data){
-        currentLevel=data.level; var h=hlsLevels[data.level];
-        btnQuality.textContent=h&&h.height?h.height+'p':'AUTO'; buildQualityMenu();
+        currentLevel=data.level;
       });
       hls.on(Hls.Events.ERROR, function(e,data){
         if(data.fatal){ loader.style.display='none'; errOverlay.style.display='flex'; scheduleReconnect(); }
