@@ -3251,23 +3251,27 @@ function buildLivePlayer(m3u8Src, baseUrl) {
 
     /* ── Badge LIVE ── */
     #liveBadge{
-      position:absolute;top:14px;left:14px;z-index:12;
-      display:flex;align-items:center;gap:6px;
-      padding:5px 10px;border-radius:20px;
-      background:var(--glass);
-      border:1px solid var(--glass-border);
-      backdrop-filter:blur(12px);
-      font-size:11px;font-weight:700;letter-spacing:1.2px;
-      opacity:0;transition:opacity .3s;
+      position:absolute;top:12px;left:12px;z-index:12;
+      display:flex;align-items:center;gap:4px;
+      padding:3px 8px;border-radius:20px;
+      background:rgba(0,0,0,.72);
+      border:1px solid rgba(245,158,11,.45);
+      backdrop-filter:blur(10px);
+      font-size:9.5px;font-weight:700;letter-spacing:1px;
+      opacity:1;
+      animation:badgeGlow 2.4s ease-in-out infinite;
     }
-    #wrap.showCtrl #liveBadge,#wrap:hover #liveBadge{opacity:1}
+    @keyframes badgeGlow{
+      0%,100%{box-shadow:0 0 0 0 rgba(249,115,22,0),0 0 6px rgba(245,158,11,.2)}
+      50%{box-shadow:0 0 0 3px rgba(249,115,22,.18),0 0 10px rgba(245,158,11,.35)}
+    }
     #liveDot{
-      width:8px;height:8px;border-radius:50%;
+      width:6px;height:6px;border-radius:50%;
       background:var(--grad);
-      box-shadow:0 0 8px var(--glow);
+      box-shadow:0 0 6px var(--glow);
       animation:pulse 1.8s ease-in-out infinite;
     }
-    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.7)}}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.65)}}
 
     /* ── Zona doble-tap izq/der ── */
     .tapZone{
