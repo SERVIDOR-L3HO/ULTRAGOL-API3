@@ -1,9 +1,7 @@
 const axios = require("axios");
+const { getBaseDomain } = require("../utils/baseDomain");
 
-const BASE_DOMAIN = process.env.REPLIT_DEV_DOMAIN
-  ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-  : (process.env.BASE_URL || "http://localhost:5000");
-const GLZ_PROXY = `${BASE_DOMAIN}/ultragol-l3ho?get=`;
+const GLZ_PROXY = `${getBaseDomain()}/ultragol-l3ho?get=`;
 
 async function getScheduleData(scheduleId = null) {
   try {
