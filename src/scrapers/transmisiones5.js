@@ -1,6 +1,9 @@
 const axios = require("axios");
 
-const GLZ_PROXY = "https://ultragol-api-3.vercel.app/ultragol-l3ho?get=";
+const BASE_DOMAIN = process.env.REPLIT_DEV_DOMAIN
+  ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+  : (process.env.BASE_URL || "http://localhost:5000");
+const GLZ_PROXY = `${BASE_DOMAIN}/ultragol-l3ho?get=`;
 
 async function getScheduleData(scheduleId = null) {
   try {
