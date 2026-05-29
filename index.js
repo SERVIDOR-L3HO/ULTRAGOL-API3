@@ -111,6 +111,7 @@ const {
 } = require("./src/scrapers/estadisticas");
 
 const path = require("path");
+const { fetchSegment, fetchPlaylist, rewritePlaylist, getCacheStats } = require("./src/proxy/hlsCache");
 const { sessionConfig, securityHeaders, apiLimiter } = require("./src/middleware/auth");
 const adminKeysRouter = require("./src/routes/adminKeys");
 const app = express();
@@ -3876,6 +3877,98 @@ app.get("/hls7-seg", async (req, res) => {
     console.error("❌ hls7-seg error:", error.message);
     res.status(502).send(`Error en proxy segmento: ${error.message}`);
   }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// PROXY HLS CON CACHÉ INTELIGENTE
+// Segmentos descargados 1 sola vez, servidos a N usuarios simultáneos
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * /hls-cache?url=URL_M3U8&ref=REFERER
+ * Proxy de playlist con caché de 3 segundos.
+ * Reescribe todos los segmentos para que pasen por /hls-cache-seg
+ */
+app.get("/hls-cache", async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).send("Falta ?url=");
+
+  let decodedUrl;
+  try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
+  catch { return res.status(400).send("URL inválida"); }
+
+  const referer = req.query.ref ? decodeURIComponent(req.query.ref) : "";
+  const serverBase = `${req.protocol}://${req.get("host")}`;
+
+  try {
+    let refOrigin = "";
+    try { refOrigin = new URL(referer).origin; } catch {}
+
+    const { data, fromCache } = await fetchPlaylist(decodedUrl, {
+      "Referer": referer,
+      "Origin": refOrigin
+    });
+
+    const rewritten = rewritePlaylist(data, decodedUrl, serverBase, referer);
+
+    res.set("Content-Type", "application/vnd.apple.mpegurl");
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Cache-Control", "no-cache, no-store");
+    res.set("X-Cache", fromCache ? "HIT" : "MISS");
+    res.send(rewritten);
+  } catch (error) {
+    console.error("❌ hls-cache error:", error.message);
+    res.status(502).send(`Error proxy m3u8: ${error.message}`);
+  }
+});
+
+/**
+ * /hls-cache-seg?url=URL_SEGMENTO&ref=REFERER
+ * Proxy de segmento .ts con caché compartido entre todos los usuarios.
+ * El mismo segmento solo se descarga 1 vez del origen, sin importar
+ * cuántos usuarios lo pidan al mismo tiempo.
+ */
+app.get("/hls-cache-seg", async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).send("Falta ?url=");
+
+  let decodedUrl;
+  try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
+  catch { return res.status(400).send("URL inválida"); }
+
+  const referer = req.query.ref ? decodeURIComponent(req.query.ref) : "";
+
+  try {
+    let refOrigin = "";
+    try { refOrigin = new URL(referer).origin; } catch {}
+
+    const { data, contentType, fromCache } = await fetchSegment(decodedUrl, {
+      "Referer": referer,
+      "Origin": refOrigin
+    });
+
+    res.set("Content-Type", contentType);
+    res.set("Access-Control-Allow-Origin", "*");
+    // Segmentos HLS son inmutables — cachear en el navegador también
+    res.set("Cache-Control", "public, max-age=60");
+    res.set("X-Cache", fromCache ? "HIT" : "MISS");
+    res.send(Buffer.from(data));
+  } catch (error) {
+    console.error("❌ hls-cache-seg error:", error.message);
+    res.status(502).send(`Error proxy segmento: ${error.message}`);
+  }
+});
+
+/**
+ * /hls-cache-stats
+ * Muestra cuántos segmentos están en caché y métricas de rendimiento
+ */
+app.get("/hls-cache-stats", (req, res) => {
+  res.json({
+    success: true,
+    descripcion: "Estadísticas del proxy HLS con caché inteligente",
+    ...getCacheStats()
+  });
 });
 
 // === PROXY HLS PARA CANALES ===
