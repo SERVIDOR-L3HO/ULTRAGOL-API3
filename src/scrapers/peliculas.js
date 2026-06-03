@@ -29,6 +29,25 @@ function getServerName(link) {
   return link.split('/')[2]?.replace('www.', '') || 'servidor';
 }
 
+async function fetchVerhdlink(imdbId) {
+  const url = `${BASE_URL}/movie/${imdbId}`;
+  const proxies = [
+    () => axios.get(url, { headers: HEADERS, timeout: 15000 }),
+    () => axios.get(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, { headers: { 'User-Agent': HEADERS['User-Agent'] }, timeout: 15000 }),
+    () => axios.get(`https://corsproxy.io/?${encodeURIComponent(url)}`, { headers: { 'User-Agent': HEADERS['User-Agent'] }, timeout: 15000 }),
+  ];
+  let lastErr;
+  for (const attempt of proxies) {
+    try {
+      const res = await attempt();
+      if (res.data && res.data.length > 500) return res.data;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('Todos los proxies fallaron');
+}
+
 async function scrapPelicula(imdbId) {
   const cacheKey = `pelicula_${imdbId}`;
   const cached = cache.get(cacheKey);
@@ -36,9 +55,8 @@ async function scrapPelicula(imdbId) {
     return cached.data;
   }
 
-  const url = `${BASE_URL}/movie/${imdbId}`;
-  const response = await axios.get(url, { headers: HEADERS, timeout: 15000 });
-  const $ = cheerio.load(response.data);
+  const html = await fetchVerhdlink(imdbId);
+  const $ = cheerio.load(html);
 
   const idiomas = {};
 
