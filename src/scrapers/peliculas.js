@@ -3,6 +3,7 @@ const cheerio = require('cheerio');
 
 const BASE_URL = 'https://verhdlink.cam';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
+const TMDB_TOKEN = process.env.TMDB_ACCESS_TOKEN || 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4NmQ5YTgzNGQ0NDEzNzAwYjQ5MWNjMjY4OTIxNDdhYSIsIm5iZiI6MTc1MjQ1NjQ4My4zNDUsInN1YiI6IjY4NzQ1ZDIzNjIwNzU1OWUwNDVhZTRjMiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Mm-GBMnPS_WUAslIwTiewd6khCIFIqR4XDBqTlT9Yx0';
 const CACHE_TTL = 30 * 60 * 1000;
 const cache = new Map();
 const tmdbCache = new Map();
@@ -113,16 +114,13 @@ async function tmdbToImdb(tmdbId) {
   const cached = tmdbCache.get(cacheKey);
   if (cached && (Date.now() - cached.ts) < 24 * 60 * 60 * 1000) return cached.data;
 
-  const token = process.env.TMDB_ACCESS_TOKEN;
-  if (!token) throw new Error('TMDB_ACCESS_TOKEN no configurado');
-
   const [externalIds, movieInfo] = await Promise.all([
     axios.get(`${TMDB_BASE}/movie/${tmdbId}/external_ids`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${TMDB_TOKEN}` },
       timeout: 8000
     }),
     axios.get(`${TMDB_BASE}/movie/${tmdbId}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${TMDB_TOKEN}` },
       params: { language: 'es-MX' },
       timeout: 8000
     })
@@ -172,11 +170,8 @@ async function buscarPelicula(query, pagina = 1) {
   const cached = searchCache.get(cacheKey);
   if (cached && (Date.now() - cached.ts) < 10 * 60 * 1000) return cached.data;
 
-  const token = process.env.TMDB_ACCESS_TOKEN;
-  if (!token) throw new Error('TMDB_ACCESS_TOKEN no configurado');
-
   const res = await axios.get(`${TMDB_BASE}/search/movie`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${TMDB_TOKEN}` },
     params: { query, language: 'es-MX', page: pagina, include_adult: false },
     timeout: 8000
   });

@@ -1,14 +1,13 @@
 const axios = require('axios');
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
+const TMDB_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4NmQ5YTgzNGQ0NDEzNzAwYjQ5MWNjMjY4OTIxNDdhYSIsIm5iZiI6MTc1MjQ1NjQ4My4zNDUsInN1YiI6IjY4NzQ1ZDIzNjIwNzU1OWUwNDVhZTRjMiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Mm-GBMnPS_WUAslIwTiewd6khCIFIqR4XDBqTlT9Yx0';
 const CACHE_TTL = 60 * 60 * 1000;
 const serieCache = new Map();
 const episodeCache = new Map();
 
 function tmdbHeaders() {
-  const token = process.env.TMDB_ACCESS_TOKEN;
-  if (!token) throw new Error('TMDB_ACCESS_TOKEN no configurado');
-  return { Authorization: `Bearer ${token}` };
+  return { Authorization: `Bearer ${TMDB_TOKEN}` };
 }
 
 async function getSeriePorTmdb(tmdbId) {
