@@ -2,8 +2,6 @@ const store = require('../storage/keyStore');
 
 const PUBLIC_PATHS = [
   '/',
-  '/login',
-  '/admin',
   '/l3ho-links',
   '/embed/l3ho-links',
   '/api',
@@ -13,7 +11,6 @@ const PUBLIC_PREFIXES = [
   '/public/',
   '/attached_assets/',
   '/auth/',
-  '/api-admin/',
 ];
 
 const apiKeyAuth = async (req, res, next) => {
@@ -27,8 +24,7 @@ const apiKeyAuth = async (req, res, next) => {
   if (!apiKey) {
     return res.status(401).json({
       error: 'API Key requerida',
-      message: 'Incluye tu API key en el header X-Api-Key o como parámetro ?apiKey=TU_KEY',
-      docs: 'Solicita tu API key en el panel de administración: /admin'
+      message: 'Incluye tu API key en el header X-Api-Key o como parámetro ?apiKey=TU_KEY'
     });
   }
 
