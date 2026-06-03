@@ -14,21 +14,18 @@
       min-height: 100vh;
     }
 
-    .player-wrapper {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px 16px 40px;
+    .page {
       max-width: 960px;
       margin: 0 auto;
+      padding: 20px 16px 50px;
     }
 
-    .player-header {
-      width: 100%;
+    /* ── Header ── */
+    .page-header {
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
 
     .back-btn {
@@ -40,30 +37,91 @@
       cursor: pointer;
       font-size: 13px;
       text-decoration: none;
+      white-space: nowrap;
       transition: background 0.2s;
     }
     .back-btn:hover { background: rgba(255,255,255,0.15); }
 
-    #movie-title {
-      font-size: 18px;
-      font-weight: 600;
-      color: #e0e0e0;
+    /* ── Movie info block ── */
+    .movie-info {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 22px;
+      align-items: flex-start;
+    }
+
+    .movie-poster-sm {
+      width: 90px;
+      min-width: 90px;
+      height: 135px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: #1a1a2e;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .movie-meta {
       flex: 1;
+      min-width: 0;
+    }
+
+    .movie-title {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 6px;
+      color: #fff;
+    }
+
+    .movie-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .badge {
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-year { background: rgba(255,255,255,0.08); color: #aaa; }
+    .badge-rating {
+      background: rgba(255,193,7,0.15);
+      color: #ffc107;
+      border: 1px solid rgba(255,193,7,0.3);
+    }
+    .badge-genre {
+      background: rgba(0,198,255,0.1);
+      color: #00c6ff;
+      border: 1px solid rgba(0,198,255,0.2);
+    }
+    .badge-duration { background: rgba(255,255,255,0.06); color: #999; }
+
+    .movie-synopsis {
+      font-size: 13px;
+      color: #888;
+      line-height: 1.6;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
 
     /* ── Idioma tabs ── */
     .idioma-tabs {
-      width: 100%;
       display: flex;
       gap: 8px;
       margin-bottom: 10px;
+      flex-wrap: wrap;
     }
 
     .idioma-tab {
       background: rgba(255,255,255,0.07);
       border: 1px solid rgba(255,255,255,0.12);
       color: #aaa;
-      padding: 7px 16px;
+      padding: 7px 18px;
       border-radius: 20px;
       cursor: pointer;
       font-size: 13px;
@@ -77,9 +135,8 @@
       font-weight: 600;
     }
 
-    /* ── Servidor tabs ── */
+    /* ── Server tabs ── */
     .server-tabs {
-      width: 100%;
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
@@ -104,15 +161,10 @@
       color: #00c6ff;
       font-weight: 600;
     }
-    .server-btn.server4k {
-      border-color: #f4a307;
-      color: #f4a307;
-    }
-    .server-btn.server4k.active {
-      background: rgba(244,163,7,0.15);
-    }
+    .server-btn.server4k { border-color: #f4a307; color: #f4a307; }
+    .server-btn.server4k.active { background: rgba(244,163,7,0.15); }
 
-    /* ── Player box ── */
+    /* ── Player ── */
     .player-box {
       width: 100%;
       position: relative;
@@ -131,6 +183,7 @@
       object-fit: cover;
       z-index: 2;
       transition: opacity 0.3s;
+      filter: brightness(0.6);
     }
     .player-cover.hidden { opacity: 0; pointer-events: none; }
 
@@ -142,7 +195,6 @@
       align-items: center;
       justify-content: center;
       z-index: 3;
-      background: rgba(0,0,0,0.45);
       cursor: pointer;
       transition: opacity 0.3s;
     }
@@ -156,18 +208,18 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       box-shadow: 0 0 30px rgba(0,198,255,0.5);
       transition: transform 0.2s;
     }
     .play-overlay:hover .play-btn-circle { transform: scale(1.08); }
-
     .play-btn-circle svg { margin-left: 5px; }
 
     .play-label {
       font-size: 14px;
-      color: rgba(255,255,255,0.85);
+      color: rgba(255,255,255,0.9);
       letter-spacing: 0.5px;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
     }
 
     #player-iframe {
@@ -199,133 +251,176 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Error state ── */
-    .error-box {
-      width: 100%;
-      text-align: center;
-      padding: 40px 20px;
-      color: #888;
-      display: none;
-    }
-    .error-box .err-icon { font-size: 48px; margin-bottom: 12px; }
-    .error-box p { font-size: 15px; }
-
-    /* ── Loading state ── */
+    /* ── States ── */
     .loading-box {
-      width: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 60px 20px;
-      color: #888;
-      gap: 16px;
+      color: #666;
+      gap: 14px;
     }
     .loading-box .spinner-ring { width: 36px; height: 36px; }
 
+    .error-box {
+      text-align: center;
+      padding: 40px 20px;
+      color: #666;
+      display: none;
+    }
+    .error-box .err-icon { font-size: 48px; margin-bottom: 12px; }
+
     /* ── Info bar ── */
     .info-bar {
-      width: 100%;
       margin-top: 14px;
       padding: 10px 14px;
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.07);
       border-radius: 8px;
-      display: flex;
+      display: none;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       font-size: 12px;
-      color: #666;
+      color: #555;
+      flex-wrap: wrap;
     }
     .info-bar span { color: #00c6ff; font-weight: 600; }
 
-    @media (max-width: 600px) {
-      .player-wrapper { padding: 12px 10px 30px; }
-      #movie-title { font-size: 15px; }
+    @media (max-width: 540px) {
+      .movie-title { font-size: 17px; }
+      .movie-poster-sm { width: 70px; min-width: 70px; height: 105px; }
+      .page { padding: 12px 10px 40px; }
     }
   </style>
 </head>
 <body>
+<div class="page">
 
-<div class="player-wrapper">
-
-  <div class="player-header">
+  <div class="page-header">
     <a class="back-btn" href="javascript:history.back()">← Atrás</a>
-    <div id="movie-title">Cargando...</div>
   </div>
 
-  <div id="idioma-tabs" class="idioma-tabs"></div>
-  <div id="server-tabs" class="server-tabs"></div>
-
-  <div class="player-box" id="player-box">
-    <img id="player-cover" class="player-cover" src="" alt="Poster">
-    <div class="play-overlay" id="play-overlay">
-      <div class="play-btn-circle">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff">
-          <path d="M8 5v14l11-7z"/>
-        </svg>
-      </div>
-      <div class="play-label">Reproducir</div>
-    </div>
-    <iframe id="player-iframe" allowfullscreen="" scrolling="no" src=""></iframe>
-    <div class="spinner hidden" id="spinner">
-      <div class="spinner-ring"></div>
+  <!-- Movie Info -->
+  <div class="movie-info" id="movie-info" style="display:none">
+    <img id="movie-poster-sm" class="movie-poster-sm" src="" alt="Poster">
+    <div class="movie-meta">
+      <div class="movie-title" id="movie-title">Cargando...</div>
+      <div class="movie-badges" id="movie-badges"></div>
+      <div class="movie-synopsis" id="movie-synopsis"></div>
     </div>
   </div>
 
+  <!-- Loading state -->
   <div class="loading-box" id="loading-box">
     <div class="spinner-ring"></div>
     <p>Buscando servidores...</p>
   </div>
 
+  <!-- Error state -->
   <div class="error-box" id="error-box">
     <div class="err-icon">⚠️</div>
-    <p id="error-msg">No se encontraron servidores para esta película.</p>
+    <p id="error-msg">No se encontraron servidores.</p>
   </div>
 
-  <div class="info-bar" id="info-bar" style="display:none">
-    Fuente: <span>verhdlink.cam</span> &nbsp;·&nbsp; IMDB: <span id="info-imdb"></span> &nbsp;·&nbsp; <span id="info-servers"></span> servidores encontrados
+  <!-- Player (hidden until data loads) -->
+  <div id="player-section" style="display:none">
+    <div class="idioma-tabs" id="idioma-tabs"></div>
+    <div class="server-tabs" id="server-tabs"></div>
+
+    <div class="player-box">
+      <img id="player-cover" class="player-cover" src="" alt="Backdrop">
+      <div class="play-overlay" id="play-overlay">
+        <div class="play-btn-circle">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div class="play-label">Reproducir</div>
+      </div>
+      <iframe id="player-iframe" allowfullscreen="" scrolling="no" src=""></iframe>
+      <div class="spinner hidden" id="spinner">
+        <div class="spinner-ring"></div>
+      </div>
+    </div>
+
+    <div class="info-bar" id="info-bar">
+      Fuente: <span>verhdlink.cam</span> &nbsp;·&nbsp;
+      IMDB: <span id="info-imdb"></span> &nbsp;·&nbsp;
+      <span id="info-servers"></span> servidores
+    </div>
   </div>
 
 </div>
 
 <script>
-  const imdbId = (window.location.pathname.split('/pelicula/')[1] || '').replace(/[^a-zA-Z0-9]/g, '');
+  const pathname = window.location.pathname;
+  const isTmdb = pathname.includes('/pelicula/tmdb/');
+  const movieId = isTmdb
+    ? pathname.split('/pelicula/tmdb/')[1]?.replace(/\D/g, '')
+    : pathname.split('/pelicula/')[1]?.replace(/[^a-zA-Z0-9]/g, '');
+
   let data = null;
   let idiomaActivo = null;
 
   async function init() {
-    if (!imdbId) {
-      showError('No se especificó un IMDB ID. Usa /pelicula/tt0137523');
+    if (!movieId) {
+      showError('No se especificó un ID. Usa /pelicula/tmdb/550 o /pelicula/tt0137523');
       return;
     }
 
-    document.getElementById('movie-title').textContent = imdbId;
-
     try {
-      const resp = await fetch(`/api/pelicula/${imdbId}`);
+      const apiUrl = isTmdb ? `/api/pelicula/tmdb/${movieId}` : `/api/pelicula/${movieId}`;
+      const resp = await fetch(apiUrl);
       if (!resp.ok) throw new Error('No encontrado');
       data = await resp.json();
 
       document.getElementById('loading-box').style.display = 'none';
-      document.getElementById('player-cover').src = `/api/pelicula/${imdbId}/poster`;
 
-      const idiomas = Object.keys(data.idiomas).filter(k => data.idiomas[k].length > 0);
+      // Populate movie info
+      const titulo = data.titulo || data.imdb_id;
+      document.title = titulo + ' — Ver Online';
+      document.getElementById('movie-title').textContent = titulo;
+
+      // Badges
+      const badgesEl = document.getElementById('movie-badges');
+      if (data.anio) badgesEl.innerHTML += `<span class="badge badge-year">📅 ${data.anio}</span>`;
+      if (data.nota && data.nota !== '0.0') badgesEl.innerHTML += `<span class="badge badge-rating">⭐ ${data.nota}</span>`;
+      if (data.duracion) badgesEl.innerHTML += `<span class="badge badge-duration">⏱ ${data.duracion} min</span>`;
+      (data.generos || []).slice(0,3).forEach(g => {
+        badgesEl.innerHTML += `<span class="badge badge-genre">${g}</span>`;
+      });
+
+      if (data.sinopsis) {
+        document.getElementById('movie-synopsis').textContent = data.sinopsis;
+      }
+
+      // Poster thumbnail
+      const posterSrc = isTmdb
+        ? `/api/pelicula/tmdb/${movieId}/poster`
+        : `/api/pelicula/${movieId}/poster`;
+      document.getElementById('movie-poster-sm').src = posterSrc;
+      document.getElementById('movie-info').style.display = 'flex';
+
+      // Backdrop for player cover (use tmdb_backdrop or poster)
+      const backdropSrc = data.tmdb_backdrop || posterSrc;
+      document.getElementById('player-cover').src = backdropSrc;
+
+      const idiomas = Object.keys(data.idiomas || {}).filter(k => data.idiomas[k].length > 0);
       if (idiomas.length === 0) {
         showError('No se encontraron servidores para esta película.');
         return;
       }
 
+      document.getElementById('player-section').style.display = 'block';
       renderIdiomasTabs(idiomas);
       selectIdioma(idiomas[0]);
 
       let total = 0;
       idiomas.forEach(i => total += data.idiomas[i].length);
       document.getElementById('info-bar').style.display = 'flex';
-      document.getElementById('info-imdb').textContent = imdbId;
+      document.getElementById('info-imdb').textContent = data.imdb_id;
       document.getElementById('info-servers').textContent = total;
 
     } catch (e) {
-      showError('No se encontró información para ' + imdbId + '. Verifica el IMDB ID.');
+      showError('No se encontró información para el ID: ' + movieId);
     }
   }
 
@@ -336,32 +431,24 @@
       const btn = document.createElement('button');
       btn.className = 'idioma-tab';
       btn.textContent = idioma.charAt(0).toUpperCase() + idioma.slice(1);
-      btn.onclick = () => selectIdioma(idioma);
       btn.dataset.idioma = idioma;
+      btn.onclick = () => selectIdioma(idioma);
       container.appendChild(btn);
     });
   }
 
   function selectIdioma(idioma) {
     idiomaActivo = idioma;
-    document.querySelectorAll('.idioma-tab').forEach(b => {
-      b.classList.toggle('active', b.dataset.idioma === idioma);
-    });
-    const servidores = data.idiomas[idioma] || [];
-    renderServerTabs(servidores);
-    if (servidores.length > 0) {
-      const primero = servidores.find(s => s.activo) || servidores[0];
-      // no auto-play, solo highlight
-      document.querySelectorAll('.server-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.link === primero.link);
-      });
-    }
+    document.querySelectorAll('.idioma-tab').forEach(b =>
+      b.classList.toggle('active', b.dataset.idioma === idioma)
+    );
+    renderServerTabs(data.idiomas[idioma] || []);
   }
 
   function renderServerTabs(servidores) {
     const container = document.getElementById('server-tabs');
     container.innerHTML = '';
-    servidores.forEach((srv, i) => {
+    servidores.forEach(srv => {
       const btn = document.createElement('button');
       btn.className = 'server-btn' + (srv.nombre === 'server4k' ? ' server4k' : '');
       btn.textContent = srv.nombre === 'server4k' ? '🎬 4K' : srv.nombre;
@@ -393,7 +480,7 @@
 
   document.getElementById('play-overlay').onclick = () => {
     const servidores = data?.idiomas?.[idiomaActivo] || [];
-    if (servidores.length === 0) return;
+    if (!servidores.length) return;
     const primero = servidores.find(s => s.activo) || servidores[0];
     const btn = document.querySelector(`.server-btn[data-link="${primero.link}"]`);
     loadServer(primero.link, btn);

@@ -47,7 +47,7 @@ const { scrapGoleadoresLigue1 } = require("./src/scrapers/ligue1/goleadores");
 const { scrapCalendarioLigue1 } = require("./src/scrapers/ligue1/calendario");
 const { scrapMejoresMomentosLigue1 } = require("./src/scrapers/ligue1/mejoresMomentos");
 
-const { scrapPelicula, clearPeliculaCache } = require("./src/scrapers/peliculas");
+const { scrapPelicula, scrapPeliculaPorTmdb, tmdbToImdb, clearPeliculaCache } = require("./src/scrapers/peliculas");
 const { scrapTransmisiones } = require("./src/scrapers/transmisiones");
 const { scrapTransmisiones2 } = require("./src/scrapers/transmisiones2");
 const { scrapTransmisiones3 } = require("./src/scrapers/transmisiones3");
@@ -239,6 +239,43 @@ app.get("/pelicula/:imdbId", (req, res) => {
   res.setHeader('X-Frame-Options', 'ALLOWALL');
   res.setHeader('Content-Security-Policy', "frame-ancestors *");
   res.sendFile(path.join(__dirname, 'public', 'pelicula.html'));
+});
+
+app.get("/pelicula/tmdb/:tmdbId", (req, res) => {
+  res.setHeader('X-Frame-Options', 'ALLOWALL');
+  res.setHeader('Content-Security-Policy', "frame-ancestors *");
+  res.sendFile(path.join(__dirname, 'public', 'pelicula.html'));
+});
+
+app.get("/api/pelicula/tmdb/:tmdbId", async (req, res) => {
+  try {
+    const tmdbId = parseInt(req.params.tmdbId);
+    if (!tmdbId || isNaN(tmdbId)) {
+      return res.status(400).json({ error: 'TMDB ID inválido. Debe ser un número.' });
+    }
+    const data = await scrapPeliculaPorTmdb(tmdbId);
+    res.json(data);
+  } catch (err) {
+    console.error('Error scraping película por TMDB:', err.message);
+    res.status(500).json({ error: 'Error obteniendo datos de la película', detalle: err.message });
+  }
+});
+
+app.get("/api/pelicula/tmdb/:tmdbId/poster", async (req, res) => {
+  try {
+    const tmdbId = parseInt(req.params.tmdbId);
+    if (!tmdbId || isNaN(tmdbId)) return res.status(400).end();
+    const meta = await tmdbToImdb(tmdbId);
+    if (meta.tmdb_poster) {
+      const response = await axios.get(meta.tmdb_poster, { responseType: 'arraybuffer', timeout: 8000 });
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(response.data);
+    }
+    res.redirect(`https://via.placeholder.com/400x560/1a1a2e/00c6ff?text=${tmdbId}`);
+  } catch (err) {
+    res.redirect(`https://via.placeholder.com/400x560/1a1a2e/00c6ff?text=Sin+Poster`);
+  }
 });
 
 app.get("/api/pelicula/:imdbId", async (req, res) => {

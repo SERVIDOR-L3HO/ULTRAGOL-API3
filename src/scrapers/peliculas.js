@@ -2,8 +2,10 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 
 const BASE_URL = 'https://verhdlink.cam';
+const TMDB_BASE = 'https://api.themoviedb.org/3';
 const CACHE_TTL = 30 * 60 * 1000;
 const cache = new Map();
+const tmdbCache = new Map();
 
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -106,12 +108,61 @@ async function scrapPelicula(imdbId) {
   return result;
 }
 
+async function tmdbToImdb(tmdbId) {
+  const cacheKey = `tmdb_${tmdbId}`;
+  const cached = tmdbCache.get(cacheKey);
+  if (cached && (Date.now() - cached.ts) < 24 * 60 * 60 * 1000) return cached.data;
+
+  const token = process.env.TMDB_ACCESS_TOKEN;
+  if (!token) throw new Error('TMDB_ACCESS_TOKEN no configurado');
+
+  const [externalIds, movieInfo] = await Promise.all([
+    axios.get(`${TMDB_BASE}/movie/${tmdbId}/external_ids`, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 8000
+    }),
+    axios.get(`${TMDB_BASE}/movie/${tmdbId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { language: 'es-MX' },
+      timeout: 8000
+    })
+  ]);
+
+  const imdbId = externalIds.data.imdb_id;
+  if (!imdbId) throw new Error(`No se encontró IMDB ID para TMDB ${tmdbId}`);
+
+  const info = movieInfo.data;
+  const result = {
+    tmdb_id: tmdbId,
+    imdb_id: imdbId,
+    titulo: info.title,
+    titulo_original: info.original_title,
+    sinopsis: info.overview,
+    anio: info.release_date?.slice(0, 4),
+    nota: info.vote_average?.toFixed(1),
+    duracion: info.runtime,
+    generos: (info.genres || []).map(g => g.name),
+    tmdb_poster: info.poster_path ? `https://image.tmdb.org/t/p/w500${info.poster_path}` : null,
+    tmdb_backdrop: info.backdrop_path ? `https://image.tmdb.org/t/p/w1280${info.backdrop_path}` : null
+  };
+
+  tmdbCache.set(cacheKey, { data: result, ts: Date.now() });
+  return result;
+}
+
+async function scrapPeliculaPorTmdb(tmdbId) {
+  const meta = await tmdbToImdb(tmdbId);
+  const player = await scrapPelicula(meta.imdb_id);
+  return { ...player, ...meta };
+}
+
 function clearPeliculaCache(imdbId) {
   if (imdbId) {
     cache.delete(`pelicula_${imdbId}`);
   } else {
     cache.clear();
+    tmdbCache.clear();
   }
 }
 
-module.exports = { scrapPelicula, clearPeliculaCache };
+module.exports = { scrapPelicula, scrapPeliculaPorTmdb, tmdbToImdb, clearPeliculaCache };
