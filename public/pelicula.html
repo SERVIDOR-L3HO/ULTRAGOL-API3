@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ver Película</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+
+    .player-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px 40px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    .player-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .back-btn {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .back-btn:hover { background: rgba(255,255,255,0.15); }
+
+    #movie-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e0e0e0;
+      flex: 1;
+    }
+
+    /* ── Idioma tabs ── */
+    .idioma-tabs {
+      width: 100%;
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .idioma-tab {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #aaa;
+      padding: 7px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 13px;
+      text-transform: capitalize;
+      transition: all 0.2s;
+    }
+    .idioma-tab.active {
+      background: linear-gradient(135deg, #00c6ff, #7b2ff7);
+      border-color: transparent;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* ── Servidor tabs ── */
+    .server-tabs {
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .server-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #ccc;
+      padding: 7px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      text-transform: capitalize;
+      transition: all 0.2s;
+    }
+    .server-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    .server-btn.active {
+      background: rgba(0,198,255,0.15);
+      border-color: #00c6ff;
+      color: #00c6ff;
+      font-weight: 600;
+    }
+    .server-btn.server4k {
+      border-color: #f4a307;
+      color: #f4a307;
+    }
+    .server-btn.server4k.active {
+      background: rgba(244,163,7,0.15);
+    }
+
+    /* ── Player box ── */
+    .player-box {
+      width: 100%;
+      position: relative;
+      background: #111;
+      border-radius: 12px;
+      overflow: hidden;
+      aspect-ratio: 16 / 9;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .player-cover {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 2;
+      transition: opacity 0.3s;
+    }
+    .player-cover.hidden { opacity: 0; pointer-events: none; }
+
+    .play-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 3;
+      background: rgba(0,0,0,0.45);
+      cursor: pointer;
+      transition: opacity 0.3s;
+    }
+    .play-overlay.hidden { opacity: 0; pointer-events: none; }
+
+    .play-btn-circle {
+      width: 72px;
+      height: 72px;
+      background: rgba(0,198,255,0.9);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+      box-shadow: 0 0 30px rgba(0,198,255,0.5);
+      transition: transform 0.2s;
+    }
+    .play-overlay:hover .play-btn-circle { transform: scale(1.08); }
+
+    .play-btn-circle svg { margin-left: 5px; }
+
+    .play-label {
+      font-size: 14px;
+      color: rgba(255,255,255,0.85);
+      letter-spacing: 0.5px;
+    }
+
+    #player-iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      z-index: 1;
+      background: #000;
+    }
+
+    .spinner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 4;
+      background: rgba(0,0,0,0.6);
+    }
+    .spinner.hidden { display: none; }
+    .spinner-ring {
+      width: 42px; height: 42px;
+      border: 4px solid rgba(255,255,255,0.15);
+      border-top-color: #00c6ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error state ── */
+    .error-box {
+      width: 100%;
+      text-align: center;
+      padding: 40px 20px;
+      color: #888;
+      display: none;
+    }
+    .error-box .err-icon { font-size: 48px; margin-bottom: 12px; }
+    .error-box p { font-size: 15px; }
+
+    /* ── Loading state ── */
+    .loading-box {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 20px;
+      color: #888;
+      gap: 16px;
+    }
+    .loading-box .spinner-ring { width: 36px; height: 36px; }
+
+    /* ── Info bar ── */
+    .info-bar {
+      width: 100%;
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #666;
+    }
+    .info-bar span { color: #00c6ff; font-weight: 600; }
+
+    @media (max-width: 600px) {
+      .player-wrapper { padding: 12px 10px 30px; }
+      #movie-title { font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="player-wrapper">
+
+  <div class="player-header">
+    <a class="back-btn" href="javascript:history.back()">← Atrás</a>
+    <div id="movie-title">Cargando...</div>
+  </div>
+
+  <div id="idioma-tabs" class="idioma-tabs"></div>
+  <div id="server-tabs" class="server-tabs"></div>
+
+  <div class="player-box" id="player-box">
+    <img id="player-cover" class="player-cover" src="" alt="Poster">
+    <div class="play-overlay" id="play-overlay">
+      <div class="play-btn-circle">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+      </div>
+      <div class="play-label">Reproducir</div>
+    </div>
+    <iframe id="player-iframe" allowfullscreen="" scrolling="no" src=""></iframe>
+    <div class="spinner hidden" id="spinner">
+      <div class="spinner-ring"></div>
+    </div>
+  </div>
+
+  <div class="loading-box" id="loading-box">
+    <div class="spinner-ring"></div>
+    <p>Buscando servidores...</p>
+  </div>
+
+  <div class="error-box" id="error-box">
+    <div class="err-icon">⚠️</div>
+    <p id="error-msg">No se encontraron servidores para esta película.</p>
+  </div>
+
+  <div class="info-bar" id="info-bar" style="display:none">
+    Fuente: <span>verhdlink.cam</span> &nbsp;·&nbsp; IMDB: <span id="info-imdb"></span> &nbsp;·&nbsp; <span id="info-servers"></span> servidores encontrados
+  </div>
+
+</div>
+
+<script>
+  const imdbId = (window.location.pathname.split('/pelicula/')[1] || '').replace(/[^a-zA-Z0-9]/g, '');
+  let data = null;
+  let idiomaActivo = null;
+
+  async function init() {
+    if (!imdbId) {
+      showError('No se especificó un IMDB ID. Usa /pelicula/tt0137523');
+      return;
+    }
+
+    document.getElementById('movie-title').textContent = imdbId;
+
+    try {
+      const resp = await fetch(`/api/pelicula/${imdbId}`);
+      if (!resp.ok) throw new Error('No encontrado');
+      data = await resp.json();
+
+      document.getElementById('loading-box').style.display = 'none';
+      document.getElementById('player-cover').src = `/api/pelicula/${imdbId}/poster`;
+
+      const idiomas = Object.keys(data.idiomas).filter(k => data.idiomas[k].length > 0);
+      if (idiomas.length === 0) {
+        showError('No se encontraron servidores para esta película.');
+        return;
+      }
+
+      renderIdiomasTabs(idiomas);
+      selectIdioma(idiomas[0]);
+
+      let total = 0;
+      idiomas.forEach(i => total += data.idiomas[i].length);
+      document.getElementById('info-bar').style.display = 'flex';
+      document.getElementById('info-imdb').textContent = imdbId;
+      document.getElementById('info-servers').textContent = total;
+
+    } catch (e) {
+      showError('No se encontró información para ' + imdbId + '. Verifica el IMDB ID.');
+    }
+  }
+
+  function renderIdiomasTabs(idiomas) {
+    const container = document.getElementById('idioma-tabs');
+    container.innerHTML = '';
+    idiomas.forEach(idioma => {
+      const btn = document.createElement('button');
+      btn.className = 'idioma-tab';
+      btn.textContent = idioma.charAt(0).toUpperCase() + idioma.slice(1);
+      btn.onclick = () => selectIdioma(idioma);
+      btn.dataset.idioma = idioma;
+      container.appendChild(btn);
+    });
+  }
+
+  function selectIdioma(idioma) {
+    idiomaActivo = idioma;
+    document.querySelectorAll('.idioma-tab').forEach(b => {
+      b.classList.toggle('active', b.dataset.idioma === idioma);
+    });
+    const servidores = data.idiomas[idioma] || [];
+    renderServerTabs(servidores);
+    if (servidores.length > 0) {
+      const primero = servidores.find(s => s.activo) || servidores[0];
+      // no auto-play, solo highlight
+      document.querySelectorAll('.server-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.link === primero.link);
+      });
+    }
+  }
+
+  function renderServerTabs(servidores) {
+    const container = document.getElementById('server-tabs');
+    container.innerHTML = '';
+    servidores.forEach((srv, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'server-btn' + (srv.nombre === 'server4k' ? ' server4k' : '');
+      btn.textContent = srv.nombre === 'server4k' ? '🎬 4K' : srv.nombre;
+      btn.dataset.link = srv.link;
+      btn.onclick = () => loadServer(srv.link, btn);
+      container.appendChild(btn);
+    });
+  }
+
+  function loadServer(link, btn) {
+    document.querySelectorAll('.server-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+
+    const iframe = document.getElementById('player-iframe');
+    const cover = document.getElementById('player-cover');
+    const overlay = document.getElementById('play-overlay');
+    const spinner = document.getElementById('spinner');
+
+    cover.classList.add('hidden');
+    overlay.classList.add('hidden');
+    spinner.classList.remove('hidden');
+
+    iframe.src = '';
+    setTimeout(() => {
+      iframe.src = link;
+      spinner.classList.add('hidden');
+    }, 400);
+  }
+
+  document.getElementById('play-overlay').onclick = () => {
+    const servidores = data?.idiomas?.[idiomaActivo] || [];
+    if (servidores.length === 0) return;
+    const primero = servidores.find(s => s.activo) || servidores[0];
+    const btn = document.querySelector(`.server-btn[data-link="${primero.link}"]`);
+    loadServer(primero.link, btn);
+  };
+
+  function showError(msg) {
+    document.getElementById('loading-box').style.display = 'none';
+    document.getElementById('error-box').style.display = 'block';
+    document.getElementById('error-msg').textContent = msg;
+  }
+
+  init();
+</script>
+</body>
+</html>

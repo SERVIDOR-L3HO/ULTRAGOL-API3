@@ -47,6 +47,7 @@ const { scrapGoleadoresLigue1 } = require("./src/scrapers/ligue1/goleadores");
 const { scrapCalendarioLigue1 } = require("./src/scrapers/ligue1/calendario");
 const { scrapMejoresMomentosLigue1 } = require("./src/scrapers/ligue1/mejoresMomentos");
 
+const { scrapPelicula, clearPeliculaCache } = require("./src/scrapers/peliculas");
 const { scrapTransmisiones } = require("./src/scrapers/transmisiones");
 const { scrapTransmisiones2 } = require("./src/scrapers/transmisiones2");
 const { scrapTransmisiones3 } = require("./src/scrapers/transmisiones3");
@@ -232,6 +233,52 @@ async function updateMarcadores() {
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get("/pelicula/:imdbId", (req, res) => {
+  res.setHeader('X-Frame-Options', 'ALLOWALL');
+  res.setHeader('Content-Security-Policy', "frame-ancestors *");
+  res.sendFile(path.join(__dirname, 'public', 'pelicula.html'));
+});
+
+app.get("/api/pelicula/:imdbId", async (req, res) => {
+  try {
+    const imdbId = req.params.imdbId.trim();
+    if (!imdbId.match(/^tt\d+$/)) {
+      return res.status(400).json({ error: 'IMDB ID inválido. Formato: tt0137523' });
+    }
+    const data = await scrapPelicula(imdbId);
+    res.json(data);
+  } catch (err) {
+    console.error('Error scraping película:', err.message);
+    res.status(500).json({ error: 'Error obteniendo datos de la película', detalle: err.message });
+  }
+});
+
+app.get("/api/pelicula/:imdbId/poster", async (req, res) => {
+  try {
+    const imdbId = req.params.imdbId.trim();
+    if (!imdbId.match(/^tt\d+$/)) return res.status(400).end();
+    const posterUrl = `https://verhdlink.cam/posters_new/${imdbId}.jpg`;
+    const response = await axios.get(posterUrl, {
+      responseType: 'arraybuffer',
+      timeout: 8000,
+      headers: {
+        'Referer': 'https://verhdlink.cam/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36'
+      }
+    });
+    res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(response.data);
+  } catch (err) {
+    res.redirect(`https://via.placeholder.com/400x560/1a1a2e/00c6ff?text=${req.params.imdbId}`);
+  }
+});
+
+app.delete("/api/pelicula/:imdbId/cache", (req, res) => {
+  clearPeliculaCache(req.params.imdbId);
+  res.json({ success: true, message: 'Cache limpiado' });
 });
 
 app.get("/l3ho-links", (req, res) => {
