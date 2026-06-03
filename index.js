@@ -360,6 +360,30 @@ app.delete("/api/pelicula/:imdbId/cache", (req, res) => {
   res.json({ success: true, message: 'Cache limpiado' });
 });
 
+app.get("/api/buscar/pelicula", async (req, res) => {
+  try {
+    const { q, pagina = 1 } = req.query;
+    if (!q || !q.trim()) return res.status(400).json({ error: 'Parámetro ?q= requerido' });
+    const data = await buscarPelicula(q.trim(), parseInt(pagina));
+    res.json(data);
+  } catch (err) {
+    console.error('Error buscando película:', err.message);
+    res.status(500).json({ error: 'Error en búsqueda', detalle: err.message });
+  }
+});
+
+app.get("/api/buscar/serie", async (req, res) => {
+  try {
+    const { q, pagina = 1 } = req.query;
+    if (!q || !q.trim()) return res.status(400).json({ error: 'Parámetro ?q= requerido' });
+    const data = await buscarSerie(q.trim(), parseInt(pagina));
+    res.json(data);
+  } catch (err) {
+    console.error('Error buscando serie:', err.message);
+    res.status(500).json({ error: 'Error en búsqueda', detalle: err.message });
+  }
+});
+
 app.get("/l3ho-links", (req, res) => {
   res.setHeader('X-Frame-Options', 'ALLOWALL');
   res.setHeader('Content-Security-Policy', "frame-ancestors *");
