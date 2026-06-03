@@ -1,0 +1,121 @@
+const axios = require('axios');
+
+const TMDB_BASE = 'https://api.themoviedb.org/3';
+const CACHE_TTL = 60 * 60 * 1000;
+const serieCache = new Map();
+const episodeCache = new Map();
+
+function tmdbHeaders() {
+  const token = process.env.TMDB_ACCESS_TOKEN;
+  if (!token) throw new Error('TMDB_ACCESS_TOKEN no configurado');
+  return { Authorization: `Bearer ${token}` };
+}
+
+async function getSeriePorTmdb(tmdbId) {
+  const key = `serie_${tmdbId}`;
+  const cached = serieCache.get(key);
+  if (cached && (Date.now() - cached.ts) < CACHE_TTL) return cached.data;
+
+  const headers = tmdbHeaders();
+
+  const [infoRes, extRes] = await Promise.all([
+    axios.get(`${TMDB_BASE}/tv/${tmdbId}`, {
+      headers,
+      params: { language: 'es-MX' },
+      timeout: 10000
+    }),
+    axios.get(`${TMDB_BASE}/tv/${tmdbId}/external_ids`, {
+      headers,
+      timeout: 10000
+    })
+  ]);
+
+  const info = infoRes.data;
+  const ext = extRes.data;
+
+  const temporadas = (info.seasons || [])
+    .filter(s => s.season_number > 0)
+    .map(s => ({
+      numero: s.season_number,
+      nombre: s.name,
+      episodios: s.episode_count,
+      poster: s.poster_path ? `https://image.tmdb.org/t/p/w300${s.poster_path}` : null,
+      fecha: s.air_date?.slice(0, 4) || null
+    }));
+
+  const result = {
+    tmdb_id: tmdbId,
+    imdb_id: ext.imdb_id || null,
+    titulo: info.name,
+    titulo_original: info.original_name,
+    sinopsis: info.overview,
+    anio: info.first_air_date?.slice(0, 4),
+    nota: info.vote_average?.toFixed(1),
+    generos: (info.genres || []).map(g => g.name),
+    temporadas,
+    total_temporadas: info.number_of_seasons,
+    total_episodios: info.number_of_episodes,
+    estado: info.status,
+    tmdb_poster: info.poster_path ? `https://image.tmdb.org/t/p/w500${info.poster_path}` : null,
+    tmdb_backdrop: info.backdrop_path ? `https://image.tmdb.org/t/p/w1280${info.backdrop_path}` : null
+  };
+
+  serieCache.set(key, { data: result, ts: Date.now() });
+  return result;
+}
+
+async function getEpisodiosPorTemporada(tmdbId, season) {
+  const key = `eps_${tmdbId}_s${season}`;
+  const cached = episodeCache.get(key);
+  if (cached && (Date.now() - cached.ts) < CACHE_TTL) return cached.data;
+
+  const headers = tmdbHeaders();
+  const res = await axios.get(`${TMDB_BASE}/tv/${tmdbId}/season/${season}`, {
+    headers,
+    params: { language: 'es-MX' },
+    timeout: 10000
+  });
+
+  const eps = (res.data.episodes || []).map(e => ({
+    numero: e.episode_number,
+    titulo: e.name,
+    sinopsis: e.overview,
+    fecha: e.air_date,
+    duracion: e.runtime,
+    nota: e.vote_average?.toFixed(1),
+    imagen: e.still_path ? `https://image.tmdb.org/t/p/w300${e.still_path}` : null
+  }));
+
+  episodeCache.set(key, { data: eps, ts: Date.now() });
+  return eps;
+}
+
+function getServidoresSerie(imdbId, season, episode) {
+  if (!imdbId) return [];
+  return [
+    {
+      nombre: 'vidsrc',
+      link: `https://vidsrc.to/embed/tv/${imdbId}/${season}/${episode}`
+    },
+    {
+      nombre: 'vidsrc2',
+      link: `https://vidsrc.me/embed/tv?imdb=${imdbId}&season=${season}&episode=${episode}`
+    }
+  ];
+}
+
+function clearSerieCache(tmdbId) {
+  if (tmdbId) {
+    for (const key of serieCache.keys()) {
+      if (key.includes(`_${tmdbId}`)) serieCache.delete(key);
+    }
+    for (const key of episodeCache.keys()) {
+      if (key.includes(`_${tmdbId}_`)) episodeCache.delete(key);
+    }
+  } else {
+    serieCache.clear();
+    episodeCache.clear();
+  }
+}
+
+module.exports = { getSeriePorTmdb, getEpisodiosPorTemporada, getServidoresSerie, clearSerieCache };

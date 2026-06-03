@@ -48,6 +48,7 @@ const { scrapCalendarioLigue1 } = require("./src/scrapers/ligue1/calendario");
 const { scrapMejoresMomentosLigue1 } = require("./src/scrapers/ligue1/mejoresMomentos");
 
 const { scrapPelicula, scrapPeliculaPorTmdb, tmdbToImdb, clearPeliculaCache } = require("./src/scrapers/peliculas");
+const { getSeriePorTmdb, getEpisodiosPorTemporada, clearSerieCache } = require("./src/scrapers/series");
 const { scrapTransmisiones } = require("./src/scrapers/transmisiones");
 const { scrapTransmisiones2 } = require("./src/scrapers/transmisiones2");
 const { scrapTransmisiones3 } = require("./src/scrapers/transmisiones3");
@@ -245,6 +246,59 @@ app.get("/pelicula/tmdb/:tmdbId", (req, res) => {
   res.setHeader('X-Frame-Options', 'ALLOWALL');
   res.setHeader('Content-Security-Policy', "frame-ancestors *");
   res.sendFile(path.join(__dirname, 'public', 'pelicula.html'));
+});
+
+app.get("/serie/tmdb/:tmdbId", (req, res) => {
+  res.setHeader('X-Frame-Options', 'ALLOWALL');
+  res.setHeader('Content-Security-Policy', "frame-ancestors *");
+  res.sendFile(path.join(__dirname, 'public', 'serie.html'));
+});
+
+app.get("/api/serie/tmdb/:tmdbId", async (req, res) => {
+  try {
+    const tmdbId = parseInt(req.params.tmdbId);
+    if (!tmdbId || isNaN(tmdbId)) return res.status(400).json({ error: 'TMDB ID inválido' });
+    const data = await getSeriePorTmdb(tmdbId);
+    res.json(data);
+  } catch (err) {
+    console.error('Error serie TMDB:', err.message);
+    res.status(500).json({ error: 'Error obteniendo datos de la serie', detalle: err.message });
+  }
+});
+
+app.get("/api/serie/tmdb/:tmdbId/season/:season", async (req, res) => {
+  try {
+    const tmdbId = parseInt(req.params.tmdbId);
+    const season = parseInt(req.params.season);
+    if (!tmdbId || isNaN(tmdbId) || isNaN(season)) return res.status(400).json({ error: 'Parámetros inválidos' });
+    const eps = await getEpisodiosPorTemporada(tmdbId, season);
+    res.json(eps);
+  } catch (err) {
+    console.error('Error episodios:', err.message);
+    res.status(500).json({ error: 'Error obteniendo episodios', detalle: err.message });
+  }
+});
+
+app.get("/api/serie/tmdb/:tmdbId/poster", async (req, res) => {
+  try {
+    const tmdbId = parseInt(req.params.tmdbId);
+    if (!tmdbId || isNaN(tmdbId)) return res.status(400).end();
+    const data = await getSeriePorTmdb(tmdbId);
+    if (data.tmdb_poster) {
+      const response = await axios.get(data.tmdb_poster, { responseType: 'arraybuffer', timeout: 8000 });
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(response.data);
+    }
+    res.redirect(`https://via.placeholder.com/400x560/1a1a2e/a78bfa?text=${tmdbId}`);
+  } catch (err) {
+    res.redirect(`https://via.placeholder.com/400x560/1a1a2e/a78bfa?text=Serie`);
+  }
+});
+
+app.delete("/api/serie/tmdb/:tmdbId/cache", (req, res) => {
+  clearSerieCache(parseInt(req.params.tmdbId));
+  res.json({ success: true });
 });
 
 app.get("/api/pelicula/tmdb/:tmdbId", async (req, res) => {
