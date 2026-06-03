@@ -384,6 +384,34 @@ app.get("/api/buscar/serie", async (req, res) => {
   }
 });
 
+app.get("/api/buscar/todo", async (req, res) => {
+  try {
+    const { q, pagina = 1 } = req.query;
+    if (!q || !q.trim()) return res.status(400).json({ error: 'Parámetro ?q= requerido' });
+    const [peliculas, series] = await Promise.all([
+      buscarPelicula(q.trim(), parseInt(pagina)).catch(() => ({ resultados: [], total_resultados: 0 })),
+      buscarSerie(q.trim(), parseInt(pagina)).catch(() => ({ resultados: [], total_resultados: 0 }))
+    ]);
+    res.json({
+      query: q.trim(),
+      pagina: parseInt(pagina),
+      peliculas: {
+        total: peliculas.total_resultados,
+        total_paginas: peliculas.total_paginas,
+        resultados: peliculas.resultados
+      },
+      series: {
+        total: series.total_resultados,
+        total_paginas: series.total_paginas,
+        resultados: series.resultados
+      }
+    });
+  } catch (err) {
+    console.error('Error en búsqueda combinada:', err.message);
+    res.status(500).json({ error: 'Error en búsqueda', detalle: err.message });
+  }
+});
+
 app.get("/l3ho-links", (req, res) => {
   res.setHeader('X-Frame-Options', 'ALLOWALL');
   res.setHeader('Content-Security-Policy', "frame-ancestors *");
