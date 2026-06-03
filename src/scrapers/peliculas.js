@@ -165,4 +165,40 @@ function clearPeliculaCache(imdbId) {
   }
 }
 
-module.exports = { scrapPelicula, scrapPeliculaPorTmdb, tmdbToImdb, clearPeliculaCache };
+const searchCache = new Map();
+
+async function buscarPelicula(query, pagina = 1) {
+  const cacheKey = `search_${query}_${pagina}`;
+  const cached = searchCache.get(cacheKey);
+  if (cached && (Date.now() - cached.ts) < 10 * 60 * 1000) return cached.data;
+
+  const token = process.env.TMDB_ACCESS_TOKEN;
+  if (!token) throw new Error('TMDB_ACCESS_TOKEN no configurado');
+
+  const res = await axios.get(`${TMDB_BASE}/search/movie`, {
+    headers: { Authorization: `Bearer ${token}` },
+    params: { query, language: 'es-MX', page: pagina, include_adult: false },
+    timeout: 8000
+  });
+
+  const result = {
+    pagina: res.data.page,
+    total_resultados: res.data.total_results,
+    total_paginas: res.data.total_pages,
+    resultados: (res.data.results || []).map(m => ({
+      tmdb_id: m.id,
+      titulo: m.title,
+      titulo_original: m.original_title,
+      sinopsis: m.overview,
+      anio: m.release_date?.slice(0, 4) || null,
+      nota: m.vote_average?.toFixed(1),
+      poster: m.poster_path ? `https://image.tmdb.org/t/p/w300${m.poster_path}` : null,
+      popularidad: m.popularity
+    }))
+  };
+
+  searchCache.set(cacheKey, { data: result, ts: Date.now() });
+  return result;
+}
+
+module.exports = { scrapPelicula, scrapPeliculaPorTmdb, tmdbToImdb, clearPeliculaCache, buscarPelicula };

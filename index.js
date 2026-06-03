@@ -47,8 +47,8 @@ const { scrapGoleadoresLigue1 } = require("./src/scrapers/ligue1/goleadores");
 const { scrapCalendarioLigue1 } = require("./src/scrapers/ligue1/calendario");
 const { scrapMejoresMomentosLigue1 } = require("./src/scrapers/ligue1/mejoresMomentos");
 
-const { scrapPelicula, scrapPeliculaPorTmdb, tmdbToImdb, clearPeliculaCache } = require("./src/scrapers/peliculas");
-const { getSeriePorTmdb, getEpisodiosPorTemporada, clearSerieCache } = require("./src/scrapers/series");
+const { scrapPelicula, scrapPeliculaPorTmdb, tmdbToImdb, clearPeliculaCache, buscarPelicula } = require("./src/scrapers/peliculas");
+const { getSeriePorTmdb, getEpisodiosPorTemporada, clearSerieCache, buscarSerie } = require("./src/scrapers/series");
 const { scrapTransmisiones } = require("./src/scrapers/transmisiones");
 const { scrapTransmisiones2 } = require("./src/scrapers/transmisiones2");
 const { scrapTransmisiones3 } = require("./src/scrapers/transmisiones3");

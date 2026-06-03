@@ -118,4 +118,38 @@ function clearSerieCache(tmdbId) {
   }
 }
 
-module.exports = { getSeriePorTmdb, getEpisodiosPorTemporada, getServidoresSerie, clearSerieCache };
+const searchCache = new Map();
+
+async function buscarSerie(query, pagina = 1) {
+  const cacheKey = `search_${query}_${pagina}`;
+  const cached = searchCache.get(cacheKey);
+  if (cached && (Date.now() - cached.ts) < 10 * 60 * 1000) return cached.data;
+
+  const headers = tmdbHeaders();
+  const res = await axios.get(`${TMDB_BASE}/search/tv`, {
+    headers,
+    params: { query, language: 'es-MX', page: pagina, include_adult: false },
+    timeout: 8000
+  });
+
+  const result = {
+    pagina: res.data.page,
+    total_resultados: res.data.total_results,
+    total_paginas: res.data.total_pages,
+    resultados: (res.data.results || []).map(s => ({
+      tmdb_id: s.id,
+      titulo: s.name,
+      titulo_original: s.original_name,
+      sinopsis: s.overview,
+      anio: s.first_air_date?.slice(0, 4) || null,
+      nota: s.vote_average?.toFixed(1),
+      poster: s.poster_path ? `https://image.tmdb.org/t/p/w300${s.poster_path}` : null,
+      popularidad: s.popularity
+    }))
+  };
+
+  searchCache.set(cacheKey, { data: result, ts: Date.now() });
+  return result;
+}
+
+module.exports = { getSeriePorTmdb, getEpisodiosPorTemporada, getServidoresSerie, clearSerieCache, buscarSerie };
