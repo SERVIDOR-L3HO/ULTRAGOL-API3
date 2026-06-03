@@ -150,7 +150,12 @@ async function tmdbToImdb(tmdbId) {
 
 async function scrapPeliculaPorTmdb(tmdbId) {
   const meta = await tmdbToImdb(tmdbId);
-  const player = await scrapPelicula(meta.imdb_id);
+  let player = { imdb_id: meta.imdb_id, idiomas: {}, fuente: null };
+  try {
+    player = await scrapPelicula(meta.imdb_id);
+  } catch (err) {
+    console.warn(`⚠️ No se pudo obtener servidores para ${meta.imdb_id}: ${err.message}`);
+  }
   return { ...player, ...meta };
 }
 
