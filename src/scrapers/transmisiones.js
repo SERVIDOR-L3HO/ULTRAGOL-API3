@@ -167,9 +167,7 @@ async function scrapTransmisiones() {
           idioma: "es",
           calidad: "720p",
           embed: ev.embedUrl
-        }],
-        enlaceDirecto: ev.streamUrl,
-        embedUrl: ev.embedUrl
+        }]
       });
     }
 
