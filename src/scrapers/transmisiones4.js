@@ -47,9 +47,13 @@ async function scrapTransmisiones4() {
         const equiposLogos = extraerEquiposYLogos(evento);
         
         transmisiones.push({
+          hora: hora,
+          fecha: currentDay || new Date().toISOString().split('T')[0],
           evento: evento,
           equipo1: equiposLogos.equipo1,
           equipo2: equiposLogos.equipo2,
+          logo1: equiposLogos.logo1,
+          logo2: equiposLogos.logo2,
           pais: "Internacional",
           canales: [{
             nombre: "Opción 1",

@@ -166,14 +166,8 @@ async function scrapTransmisiones() {
           nombre: "Stream Principal",
           idioma: "es",
           calidad: "720p",
-          links: {
-            principal: ev.streamUrl,
-            embed: ev.embedUrl,
-            backup: null,
-            wrapper: ev.embedUrl
-          }
+          embed: ev.embedUrl
         }],
-        totalCanales: 1,
         enlaceDirecto: ev.streamUrl,
         embedUrl: ev.embedUrl
       });
