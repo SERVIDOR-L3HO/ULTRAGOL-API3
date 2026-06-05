@@ -100,7 +100,6 @@ async function scrapTransmisiones2() {
         deportes[deporte]++;
 
         transmisiones.push({
-          hora,
           deporte,
           info: deporte,
           liga: deporte,
@@ -108,8 +107,6 @@ async function scrapTransmisiones2() {
           evento: name,
           equipo1,
           equipo2,
-          logo1: logoTeam1 || null,
-          logo2: logoTeam2 || null,
           url: streamUrl,
           urlOriginal: streamUrl,
           estado,

@@ -155,19 +155,12 @@ async function scrapTransmisiones() {
       const { equipo1, equipo2 } = extractTeams(ev.evento);
 
       transmisiones.push({
-        fecha: new Date().toISOString().slice(0, 10),
-        hora: "",
-        fechaHora: new Date().toISOString(),
         evento: ev.evento,
         liga: deporte,
         deporte,
         equipo1,
         equipo2,
-        logo1: null,
-        logo2: null,
         estado: "EN VIVO",
-        marcador: null,
-        importante: true,
         embedId: ev.id,
         canales: [{
           nombre: "Stream Principal",
