@@ -2096,10 +2096,9 @@ async function extractM3u8FromStreamsCenter(pageUrl) {
 
 async function extractM3u8FromSportsonline(pageUrl) {
   const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-  let browser;
+  const browser = await launchStealthBrowser();
+  const page = await browser.newPage();
   try {
-    browser = await launchStealthBrowser();
-    const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 720 });
     await page.setUserAgent(UA);
     await page.setExtraHTTPHeaders({ "Accept-Language": "es-MX,es;q=0.9", "Referer": "https://sportsonline.st/" });
@@ -2122,22 +2121,21 @@ async function extractM3u8FromSportsonline(pageUrl) {
       setTimeout(() => { clearInterval(check); resolve(); }, 20000);
     });
 
-    await browser.close(); browser = null;
+    await page.close();
     if (!m3u8Found) throw new Error("No se detectó m3u8 en sportssonline.click");
     console.log(`✅ sportssonline m3u8: ${m3u8Found}`);
     return { m3u8Url: m3u8Found, referer: refererFound };
   } catch (err) {
-    if (browser) await browser.close().catch(() => {});
+    await page.close().catch(() => {});
     throw err;
   }
 }
 
 async function extractM3u8FromEmbedSports(pageUrl) {
   const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
-  let browser;
+  const browser = await launchStealthBrowser();
+  const page = await browser.newPage();
   try {
-    browser = await launchStealthBrowser();
-    const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 720 });
     await page.setUserAgent(UA);
     await page.setExtraHTTPHeaders({
@@ -2180,12 +2178,12 @@ async function extractM3u8FromEmbedSports(pageUrl) {
       setTimeout(() => { clearInterval(check); resolve(); }, 25000);
     });
 
-    await browser.close(); browser = null;
+    await page.close();
     if (!m3u8Found) throw new Error("No se detectó m3u8 en embedsports.top");
     console.log(`✅ embedsports m3u8: ${m3u8Found}`);
     return { m3u8Url: m3u8Found, referer: embedReferer };
   } catch (err) {
-    if (browser) await browser.close().catch(() => {});
+    await page.close().catch(() => {});
     throw err;
   }
 }
@@ -2364,21 +2362,108 @@ async function extractFromYouTube(videoUrl) {
 }
 
 // Helpers reutilizables para Puppeteer en bolaloca
-const CHROMIUM_PATH = "/nix/store/qa9cnw4v5xkxyip6mb9kxqfq1z4x2dx1-chromium-138.0.7204.100/bin/chromium-browser";
 const PUPPETEER_ARGS = [
   "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage",
-  "--disable-gpu", "--no-first-run", "--disable-infobars", "--window-size=1280,720"
+  "--disable-gpu", "--no-first-run", "--disable-infobars", "--window-size=1280,720",
+  "--disable-extensions", "--disable-background-networking", "--disable-sync",
+  "--disable-translate", "--metrics-recording-only", "--mute-audio"
 ];
 
-async function launchStealthBrowser() {
+function findChromiumPath() {
+  const fs = require("fs");
+  const { execSync } = require("child_process");
+  const candidates = [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium",
+    "/usr/bin/google-chrome",
+    "/nix/var/nix/profiles/default/bin/chromium",
+  ];
+  for (const p of candidates) {
+    if (p && fs.existsSync(p)) return p;
+  }
+  try {
+    const nixResult = execSync(
+      "ls /nix/store/ | grep '^[a-z0-9]*-chromium-' | head -1",
+      { timeout: 3000, encoding: "utf8" }
+    ).trim();
+    if (nixResult) {
+      const nixPath = `/nix/store/${nixResult}/bin/chromium-browser`;
+      if (fs.existsSync(nixPath)) return nixPath;
+      const nixPath2 = `/nix/store/${nixResult}/bin/chromium`;
+      if (fs.existsSync(nixPath2)) return nixPath2;
+    }
+  } catch {}
+  return null;
+}
+
+// Caché de instancias Puppeteer (reutilizar browser entre peticiones)
+let _sharedBrowser = null;
+let _browserLastUsed = 0;
+const BROWSER_IDLE_TTL = 5 * 60 * 1000; // cerrar si lleva 5 min sin uso
+
+async function getSharedBrowser() {
   const puppeteerExtra = require("puppeteer-extra");
   const StealthPlugin = require("puppeteer-extra-plugin-stealth");
-  // Registrar el plugin solo una vez
-  if (!launchStealthBrowser._registered) {
+  if (!getSharedBrowser._registered) {
     puppeteerExtra.use(StealthPlugin());
-    launchStealthBrowser._registered = true;
+    getSharedBrowser._registered = true;
   }
-  return puppeteerExtra.launch({ headless: "new", executablePath: CHROMIUM_PATH, args: PUPPETEER_ARGS });
+  if (_sharedBrowser) {
+    try {
+      await _sharedBrowser.pages();
+      _browserLastUsed = Date.now();
+      return _sharedBrowser;
+    } catch {
+      _sharedBrowser = null;
+    }
+  }
+  const chromiumPath = findChromiumPath();
+  if (!chromiumPath) throw new Error("Chromium no encontrado en este entorno");
+  console.log(`🌐 Lanzando Puppeteer con: ${chromiumPath}`);
+  _sharedBrowser = await puppeteerExtra.launch({
+    headless: "new",
+    executablePath: chromiumPath,
+    args: PUPPETEER_ARGS
+  });
+  _browserLastUsed = Date.now();
+  _sharedBrowser.on("disconnected", () => { _sharedBrowser = null; });
+  return _sharedBrowser;
+}
+
+// Cerrar browser inactivo periódicamente
+setInterval(async () => {
+  if (_sharedBrowser && Date.now() - _browserLastUsed > BROWSER_IDLE_TTL) {
+    console.log("🧹 Cerrando Puppeteer inactivo...");
+    try { await _sharedBrowser.close(); } catch {}
+    _sharedBrowser = null;
+  }
+}, 60 * 1000);
+
+async function launchStealthBrowser() {
+  return getSharedBrowser();
+}
+
+// ── Caché de m3u8 extraídos para /stream7 (evita re-extracción en cada click) ──
+const stream7ExtractCache = new Map();
+const STREAM7_CACHE_TTL = 2 * 60 * 1000; // 2 minutos
+
+function getStream7Cache(sourceUrl) {
+  const entry = stream7ExtractCache.get(sourceUrl);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > STREAM7_CACHE_TTL) {
+    stream7ExtractCache.delete(sourceUrl);
+    return null;
+  }
+  return entry.value;
+}
+
+function setStream7Cache(sourceUrl, value) {
+  stream7ExtractCache.set(sourceUrl, { value, ts: Date.now() });
+  if (stream7ExtractCache.size > 200) {
+    const oldest = [...stream7ExtractCache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0];
+    if (oldest) stream7ExtractCache.delete(oldest[0]);
+  }
 }
 
 async function extractM3u8FromBolaloca(bola_url) {
@@ -2402,23 +2487,22 @@ async function extractM3u8FromBolaloca(bola_url) {
   // Si el axios no encontró iframe (página con JS), usar Puppeteer sobre bolaloca.my
   if (!playerUrl) {
     console.log(`🔍 bolaloca sin iframe estático, usando Puppeteer para renderizar: ${bola_url}`);
-    let browser;
+    const _bolaBrowser = await launchStealthBrowser();
+    const _bolaPage = await _bolaBrowser.newPage();
     try {
-      browser = await launchStealthBrowser();
-      const page = await browser.newPage();
-      await page.setViewport({ width: 1280, height: 720 });
-      await page.setUserAgent(UA);
-      await page.goto(bola_url, { waitUntil: "domcontentloaded", timeout: 20000 });
+      await _bolaPage.setViewport({ width: 1280, height: 720 });
+      await _bolaPage.setUserAgent(UA);
+      await _bolaPage.goto(bola_url, { waitUntil: "domcontentloaded", timeout: 20000 });
       await new Promise(r => setTimeout(r, 3000));
-      const iframes = await page.evaluate(() =>
+      const iframes = await _bolaPage.evaluate(() =>
         Array.from(document.querySelectorAll("iframe[src]"))
           .map(f => f.src)
           .filter(s => s && s.startsWith("http") && !s.includes("bolaloca.my"))
       );
-      await browser.close(); browser = null;
+      await _bolaPage.close();
       if (iframes.length > 0) playerUrl = iframes[0];
     } catch(e) {
-      if (browser) await browser.close().catch(() => {});
+      await _bolaPage.close().catch(() => {});
       throw new Error(`No se pudo obtener iframe de bolaloca.my: ${e.message}`);
     }
   }
@@ -2442,17 +2526,16 @@ async function extractM3u8FromBolaloca(bola_url) {
   // Detectado por la presencia de `stream.js` + `_econfig` en el HTML
   if (playerHtml.includes("stream.js") && playerHtml.includes("_econfig")) {
     console.log(`🎬 bolaloca → bstream.st player (stealth Puppeteer): ${playerUrl}`);
-    let browser;
+    const _bsBrowser = await launchStealthBrowser();
+    const _bsPage = await _bsBrowser.newPage();
     try {
-      browser = await launchStealthBrowser();
-      const page = await browser.newPage();
-      await page.setViewport({ width: 1280, height: 720 });
-      await page.setUserAgent(UA);
-      await page.setExtraHTTPHeaders({ "Accept-Language": "es-MX,es;q=0.9", "Referer": bola_url });
+      await _bsPage.setViewport({ width: 1280, height: 720 });
+      await _bsPage.setUserAgent(UA);
+      await _bsPage.setExtraHTTPHeaders({ "Accept-Language": "es-MX,es;q=0.9", "Referer": bola_url });
 
       let m3u8Url = null, streamReferer = playerUrl;
-      await page.setRequestInterception(true);
-      page.on("request", req => {
+      await _bsPage.setRequestInterception(true);
+      _bsPage.on("request", req => {
         const u = req.url();
         if (u.includes(".m3u8") && !m3u8Url) {
           m3u8Url = u;
@@ -2461,19 +2544,19 @@ async function extractM3u8FromBolaloca(bola_url) {
         req.continue();
       });
 
-      await page.goto(playerUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await _bsPage.goto(playerUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
       await new Promise(resolve => {
         const check = setInterval(() => { if (m3u8Url) { clearInterval(check); resolve(); } }, 300);
         setTimeout(() => { clearInterval(check); resolve(); }, 25000);
       });
 
-      await browser.close(); browser = null;
+      await _bsPage.close();
 
       if (!m3u8Url) throw new Error("No hay stream en vivo ahora en este canal (bstream.st)");
       console.log(`✅ bolaloca/bstream m3u8: ${m3u8Url}`);
       return { m3u8Url, referer: streamReferer };
     } catch(err) {
-      if (browser) await browser.close().catch(() => {});
+      await _bsPage.close().catch(() => {});
       throw err;
     }
   }
@@ -2529,6 +2612,18 @@ app.get("/stream7", async (req, res) => {
 
   const baseUrl = `${req.protocol}://${req.get("host")}`;
   let m3u8Url, streamReferer;
+
+  // ── Caché de extracción: evita repetir el scraping si el mismo canal se abre varias veces ──
+  const cacheKey = decodedUrl;
+  const cached7 = getStream7Cache(cacheKey);
+  if (cached7) {
+    console.log(`⚡ stream7 (caché) → ${decodedUrl}`);
+    const proxiedM3u8Cached = `${baseUrl}/hls7?url=${encodeURIComponent(cached7.m3u8Url)}&ref=${encodeURIComponent(cached7.referer || "")}`;
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Cache-Control", "no-cache");
+    return res.send(buildLivePlayer(proxiedM3u8Cached, baseUrl));
+  }
 
   try {
     if (hostname === "youtube.com" || hostname.endsWith(".youtube.com") || hostname === "youtu.be") {
@@ -2815,6 +2910,7 @@ app.get("/stream7", async (req, res) => {
     } else if (hostname === "sportssonline.click" || hostname.endsWith(".sportssonline.click")) {
       console.log(`🎬 stream7 (sportssonline) → ${decodedUrl}`);
       const extracted = await extractM3u8FromSportsonline(decodedUrl);
+      setStream7Cache(cacheKey, { m3u8Url: extracted.m3u8Url, referer: extracted.referer || "" });
       return res.send(buildDirectHlsPlayer(extracted.m3u8Url, baseUrl));
     } else if (hostname === "embedsports.top" || hostname.endsWith(".embedsports.top")) {
       console.log(`🎬 stream7 (embedsports) → iframe: ${decodedUrl}`);
@@ -2858,6 +2954,9 @@ app.get("/stream7", async (req, res) => {
       m3u8Url = m3u8Match[1];
       streamReferer = STREAM7_REFERER;
     }
+
+    // Guardar en caché para próximas peticiones del mismo canal
+    if (m3u8Url) setStream7Cache(cacheKey, { m3u8Url, referer: streamReferer || "" });
 
     const proxiedM3u8 = `${baseUrl}/hls7?url=${encodeURIComponent(m3u8Url)}&ref=${encodeURIComponent(streamReferer || "")}`;
 
