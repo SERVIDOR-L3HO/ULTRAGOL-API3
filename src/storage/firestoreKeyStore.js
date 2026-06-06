@@ -1,8 +1,8 @@
 const axios = require('axios');
 const crypto = require('crypto');
 
-const PROJECT_ID = 'apik-9510b';
-const WEB_API_KEY = 'AIzaSyCHAptclAjSVJP3iDNzqrLbs9bQ3272SrU';
+const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'apik-9510b';
+const WEB_API_KEY = process.env.FIREBASE_WEB_API_KEY || '';
 const BASE_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/apikeys`;
 
 let cache = null;
