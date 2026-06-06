@@ -4010,26 +4010,55 @@ app.get("/tvtvhd-relay", async (req, res) => {
 
   try {
     const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-    // Step 1: fetch tvtvhd page to get fresh token
+
+    // Step 1: fetch tvtvhd page
     const pageResp = await axios.get(decodedPage, {
       timeout: 12000,
       headers: { "User-Agent": UA, "Referer": "https://tvtvhd.com/", "Accept": "text/html,application/xhtml+xml" }
     });
-    const match = pageResp.data.match(/var\s+playbackURL\s*=\s*["']([^"']+\.m3u8[^"']*)["']/);
-    if (!match) return res.status(502).send("No se encontró playbackURL");
+    let html = pageResp.data;
+    let streamReferer = "https://tvtvhd.com/";
+
+    // Step 2: try to find playbackURL directly; if not, follow iframe src one level
+    let match = html.match(/var\s+playbackURL\s*=\s*["']([^"']+\.m3u8[^"']*)["']/);
+    if (!match) {
+      // tvtvhd embeds an iframe to an external player (e.g. la18hd.com) — follow it
+      const iframeMatch = html.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+      if (!iframeMatch) return res.status(502).send("No se encontró playbackURL ni iframe src");
+
+      let iframeSrc = iframeMatch[1];
+      if (iframeSrc.startsWith("//")) iframeSrc = "https:" + iframeSrc;
+
+      console.log(`📡 tvtvhd-relay: siguiendo iframe → ${iframeSrc}`);
+      streamReferer = iframeSrc;
+
+      const iframeResp = await axios.get(iframeSrc, {
+        timeout: 12000,
+        headers: {
+          "User-Agent": UA,
+          "Referer": "https://tvtvhd.com/",
+          "Accept": "text/html,application/xhtml+xml"
+        }
+      });
+      html = iframeResp.data;
+      match = html.match(/var\s+playbackURL\s*=\s*["']([^"']+\.m3u8[^"']*)["']/);
+      if (!match) return res.status(502).send("No se encontró playbackURL en el player embebido");
+    }
+
     const m3u8Url = match[1];
 
-    // Step 2: fetch the m3u8 content immediately (same server IP = valid token)
+    // Step 3: fetch the m3u8 content immediately (same server IP = valid token)
+    const playerOrigin = (() => { try { return new URL(streamReferer).origin; } catch { return "https://tvtvhd.com"; } })();
     const m3u8Resp = await axios.get(m3u8Url, {
       timeout: 10000,
-      headers: { "User-Agent": UA, "Referer": "https://tvtvhd.com/", "Origin": "https://tvtvhd.com" }
+      headers: { "User-Agent": UA, "Referer": streamReferer, "Origin": playerOrigin }
     });
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
     const m3u8Base = m3u8Url.substring(0, m3u8Url.lastIndexOf("/") + 1);
-    const refParam = `&ref=${encodeURIComponent("https://tvtvhd.com/")}`;
+    const refParam = `&ref=${encodeURIComponent(streamReferer)}`;
 
-    // Step 3: rewrite segments to go through hls7-seg proxy
+    // Step 4: rewrite segments to go through hls7-seg proxy
     let content = String(m3u8Resp.data);
     content = content.replace(/^((?!#).+\.ts(?:[?&][^\s]*)?)$/gm, (line) => {
       const abs = line.startsWith("http") ? line : m3u8Base + line;
