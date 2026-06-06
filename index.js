@@ -2396,8 +2396,13 @@ let _browserLastUsed = 0;
 const BROWSER_IDLE_TTL = 5 * 60 * 1000; // cerrar si lleva 5 min sin uso
 
 async function getSharedBrowser() {
-  const puppeteerExtra = require("puppeteer-extra");
-  const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+  let puppeteerExtra, StealthPlugin;
+  try {
+    puppeteerExtra = require("puppeteer-extra");
+    StealthPlugin = require("puppeteer-extra-plugin-stealth");
+  } catch {
+    throw new Error("Puppeteer no está disponible en este entorno");
+  }
   if (!getSharedBrowser._registered) {
     puppeteerExtra.use(StealthPlugin());
     getSharedBrowser._registered = true;
