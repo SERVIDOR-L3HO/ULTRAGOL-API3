@@ -1513,7 +1513,7 @@ function applyBolalocoProxy(obj, baseUrl) {
   return obj;
 }
 
-app.get("/transmisiones", async (req, res) => {
+app.get("/gol-1", async (req, res) => {
   try {
     let data = cache.get("transmisiones");
     const baseUrl = `${req.protocol}://${req.get("host")}`;
@@ -1553,7 +1553,7 @@ app.get("/transmisiones", async (req, res) => {
   }
 });
 
-app.get("/transmisiones2", async (req, res) => {
+app.get("/gol-2", async (req, res) => {
   try {
     let data = cache.get("transmisiones2");
     
@@ -1609,7 +1609,7 @@ app.get("/transmisiones2", async (req, res) => {
   }
 });
 
-app.get("/transmisiones3", async (req, res) => {
+app.get("/gol-3", async (req, res) => {
   try {
     let data = cache.get("transmisiones3");
     
@@ -1668,7 +1668,7 @@ app.get("/transmisiones3", async (req, res) => {
   }
 });
 
-app.get("/transmisiones4", async (req, res) => {
+app.get("/gol-4", async (req, res) => {
   try {
     let data = cache.get("transmisiones4");
     
@@ -1727,7 +1727,7 @@ app.get("/transmisiones4", async (req, res) => {
   }
 });
 
-app.get("/transmisiones5", async (req, res) => {
+app.get("/gol-5", async (req, res) => {
   const baseUrl = `${req.protocol}://${req.get("host")}`;
   try {
     let data = cache.get("transmisiones5");
@@ -1813,7 +1813,7 @@ app.get("/transmisiones5", async (req, res) => {
   }
 });
 
-app.get("/transmisiones6", async (req, res) => {
+app.get("/gol-6", async (req, res) => {
   try {
     let data = cache.get("transmisiones6");
     
