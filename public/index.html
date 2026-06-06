@@ -3,26 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>L3HO Interactive — Football Data Hub</title>
+  <title>L3HO Interactive — API Docs</title>
   <link rel="icon" type="image/png" href="/attached_assets/1001854641-removebg-preview_1764606701240.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --c1: #00ffe7;
-      --c2: #7c3aed;
-      --c3: #f72585;
-      --c4: #3a86ff;
-      --c5: #ff9f1c;
-      --bg: #04060f;
-      --glass: rgba(255,255,255,0.04);
-      --glass-border: rgba(255,255,255,0.10);
-      --glass-hover: rgba(255,255,255,0.08);
-      --text: #e8f4f8;
-      --muted: rgba(200,220,240,0.5);
+      --orange:    #f97316;
+      --orange-lt: #fb923c;
+      --orange-dk: #c2410c;
+      --yellow:    #fbbf24;
+      --yellow-lt: #fde68a;
+      --bg:        #0a0a0a;
+      --bg2:       #111111;
+      --bg3:       #171717;
+      --border:    #1f1f1f;
+      --border2:   #2a2a2a;
+      --text:      #f5f5f5;
+      --muted:     #737373;
+      --muted2:    #525252;
+      --get:       #22c55e;
+      --del:       #ef4444;
     }
 
     html { scroll-behavior: smooth; }
@@ -33,1008 +37,1173 @@
       color: var(--text);
       min-height: 100vh;
       overflow-x: hidden;
+      line-height: 1.6;
     }
 
-    /* ── FONDO ANIMADO ── */
-    .bg-scene {
-      position: fixed; inset: 0; z-index: 0; pointer-events: none;
-      background:
-        radial-gradient(ellipse 80% 60% at 15% 10%,  rgba(0,255,231,0.10) 0%, transparent 55%),
-        radial-gradient(ellipse 60% 60% at 85% 15%,  rgba(124,58,237,0.14) 0%, transparent 55%),
-        radial-gradient(ellipse 70% 50% at 50% 85%,  rgba(247,37,133,0.09) 0%, transparent 55%),
-        radial-gradient(ellipse 50% 50% at 80% 70%,  rgba(58,134,255,0.09) 0%, transparent 55%),
-        linear-gradient(160deg, #04060f 0%, #070c1a 40%, #060410 100%);
+    /* ── TOPBAR DELGADA ── */
+    .topbar {
+      background: linear-gradient(90deg, var(--orange-dk), var(--orange), var(--yellow));
+      height: 3px;
+      width: 100%;
     }
-    .bg-grid {
-      position: fixed; inset: 0; z-index: 0; pointer-events: none;
-      background-image:
-        linear-gradient(rgba(0,255,231,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,255,231,0.03) 1px, transparent 1px);
-      background-size: 60px 60px;
-    }
-    .bg-orb {
-      position: fixed; border-radius: 50%; filter: blur(80px);
-      animation: float 12s ease-in-out infinite; pointer-events: none; z-index: 0;
-    }
-    .orb1 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(0,255,231,0.06) 0%, transparent 70%); top: -150px; left: -100px; animation-delay: 0s; }
-    .orb2 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(124,58,237,0.08) 0%, transparent 70%); top: 30%; right: -100px; animation-delay: -4s; }
-    .orb3 { width: 350px; height: 350px; background: radial-gradient(circle, rgba(247,37,133,0.06) 0%, transparent 70%); bottom: 10%; left: 20%; animation-delay: -8s; }
-    @keyframes float {
-      0%, 100% { transform: translateY(0px) scale(1); }
-      33% { transform: translateY(-30px) scale(1.05); }
-      66% { transform: translateY(20px) scale(0.97); }
-    }
-
-    /* ── PARTÍCULAS ── */
-    #particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 
     /* ── HEADER ── */
     header {
-      position: sticky; top: 0; z-index: 100;
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-      background: rgba(4,6,15,0.75);
-      border-bottom: 1px solid var(--glass-border);
-      padding: 0 24px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
     .header-inner {
-      max-width: 1300px; margin: 0 auto;
-      display: flex; align-items: center; justify-content: space-between;
-      height: 68px; gap: 20px;
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 62px;
+      gap: 24px;
     }
-    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
-    .brand img { width: 38px; height: 38px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(0,255,231,0.5)); }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+    .brand img {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      filter: brightness(0) saturate(100%) invert(53%) sepia(95%) saturate(1200%) hue-rotate(5deg) brightness(102%);
+    }
+    .brand-info { display: flex; flex-direction: column; gap: 1px; }
     .brand-name {
-      font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.3rem;
-      background: linear-gradient(135deg, var(--c1), var(--c2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-      letter-spacing: 2px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      letter-spacing: 1px;
+      color: #fff;
     }
-    .brand-sub { font-size: 0.6rem; color: var(--muted); letter-spacing: 3px; display: block; margin-top: -4px; }
-    .header-right { display: flex; align-items: center; gap: 16px; }
-    .badge-version {
-      display: flex; align-items: center; gap: 8px;
-      background: rgba(0,255,231,0.07); border: 1px solid rgba(0,255,231,0.2);
-      border-radius: 20px; padding: 5px 14px;
-      font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--c1);
+    .brand-sub {
+      font-size: 0.62rem;
+      letter-spacing: 2.5px;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+      text-transform: uppercase;
     }
-    .badge-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--c1); box-shadow: 0 0 8px var(--c1);
-      animation: pulse-dot 2s ease-in-out infinite;
+    .divider-v {
+      width: 1px;
+      height: 28px;
+      background: var(--border2);
     }
-    @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.6)} }
-    .nav-links { display: flex; gap: 4px; }
+    .header-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+    }
+    .nav-links {
+      display: flex;
+      gap: 2px;
+      margin-left: auto;
+    }
     .nav-link {
-      padding: 7px 14px; border-radius: 10px; font-size: 0.82rem; font-weight: 500;
-      color: var(--muted); text-decoration: none; transition: all 0.25s;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      transition: all 0.2s;
+      font-family: 'IBM Plex Mono', monospace;
     }
-    .nav-link:hover { color: var(--c1); background: rgba(0,255,231,0.08); }
+    .nav-link:hover { color: var(--orange-lt); background: rgba(249,115,22,0.07); }
+    .version-tag {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.76rem;
+      background: rgba(249,115,22,0.1);
+      border: 1px solid rgba(249,115,22,0.25);
+      border-radius: 6px;
+      padding: 5px 12px;
+      color: var(--orange-lt);
+      white-space: nowrap;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 6px #22c55e;
+      animation: blink 2s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
     /* ── HERO ── */
     .hero {
-      position: relative; z-index: 1;
-      min-height: 100vh; display: flex; align-items: center; justify-content: center;
-      padding: 100px 24px 80px;
-      text-align: center;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 72px 32px 64px;
     }
-    .hero-inner { max-width: 900px; margin: 0 auto; }
-    .hero-chip {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(124,58,237,0.12); border: 1px solid rgba(124,58,237,0.35);
-      border-radius: 30px; padding: 7px 20px; margin-bottom: 36px;
-      font-size: 0.75rem; font-weight: 600; letter-spacing: 2px; color: #a78bfa;
+    .hero-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 48px;
+      align-items: center;
     }
-    .hero-chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #a78bfa; box-shadow: 0 0 8px #a78bfa; }
+    .hero-eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .hero-eyebrow-text {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--orange);
+      letter-spacing: 2px;
+      font-weight: 500;
+    }
+    .eyebrow-line {
+      height: 1px;
+      width: 40px;
+      background: var(--orange);
+      opacity: 0.5;
+    }
     .hero-title {
-      font-family: 'Orbitron', sans-serif; font-weight: 900;
-      font-size: clamp(3rem, 9vw, 7rem); line-height: 1.0; margin-bottom: 28px;
-      letter-spacing: -1px;
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      font-weight: 800;
+      line-height: 1.1;
+      color: #fff;
+      letter-spacing: -0.5px;
+      margin-bottom: 20px;
     }
-    .title-white { color: #fff; display: block; }
-    .title-grad {
-      display: block;
-      background: linear-gradient(135deg, var(--c1) 0%, var(--c4) 40%, var(--c2) 80%, var(--c3) 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-      filter: drop-shadow(0 0 30px rgba(0,255,231,0.3));
+    .hero-title span {
+      background: linear-gradient(90deg, var(--orange), var(--yellow));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
     .hero-desc {
-      font-size: clamp(1rem, 2.5vw, 1.15rem); color: var(--muted); line-height: 1.75;
-      max-width: 640px; margin: 0 auto 50px;
+      font-size: 1.05rem;
+      color: var(--muted);
+      line-height: 1.75;
+      max-width: 560px;
+      margin-bottom: 36px;
     }
-    .hero-actions { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 70px; }
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
     .btn-primary {
-      display: inline-flex; align-items: center; gap: 10px;
-      background: linear-gradient(135deg, var(--c1), var(--c4));
-      color: #04060f; font-weight: 700; font-size: 0.9rem;
-      padding: 14px 28px; border-radius: 14px; text-decoration: none;
-      transition: all 0.3s; box-shadow: 0 0 30px rgba(0,255,231,0.25);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--orange);
+      color: #000;
+      font-weight: 700;
+      font-size: 0.88rem;
+      padding: 11px 22px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: all 0.2s;
+      border: 1px solid var(--orange);
     }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 50px rgba(0,255,231,0.45); }
-    .btn-glass {
-      display: inline-flex; align-items: center; gap: 10px;
-      background: var(--glass); border: 1px solid var(--glass-border);
-      color: var(--text); font-weight: 600; font-size: 0.9rem;
-      padding: 14px 28px; border-radius: 14px; text-decoration: none;
-      backdrop-filter: blur(10px); transition: all 0.3s;
+    .btn-primary:hover { background: var(--orange-lt); border-color: var(--orange-lt); }
+    .btn-outline {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.88rem;
+      padding: 11px 22px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: all 0.2s;
+      border: 1px solid var(--border2);
+      font-family: 'IBM Plex Mono', monospace;
     }
-    .btn-glass:hover { background: var(--glass-hover); border-color: rgba(255,255,255,0.2); transform: translateY(-2px); }
+    .btn-outline:hover { border-color: var(--orange); color: var(--orange); }
 
     /* ── STATS ── */
     .hero-stats {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
-      max-width: 800px; margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      min-width: 280px;
     }
-    .stat-card {
-      background: var(--glass); border: 1px solid var(--glass-border);
-      border-radius: 18px; padding: 24px 16px;
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-      transition: all 0.3s; position: relative; overflow: hidden;
+    .stat-box {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 18px;
+      transition: border-color 0.2s;
     }
-    .stat-card::before {
-      content: ''; position: absolute; inset: 0; border-radius: 18px;
-      background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 60%);
-      pointer-events: none;
-    }
-    .stat-card:hover { transform: translateY(-4px); border-color: rgba(0,255,231,0.3); box-shadow: 0 20px 40px rgba(0,0,0,0.3), 0 0 20px rgba(0,255,231,0.1); }
-    .stat-emoji { font-size: 1.8rem; margin-bottom: 10px; }
+    .stat-box:hover { border-color: rgba(249,115,22,0.3); }
     .stat-num {
-      font-family: 'Orbitron', sans-serif; font-size: 1.8rem; font-weight: 900;
-      background: linear-gradient(135deg, var(--c1), var(--c2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--orange);
+      font-family: 'IBM Plex Mono', monospace;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .stat-lbl {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    /* ── LAYOUT PRINCIPAL ── */
+    .page-body {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 48px 32px;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 40px;
+      align-items: start;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      position: sticky;
+      top: 80px;
+    }
+    .sidebar-group { margin-bottom: 28px; }
+    .sidebar-group-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--muted2);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      padding-left: 2px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 0.83rem;
+      color: var(--muted);
+      text-decoration: none;
+      transition: all 0.18s;
+      font-weight: 500;
+    }
+    .sidebar-item:hover { color: var(--orange-lt); background: rgba(249,115,22,0.07); }
+    .sidebar-item.active { color: var(--orange); background: rgba(249,115,22,0.1); font-weight: 600; }
+    .sidebar-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--border2);
+      flex-shrink: 0;
+      transition: background 0.18s;
+    }
+    .sidebar-item:hover .sidebar-dot { background: var(--orange); }
+    .sidebar-item.active .sidebar-dot { background: var(--orange); }
+
+    /* ── CONTENIDO PRINCIPAL ── */
+    .main-content { min-width: 0; }
+
+    /* ── SECCIÓN ── */
+    .doc-section { margin-bottom: 52px; }
+    .section-anchor {
       display: block;
+      position: relative;
+      top: -80px;
+      visibility: hidden;
     }
-    .stat-lbl { font-size: 0.72rem; color: var(--muted); letter-spacing: 2px; font-weight: 600; margin-top: 4px; }
-
-    /* ── SCROLL HINT ── */
-    .scroll-hint {
-      position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-      display: flex; flex-direction: column; align-items: center; gap: 8px;
-      color: var(--muted); font-size: 0.75rem; letter-spacing: 2px; animation: bounce-hint 2s ease-in-out infinite;
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
     }
-    .scroll-arrow { width: 20px; height: 20px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); }
-    @keyframes bounce-hint { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(6px)} }
-
-    /* ── SECTION ── */
-    section { position: relative; z-index: 1; padding: 80px 24px; }
-    .container { max-width: 1300px; margin: 0 auto; }
-    .section-label {
-      display: inline-flex; align-items: center; gap: 8px;
-      font-size: 0.72rem; font-weight: 700; letter-spacing: 3px;
-      color: var(--c1); margin-bottom: 12px;
+    .section-icon {
+      font-size: 1.3rem;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(249,115,22,0.1);
+      border: 1px solid rgba(249,115,22,0.2);
+      border-radius: 8px;
     }
-    .section-label::before { content: ''; width: 24px; height: 2px; background: var(--c1); border-radius: 1px; }
     .section-title {
-      font-family: 'Orbitron', sans-serif; font-size: clamp(1.6rem, 4vw, 2.4rem);
-      font-weight: 700; color: #fff; margin-bottom: 50px; line-height: 1.2;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #fff;
     }
-    .section-title span { background: linear-gradient(135deg, var(--c1), var(--c2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-
-    /* ── CARACTERÍSTICAS ── */
-    .features-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;
+    .section-subtitle {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 2px;
     }
-    .feat-card {
-      background: var(--glass); border: 1px solid var(--glass-border);
-      border-radius: 22px; padding: 30px 26px;
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-      position: relative; overflow: hidden; transition: all 0.35s;
-    }
-    .feat-card::before {
-      content: ''; position: absolute; inset: 0; border-radius: 22px;
-      background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 60%);
-      pointer-events: none;
-    }
-    .feat-card:hover { transform: translateY(-6px); border-color: rgba(124,58,237,0.4); box-shadow: 0 24px 50px rgba(0,0,0,0.3), 0 0 30px rgba(124,58,237,0.12); }
-    .feat-glow {
-      position: absolute; width: 120px; height: 120px; border-radius: 50%;
-      filter: blur(50px); top: -20px; right: -20px; pointer-events: none; opacity: 0.6;
-    }
-    .feat-icon { font-size: 2.2rem; margin-bottom: 16px; display: block; }
-    .feat-title { font-weight: 700; font-size: 1.05rem; color: #fff; margin-bottom: 10px; }
-    .feat-desc { font-size: 0.88rem; color: var(--muted); line-height: 1.65; margin-bottom: 16px; }
-    .feat-tag {
-      display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.72rem;
-      font-weight: 700; letter-spacing: 1px;
+    .section-badge {
+      margin-left: auto;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 4px;
+      background: rgba(251,191,36,0.1);
+      border: 1px solid rgba(251,191,36,0.25);
+      color: var(--yellow);
     }
 
-    /* ── LIGAS ── */
-    .leagues-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;
+    /* ── TABLA DE ENDPOINTS ── */
+    .ep-table {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .ep-row {
+      display: grid;
+      grid-template-columns: 60px 1fr auto;
+      align-items: center;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+      text-decoration: none;
+      color: inherit;
+    }
+    .ep-row:last-child { border-bottom: none; }
+    .ep-row:hover { background: var(--bg3); }
+    .ep-row:hover .ep-path { color: var(--orange-lt); }
+    .ep-method {
+      padding: 12px 14px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-align: center;
+      border-right: 1px solid var(--border);
+    }
+    .method-get { color: var(--get); }
+    .method-del { color: var(--del); }
+    .ep-path {
+      padding: 12px 16px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--text);
+      transition: color 0.15s;
+    }
+    .ep-path em {
+      color: var(--orange);
+      font-style: normal;
+    }
+    .ep-desc {
+      padding: 12px 16px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: right;
+      white-space: nowrap;
+    }
+    .ep-new {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.62rem;
+      font-weight: 700;
+      background: rgba(249,115,22,0.12);
+      border: 1px solid rgba(249,115,22,0.3);
+      color: var(--orange);
+      border-radius: 4px;
+      padding: 2px 7px;
+      letter-spacing: 1px;
+      margin-left: 8px;
+    }
+
+    /* ── LIGA CARD ── */
+    .league-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 16px;
     }
     .league-card {
-      background: var(--glass); border: 1px solid var(--glass-border);
-      border-radius: 22px; padding: 28px; backdrop-filter: blur(20px);
-      position: relative; overflow: hidden; transition: all 0.35s; cursor: default;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color 0.2s;
     }
-    .league-card::before {
-      content: ''; position: absolute; inset: 0; border-radius: 22px;
-      background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 55%);
-      pointer-events: none;
+    .league-card:hover { border-color: rgba(249,115,22,0.35); }
+    .league-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--border);
     }
-    .league-card:hover { transform: translateY(-5px); box-shadow: 0 24px 50px rgba(0,0,0,0.35); }
-    .league-card:hover { border-color: var(--accent-color, rgba(0,255,231,0.3)); box-shadow: 0 24px 50px rgba(0,0,0,0.35), 0 0 25px var(--accent-glow, rgba(0,255,231,0.08)); }
-    .league-head { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
-    .league-flag { font-size: 2rem; }
-    .league-name { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1rem; color: #fff; flex: 1; }
-    .live-pill {
-      display: flex; align-items: center; gap: 5px;
-      background: rgba(0,255,100,0.1); border: 1px solid rgba(0,255,100,0.25);
-      border-radius: 20px; padding: 3px 10px; font-size: 0.68rem; font-weight: 700;
-      color: #00ff64; letter-spacing: 1px;
+    .flag { font-size: 1.4rem; }
+    .league-name { font-weight: 700; font-size: 0.95rem; color: #fff; flex: 1; }
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #22c55e;
+      letter-spacing: 1px;
     }
-    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #00ff64; box-shadow: 0 0 6px #00ff64; animation: pulse-dot 1.5s ease-in-out infinite; }
-    .endpoints-list { display: flex; flex-wrap: wrap; gap: 8px; }
-    .ep {
-      display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
-      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 8px; padding: 5px 10px; color: var(--c1); text-decoration: none;
-      transition: all 0.2s; white-space: nowrap;
+    .live-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 5px #22c55e;
+      animation: blink 1.5s ease-in-out infinite;
     }
-    .ep:hover { background: rgba(0,255,231,0.12); border-color: rgba(0,255,231,0.3); transform: translateY(-1px); color: #fff; }
-    .ep.new { color: var(--c3); border-color: rgba(247,37,133,0.2); background: rgba(247,37,133,0.06); }
-    .ep.new:hover { background: rgba(247,37,133,0.15); border-color: rgba(247,37,133,0.4); }
-    .ep.global { color: var(--c5); border-color: rgba(255,159,28,0.2); background: rgba(255,159,28,0.06); }
-    .ep.global:hover { background: rgba(255,159,28,0.15); border-color: rgba(255,159,28,0.4); }
+    .league-eps { padding: 4px 0; }
+    .l-ep {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 18px;
+      border-bottom: 1px solid var(--border);
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .l-ep:last-child { border-bottom: none; }
+    .l-ep:hover { background: rgba(249,115,22,0.06); }
+    .l-ep:hover .l-path { color: var(--orange-lt); }
+    .l-method {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--get);
+      width: 32px;
+      flex-shrink: 0;
+    }
+    .l-path {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--text);
+      flex: 1;
+      transition: color 0.15s;
+    }
+    .l-label {
+      font-size: 0.72rem;
+      color: var(--muted2);
+    }
+    .l-new {
+      font-size: 0.6rem;
+      font-weight: 700;
+      background: rgba(249,115,22,0.1);
+      border: 1px solid rgba(249,115,22,0.25);
+      color: var(--orange);
+      border-radius: 3px;
+      padding: 1px 6px;
+      letter-spacing: 0.5px;
+    }
 
-    /* ── ENDPOINTS ESPECIALES ── */
-    .special-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;
+    /* ── CATEGORÍAS DATAFACTORY ── */
+    .cat-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
     }
-    .special-card {
-      background: var(--glass); border: 1px solid var(--glass-border);
-      border-radius: 22px; padding: 28px; backdrop-filter: blur(20px);
-      position: relative; overflow: hidden; transition: all 0.35s;
-    }
-    .special-card::before {
-      content: ''; position: absolute; inset: 0; border-radius: 22px;
-      background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 55%);
-      pointer-events: none;
-    }
-    .special-card:hover { transform: translateY(-5px); border-color: rgba(58,134,255,0.35); box-shadow: 0 24px 50px rgba(0,0,0,0.3), 0 0 30px rgba(58,134,255,0.1); }
-    .special-card.featured { border-color: rgba(124,58,237,0.35); grid-column: 1 / -1; }
-    .special-card.featured:hover { border-color: rgba(124,58,237,0.55); box-shadow: 0 24px 60px rgba(0,0,0,0.35), 0 0 40px rgba(124,58,237,0.15); }
-    .special-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
-    .special-icon { font-size: 1.8rem; }
-    .special-name { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1rem; color: #fff; flex: 1; }
-    .feat-badge {
-      font-size: 0.68rem; font-weight: 700; letter-spacing: 1.5px;
-      padding: 4px 12px; border-radius: 20px;
-      background: rgba(124,58,237,0.18); border: 1px solid rgba(124,58,237,0.35); color: #a78bfa;
-    }
-    .special-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.6; margin: 14px 0 12px; }
-    .cats-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-    .cat-tag {
-      display: inline-block; font-size: 0.78rem; font-weight: 600;
-      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10);
-      border-radius: 20px; padding: 5px 14px; color: var(--muted); text-decoration: none;
+    .cat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 14px;
+      color: var(--muted);
+      text-decoration: none;
       transition: all 0.2s;
+      font-family: 'IBM Plex Mono', monospace;
     }
-    .cat-tag:hover { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.4); color: #c4b5fd; }
+    .cat-pill:hover { border-color: rgba(249,115,22,0.4); color: var(--orange-lt); background: rgba(249,115,22,0.06); }
 
-    /* ── INFO TÉCNICA ── */
+    /* ── INFO CARDS ── */
     .info-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
     }
     .info-card {
-      background: var(--glass); border: 1px solid var(--glass-border);
-      border-radius: 18px; padding: 24px 20px; backdrop-filter: blur(20px);
-      text-align: center; transition: all 0.3s;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 18px;
+      transition: border-color 0.2s;
     }
-    .info-card:hover { border-color: rgba(0,255,231,0.25); transform: translateY(-3px); }
-    .info-icon { font-size: 1.7rem; margin-bottom: 12px; }
-    .info-label { font-size: 0.78rem; color: var(--muted); font-weight: 600; letter-spacing: 1px; margin-bottom: 8px; }
-    .info-value {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.92rem; font-weight: 600;
-      background: linear-gradient(135deg, var(--c1), var(--c4));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    .info-card:hover { border-color: rgba(249,115,22,0.3); }
+    .info-icon { font-size: 1.1rem; margin-bottom: 10px; }
+    .info-key { font-size: 0.7rem; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; margin-bottom: 6px; }
+    .info-val {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--orange-lt);
     }
 
-    /* ── CTA ── */
-    .cta-section {
-      text-align: center; padding: 80px 24px;
+    /* ── CTA INLINE ── */
+    .cta-strip {
+      background: linear-gradient(90deg, rgba(249,115,22,0.12) 0%, rgba(251,191,36,0.06) 100%);
+      border: 1px solid rgba(249,115,22,0.25);
+      border-radius: 10px;
+      padding: 24px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
     }
-    .cta-card {
-      max-width: 800px; margin: 0 auto;
-      background: var(--glass); border: 1px solid var(--glass-border);
-      border-radius: 30px; padding: 60px 40px; backdrop-filter: blur(30px);
-      position: relative; overflow: hidden;
-    }
-    .cta-card::before {
-      content: ''; position: absolute; inset: 0; border-radius: 30px;
-      background: linear-gradient(135deg, rgba(0,255,231,0.06) 0%, rgba(124,58,237,0.06) 50%, rgba(247,37,133,0.04) 100%);
-      pointer-events: none;
-    }
-    .cta-title { font-family: 'Orbitron', sans-serif; font-size: clamp(1.4rem, 4vw, 2rem); font-weight: 900; color: #fff; margin-bottom: 16px; }
-    .cta-desc { font-size: 1rem; color: var(--muted); margin-bottom: 32px; line-height: 1.7; }
+    .cta-left h3 { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .cta-left p { font-size: 0.85rem; color: var(--muted); }
 
     /* ── FOOTER ── */
     footer {
-      position: relative; z-index: 1;
-      border-top: 1px solid var(--glass-border);
-      padding: 40px 24px;
+      border-top: 1px solid var(--border);
+      background: var(--bg2);
+      padding: 28px 32px;
     }
     .footer-inner {
-      max-width: 1300px; margin: 0 auto;
-      display: flex; align-items: center; justify-content: space-between;
-      flex-wrap: wrap; gap: 20px;
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
     }
-    .footer-brand { display: flex; align-items: center; gap: 12px; }
-    .footer-brand img { width: 32px; height: 32px; object-fit: contain; opacity: 0.7; }
-    .footer-name { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 0.9rem; color: var(--text); }
-    .footer-sub { font-size: 0.75rem; color: var(--muted); }
-    .footer-right { display: flex; align-items: center; gap: 16px; }
-    .footer-link {
-      font-size: 0.82rem; color: var(--muted); text-decoration: none; transition: color 0.2s;
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
-    .footer-link:hover { color: var(--c1); }
+    .footer-left img {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+      opacity: 0.5;
+      filter: brightness(0) saturate(100%) invert(53%) sepia(95%) saturate(1200%) hue-rotate(5deg) brightness(102%);
+    }
+    .footer-text { font-size: 0.8rem; color: var(--muted); }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-link { font-size: 0.8rem; color: var(--muted2); text-decoration: none; transition: color 0.2s; }
+    .footer-link:hover { color: var(--orange); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .page-body { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .hero-inner { grid-template-columns: 1fr; }
+      .hero-stats { display: none; }
+    }
+    @media (max-width: 600px) {
+      header { padding: 0 16px; }
+      .hero { padding: 48px 16px 40px; }
+      .page-body { padding: 32px 16px; }
+      .nav-links { display: none; }
+      .header-title { display: none; }
+      .ep-desc { display: none; }
+      .ep-row { grid-template-columns: 60px 1fr; }
+    }
 
     /* ── SCROLLBAR ── */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: rgba(0,255,231,0.2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--orange-dk); }
 
-    /* ── RESPONSIVE ── */
-    @media (max-width: 768px) {
-      .hero-stats { grid-template-columns: repeat(2, 1fr); }
-      .nav-links { display: none; }
-      .special-card.featured { grid-column: 1; }
+    /* ── CODE INLINE ── */
+    code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.82em;
+      background: rgba(249,115,22,0.1);
+      border: 1px solid rgba(249,115,22,0.2);
+      color: var(--orange-lt);
+      border-radius: 4px;
+      padding: 1px 6px;
     }
-    @media (max-width: 480px) {
-      .hero-stats { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-      .stat-card { padding: 18px 12px; }
-      .cta-card { padding: 40px 24px; }
-    }
-
-    /* ── ANIMACIÓN ENTRADA ── */
-    .fade-up {
-      opacity: 0; transform: translateY(30px);
-      transition: opacity 0.6s ease, transform 0.6s ease;
-    }
-    .fade-up.visible { opacity: 1; transform: translateY(0); }
   </style>
 </head>
 <body>
 
-  <!-- FONDO -->
-  <div class="bg-scene"></div>
-  <div class="bg-grid"></div>
-  <div class="bg-orb orb1"></div>
-  <div class="bg-orb orb2"></div>
-  <div class="bg-orb orb3"></div>
-  <canvas id="particles"></canvas>
+  <div class="topbar"></div>
 
   <!-- HEADER -->
   <header>
     <div class="header-inner">
       <a href="/" class="brand">
         <img src="/attached_assets/1001854641-removebg-preview_1764606701240.png" alt="L3HO">
-        <div>
-          <span class="brand-name">L3HO</span>
-          <span class="brand-sub">INTERACTIVE</span>
+        <div class="brand-info">
+          <span class="brand-name">L3HO Interactive</span>
+          <span class="brand-sub">Football Data API</span>
         </div>
       </a>
+      <div class="divider-v"></div>
+      <span class="header-title">Referencia de API</span>
       <nav class="nav-links">
-        <a href="#ligas" class="nav-link">Ligas</a>
-        <a href="#especiales" class="nav-link">Especiales</a>
-        <a href="#multimedia" class="nav-link">Multimedia</a>
-        <a href="#canales" class="nav-link">Canales</a>
-        <a href="#tecnico" class="nav-link">Técnico</a>
+        <a href="#ligas" class="nav-link">ligas</a>
+        <a href="#especiales" class="nav-link">especiales</a>
+        <a href="#multimedia" class="nav-link">multimedia</a>
+        <a href="#canales" class="nav-link">canales</a>
+        <a href="#tecnico" class="nav-link">técnico</a>
       </nav>
-      <div class="header-right">
-        <div class="badge-version">
-          <span class="badge-dot"></span>
-          <span>v3.5.0</span>
-        </div>
+      <div class="version-tag">
+        <span class="status-dot"></span>
+        v3.5.0 — en línea
       </div>
     </div>
   </header>
 
   <!-- HERO -->
-  <section class="hero">
+  <div class="hero">
     <div class="hero-inner">
-      <div class="hero-chip">ENTERPRISE API</div>
-      <h1 class="hero-title">
-        <span class="title-white">FOOTBALL</span>
-        <span class="title-grad">DATA HUB</span>
-      </h1>
-      <p class="hero-desc">
-        Plataforma profesional de datos deportivos en tiempo real. Scraping inteligente de las 6 principales ligas del mundo con marcadores en vivo desde ESPN, estadísticas avanzadas y multimedia.
-      </p>
-      <div class="hero-actions">
-        <a href="#ligas" class="btn-primary">
-          <span>⚽</span> Ver Endpoints
-        </a>
-        <a href="/api" class="btn-glass">
-          <span>📄</span> Documentación JSON
-        </a>
+      <div>
+        <div class="hero-eyebrow">
+          <span class="eyebrow-line"></span>
+          <span class="hero-eyebrow-text">DOCUMENTACIÓN DE API — REFERENCIA COMPLETA</span>
+        </div>
+        <h1 class="hero-title">
+          Football Data Hub<br>
+          <span>API Reference</span>
+        </h1>
+        <p class="hero-desc">
+          API REST de scraping en tiempo real para datos de fútbol de las 6 principales ligas del mundo.
+          Marcadores en vivo desde ESPN, estadísticas avanzadas por partido, alineaciones, transmisiones y multimedia.
+        </p>
+        <div class="hero-actions">
+          <a href="#ligas" class="btn-primary">↓ Ver Endpoints</a>
+          <a href="/api" class="btn-outline">{ } JSON Docs</a>
+        </div>
       </div>
       <div class="hero-stats">
-        <div class="stat-card fade-up">
-          <div class="stat-emoji">⚽</div>
-          <span class="stat-num">6</span>
-          <span class="stat-lbl">LIGAS</span>
+        <div class="stat-box">
+          <div class="stat-num">6</div>
+          <div class="stat-lbl">Ligas principales</div>
         </div>
-        <div class="stat-card fade-up">
-          <div class="stat-emoji">🔗</div>
-          <span class="stat-num">100+</span>
-          <span class="stat-lbl">ENDPOINTS</span>
+        <div class="stat-box">
+          <div class="stat-num">100+</div>
+          <div class="stat-lbl">Endpoints totales</div>
         </div>
-        <div class="stat-card fade-up">
-          <div class="stat-emoji">⚡</div>
-          <span class="stat-num">20m</span>
-          <span class="stat-lbl">ACTUALIZACIÓN</span>
+        <div class="stat-box">
+          <div class="stat-num">70+</div>
+          <div class="stat-lbl">Ligas mundiales</div>
         </div>
-        <div class="stat-card fade-up">
-          <div class="stat-emoji">📺</div>
-          <span class="stat-num">6+</span>
-          <span class="stat-lbl">FUENTES TV</span>
+        <div class="stat-box">
+          <div class="stat-num">20m</div>
+          <div class="stat-lbl">Actualización</div>
         </div>
       </div>
     </div>
-    <div class="scroll-hint">
-      <span>EXPLORAR</span>
-      <div class="scroll-arrow"></div>
-    </div>
-  </section>
+  </div>
 
-  <!-- CARACTERÍSTICAS -->
-  <section>
-    <div class="container">
-      <div class="fade-up">
-        <div class="section-label">CARACTERÍSTICAS</div>
-        <h2 class="section-title">¿Qué incluye la <span>plataforma</span>?</h2>
+  <!-- BODY -->
+  <div class="page-body">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Inicio</div>
+        <a href="#tecnico" class="sidebar-item active"><span class="sidebar-dot"></span>Información General</a>
       </div>
-      <div class="features-grid">
-        <div class="feat-card fade-up">
-          <div class="feat-glow" style="background:radial-gradient(circle,rgba(0,255,231,0.25) 0%,transparent 70%)"></div>
-          <span class="feat-icon">📡</span>
-          <div class="feat-title">Marcadores en Vivo</div>
-          <p class="feat-desc">Resultados en tiempo real de todas las ligas directamente desde la API de ESPN con actualización automática.</p>
-          <span class="feat-tag" style="background:rgba(0,255,231,0.10);border:1px solid rgba(0,255,231,0.25);color:var(--c1)">Tiempo Real</span>
-        </div>
-        <div class="feat-card fade-up">
-          <div class="feat-glow" style="background:radial-gradient(circle,rgba(124,58,237,0.25) 0%,transparent 70%)"></div>
-          <span class="feat-icon">📊</span>
-          <div class="feat-title">Estadísticas Avanzadas</div>
-          <p class="feat-desc">Posesión, tiros, pases, corners, tarjetas y más por partido. Datos detallados de cada encuentro.</p>
-          <span class="feat-tag" style="background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.3);color:#a78bfa">Por Partido</span>
-        </div>
-        <div class="feat-card fade-up">
-          <div class="feat-glow" style="background:radial-gradient(circle,rgba(247,37,133,0.22) 0%,transparent 70%)"></div>
-          <span class="feat-icon">🔔</span>
-          <div class="feat-title">Notificaciones Inteligentes</div>
-          <p class="feat-desc">Detección automática de goles, inicio y fin de periodos para integrar alertas en tu aplicación.</p>
-          <span class="feat-tag" style="background:rgba(247,37,133,0.10);border:1px solid rgba(247,37,133,0.25);color:var(--c3)">AI Powered</span>
-        </div>
-        <div class="feat-card fade-up">
-          <div class="feat-glow" style="background:radial-gradient(circle,rgba(58,134,255,0.22) 0%,transparent 70%)"></div>
-          <span class="feat-icon">📺</span>
-          <div class="feat-title">Transmisiones y Canales</div>
-          <p class="feat-desc">Múltiples fuentes de transmisión deportiva, canales IPTV por país, categoría y calidad premium.</p>
-          <span class="feat-tag" style="background:rgba(58,134,255,0.10);border:1px solid rgba(58,134,255,0.25);color:var(--c4)">6 Fuentes</span>
-        </div>
-        <div class="feat-card fade-up">
-          <div class="feat-glow" style="background:radial-gradient(circle,rgba(255,159,28,0.22) 0%,transparent 70%)"></div>
-          <span class="feat-icon">🎬</span>
-          <div class="feat-title">Catálogo Multimedia</div>
-          <p class="feat-desc">Películas y series con datos de TMDB, posters, sinopsis, enlaces de reproducción y búsqueda avanzada.</p>
-          <span class="feat-tag" style="background:rgba(255,159,28,0.10);border:1px solid rgba(255,159,28,0.25);color:var(--c5)">TMDB + IMDB</span>
-        </div>
-        <div class="feat-card fade-up">
-          <div class="feat-glow" style="background:radial-gradient(circle,rgba(0,255,100,0.18) 0%,transparent 70%)"></div>
-          <span class="feat-icon">🌍</span>
-          <div class="feat-title">70+ Ligas Mundiales</div>
-          <p class="feat-desc">Acceso a tablas de más de 70 ligas de todo el mundo a través de DataFactory con filtros por región.</p>
-          <span class="feat-tag" style="background:rgba(0,255,100,0.08);border:1px solid rgba(0,255,100,0.25);color:#00ff64">Mundial</span>
-        </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Ligas</div>
+        <a href="#liga-mx" class="sidebar-item"><span class="sidebar-dot"></span>🇲🇽 Liga MX</a>
+        <a href="#premier" class="sidebar-item"><span class="sidebar-dot"></span>🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</a>
+        <a href="#laliga" class="sidebar-item"><span class="sidebar-dot"></span>🇪🇸 La Liga</a>
+        <a href="#seriea" class="sidebar-item"><span class="sidebar-dot"></span>🇮🇹 Serie A</a>
+        <a href="#bundesliga" class="sidebar-item"><span class="sidebar-dot"></span>🇩🇪 Bundesliga</a>
+        <a href="#ligue1" class="sidebar-item"><span class="sidebar-dot"></span>🇫🇷 Ligue 1</a>
+        <a href="#todas" class="sidebar-item"><span class="sidebar-dot"></span>🌍 Todas las Ligas</a>
       </div>
-    </div>
-  </section>
-
-  <!-- LIGAS PRINCIPALES -->
-  <section id="ligas">
-    <div class="container">
-      <div class="fade-up">
-        <div class="section-label">LIGAS</div>
-        <h2 class="section-title">Las 6 Ligas <span>Principales</span></h2>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Especiales</div>
+        <a href="#estadisticas" class="sidebar-item"><span class="sidebar-dot"></span>Estadísticas</a>
+        <a href="#alineaciones" class="sidebar-item"><span class="sidebar-dot"></span>Alineaciones</a>
+        <a href="#notificaciones" class="sidebar-item"><span class="sidebar-dot"></span>Notificaciones</a>
+        <a href="#datafactory" class="sidebar-item"><span class="sidebar-dot"></span>DataFactory</a>
       </div>
-      <div class="leagues-grid">
-
-        <!-- Liga MX -->
-        <div class="league-card fade-up" style="--accent-color:rgba(0,200,120,0.35);--accent-glow:rgba(0,200,120,0.1)">
-          <div class="league-head">
-            <span class="league-flag">🇲🇽</span>
-            <span class="league-name">Liga MX</span>
-            <div class="live-pill"><div class="live-dot"></div>VIVO</div>
-          </div>
-          <div class="endpoints-list">
-            <a href="/tabla" class="ep">/tabla</a>
-            <a href="/noticias" class="ep">/noticias</a>
-            <a href="/goleadores" class="ep">/goleadores</a>
-            <a href="/equipos" class="ep">/equipos</a>
-            <a href="/logos" class="ep">/logos</a>
-            <a href="/videos" class="ep">/videos</a>
-            <a href="/calendario" class="ep">/calendario</a>
-            <a href="/marcadores" class="ep new">/marcadores</a>
-            <a href="/alineaciones" class="ep new">/alineaciones</a>
-            <a href="/estadisticas" class="ep new">/estadisticas</a>
-            <a href="/todo" class="ep">/todo</a>
-          </div>
-        </div>
-
-        <!-- Premier League -->
-        <div class="league-card fade-up" style="--accent-color:rgba(88,28,135,0.4);--accent-glow:rgba(88,28,135,0.12)">
-          <div class="league-head">
-            <span class="league-flag">🏴󠁧󠁢󠁥󠁮󠁧󠁿</span>
-            <span class="league-name">Premier League</span>
-            <div class="live-pill"><div class="live-dot"></div>VIVO</div>
-          </div>
-          <div class="endpoints-list">
-            <a href="/premier/tabla" class="ep">/premier/tabla</a>
-            <a href="/premier/noticias" class="ep">/premier/noticias</a>
-            <a href="/premier/goleadores" class="ep">/premier/goleadores</a>
-            <a href="/premier/calendario" class="ep">/premier/calendario</a>
-            <a href="/premier/marcadores" class="ep new">/premier/marcadores</a>
-            <a href="/premier/alineaciones" class="ep new">/premier/alineaciones</a>
-            <a href="/premier/estadisticas" class="ep new">/premier/estadisticas</a>
-            <a href="/premier/mejores-momentos" class="ep">/premier/mejores-momentos</a>
-          </div>
-        </div>
-
-        <!-- La Liga -->
-        <div class="league-card fade-up" style="--accent-color:rgba(220,38,38,0.3);--accent-glow:rgba(220,38,38,0.09)">
-          <div class="league-head">
-            <span class="league-flag">🇪🇸</span>
-            <span class="league-name">La Liga</span>
-            <div class="live-pill"><div class="live-dot"></div>VIVO</div>
-          </div>
-          <div class="endpoints-list">
-            <a href="/laliga/tabla" class="ep">/laliga/tabla</a>
-            <a href="/laliga/noticias" class="ep">/laliga/noticias</a>
-            <a href="/laliga/goleadores" class="ep">/laliga/goleadores</a>
-            <a href="/laliga/calendario" class="ep">/laliga/calendario</a>
-            <a href="/laliga/marcadores" class="ep new">/laliga/marcadores</a>
-            <a href="/laliga/alineaciones" class="ep new">/laliga/alineaciones</a>
-            <a href="/laliga/estadisticas" class="ep new">/laliga/estadisticas</a>
-            <a href="/laliga/mejores-momentos" class="ep">/laliga/mejores-momentos</a>
-          </div>
-        </div>
-
-        <!-- Serie A -->
-        <div class="league-card fade-up" style="--accent-color:rgba(37,99,235,0.3);--accent-glow:rgba(37,99,235,0.09)">
-          <div class="league-head">
-            <span class="league-flag">🇮🇹</span>
-            <span class="league-name">Serie A</span>
-            <div class="live-pill"><div class="live-dot"></div>VIVO</div>
-          </div>
-          <div class="endpoints-list">
-            <a href="/seriea/tabla" class="ep">/seriea/tabla</a>
-            <a href="/seriea/noticias" class="ep">/seriea/noticias</a>
-            <a href="/seriea/goleadores" class="ep">/seriea/goleadores</a>
-            <a href="/seriea/calendario" class="ep">/seriea/calendario</a>
-            <a href="/seriea/marcadores" class="ep new">/seriea/marcadores</a>
-            <a href="/seriea/alineaciones" class="ep new">/seriea/alineaciones</a>
-            <a href="/seriea/estadisticas" class="ep new">/seriea/estadisticas</a>
-            <a href="/seriea/mejores-momentos" class="ep">/seriea/mejores-momentos</a>
-          </div>
-        </div>
-
-        <!-- Bundesliga -->
-        <div class="league-card fade-up" style="--accent-color:rgba(234,179,8,0.25);--accent-glow:rgba(234,179,8,0.07)">
-          <div class="league-head">
-            <span class="league-flag">🇩🇪</span>
-            <span class="league-name">Bundesliga</span>
-            <div class="live-pill"><div class="live-dot"></div>VIVO</div>
-          </div>
-          <div class="endpoints-list">
-            <a href="/bundesliga/tabla" class="ep">/bundesliga/tabla</a>
-            <a href="/bundesliga/noticias" class="ep">/bundesliga/noticias</a>
-            <a href="/bundesliga/goleadores" class="ep">/bundesliga/goleadores</a>
-            <a href="/bundesliga/calendario" class="ep">/bundesliga/calendario</a>
-            <a href="/bundesliga/marcadores" class="ep new">/bundesliga/marcadores</a>
-            <a href="/bundesliga/alineaciones" class="ep new">/bundesliga/alineaciones</a>
-            <a href="/bundesliga/estadisticas" class="ep new">/bundesliga/estadisticas</a>
-            <a href="/bundesliga/mejores-momentos" class="ep">/bundesliga/mejores-momentos</a>
-          </div>
-        </div>
-
-        <!-- Ligue 1 -->
-        <div class="league-card fade-up" style="--accent-color:rgba(59,130,246,0.3);--accent-glow:rgba(59,130,246,0.09)">
-          <div class="league-head">
-            <span class="league-flag">🇫🇷</span>
-            <span class="league-name">Ligue 1</span>
-            <div class="live-pill"><div class="live-dot"></div>VIVO</div>
-          </div>
-          <div class="endpoints-list">
-            <a href="/ligue1/tabla" class="ep">/ligue1/tabla</a>
-            <a href="/ligue1/noticias" class="ep">/ligue1/noticias</a>
-            <a href="/ligue1/goleadores" class="ep">/ligue1/goleadores</a>
-            <a href="/ligue1/calendario" class="ep">/ligue1/calendario</a>
-            <a href="/ligue1/marcadores" class="ep new">/ligue1/marcadores</a>
-            <a href="/ligue1/alineaciones" class="ep new">/ligue1/alineaciones</a>
-            <a href="/ligue1/estadisticas" class="ep new">/ligue1/estadisticas</a>
-            <a href="/ligue1/mejores-momentos" class="ep">/ligue1/mejores-momentos</a>
-          </div>
-        </div>
-
-        <!-- Global -->
-        <div class="league-card fade-up" style="--accent-color:rgba(0,255,231,0.3);--accent-glow:rgba(0,255,231,0.09)">
-          <div class="league-head">
-            <span class="league-flag">🌍</span>
-            <span class="league-name">Global — Todas</span>
-            <div class="live-pill" style="background:rgba(58,134,255,0.12);border-color:rgba(58,134,255,0.3);color:var(--c4)"><div class="live-dot" style="background:var(--c4);box-shadow:0 0 6px var(--c4)"></div>MULTI</div>
-          </div>
-          <div class="endpoints-list">
-            <a href="/resultados/todas-las-ligas" class="ep global">/resultados/todas-las-ligas</a>
-            <a href="/marcadores/todas-las-ligas" class="ep global">/marcadores/todas-las-ligas</a>
-            <a href="/calendario/todas-las-ligas" class="ep global">/calendario/todas-las-ligas</a>
-            <a href="/alineaciones/todas-las-ligas" class="ep global">/alineaciones/todas-las-ligas</a>
-            <a href="/estadisticas/todas-las-ligas" class="ep global">/estadisticas/todas-las-ligas</a>
-          </div>
-        </div>
-
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Multimedia</div>
+        <a href="#peliculas" class="sidebar-item"><span class="sidebar-dot"></span>Películas</a>
+        <a href="#series" class="sidebar-item"><span class="sidebar-dot"></span>Series</a>
       </div>
-    </div>
-  </section>
-
-  <!-- ENDPOINTS ESPECIALES -->
-  <section id="especiales">
-    <div class="container">
-      <div class="fade-up">
-        <div class="section-label">AVANZADO</div>
-        <h2 class="section-title">Endpoints <span>Especiales</span></h2>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">TV en Vivo</div>
+        <a href="#transmisiones" class="sidebar-item"><span class="sidebar-dot"></span>Transmisiones</a>
+        <a href="#canales-iptv" class="sidebar-item"><span class="sidebar-dot"></span>Canales IPTV</a>
+        <a href="#reproductores" class="sidebar-item"><span class="sidebar-dot"></span>Reproductores</a>
       </div>
-      <div class="special-grid">
+    </aside>
 
-        <!-- Todo todas las ligas - destacado -->
-        <div class="special-card featured fade-up">
-          <div class="special-head">
-            <span class="special-icon">🌐</span>
-            <span class="special-name">TODO — Todas las Ligas del Mundo</span>
-            <span class="feat-badge">70+ LIGAS</span>
-          </div>
-          <div class="endpoints-list">
-            <a href="/todo-todas-las-ligas" class="ep new">/todo-todas-las-ligas</a>
-            <a href="/ligas-disponibles" class="ep">/ligas-disponibles</a>
-            <a href="/datafactory/:codigo" class="ep">/datafactory/:codigo</a>
-          </div>
-          <p class="special-desc">Endpoint principal con tablas de más de 70 ligas de todo el mundo. Filtra por categoría usando el parámetro <code style="font-family:'JetBrains Mono',monospace;color:var(--c1);font-size:0.82rem">?categoria=</code></p>
-          <div class="cats-grid">
-            <a href="/todo-todas-las-ligas?categoria=sudamericanas" class="cat-tag">🌎 Sudamericanas</a>
-            <a href="/todo-todas-las-ligas?categoria=copas_conmebol" class="cat-tag">🏆 CONMEBOL</a>
-            <a href="/todo-todas-las-ligas?categoria=europeas_top5" class="cat-tag">⚽ Top 5 Europa</a>
-            <a href="/todo-todas-las-ligas?categoria=europeas_otras" class="cat-tag">🌍 Otras Europeas</a>
-            <a href="/todo-todas-las-ligas?categoria=uefa" class="cat-tag">🏆 UEFA</a>
-            <a href="/todo-todas-las-ligas?categoria=fifa_mundiales" class="cat-tag">🌟 Mundiales FIFA</a>
-            <a href="/todo-todas-las-ligas?categoria=concacaf" class="cat-tag">🇲🇽 CONCACAF</a>
-            <a href="/todo-todas-las-ligas?categoria=asiaticas" class="cat-tag">🌏 Asia</a>
-            <a href="/todo-todas-las-ligas?categoria=femenino" class="cat-tag">👩 Femenino</a>
+    <!-- CONTENIDO -->
+    <main class="main-content">
+
+      <!-- INFORMACIÓN TÉCNICA -->
+      <span class="section-anchor" id="tecnico"></span>
+      <div class="doc-section">
+        <div class="section-header">
+          <div class="section-icon">⚙️</div>
+          <div>
+            <div class="section-title">Información General</div>
+            <div class="section-subtitle">Configuración base y límites de uso</div>
           </div>
         </div>
-
-        <!-- Estadísticas en vivo -->
-        <div class="special-card fade-up">
-          <div class="special-head">
-            <span class="special-icon">📊</span>
-            <span class="special-name">Estadísticas en Vivo</span>
+        <div class="info-grid">
+          <div class="info-card">
+            <div class="info-icon">🔗</div>
+            <div class="info-key">Base URL</div>
+            <div class="info-val" id="base-url">—</div>
           </div>
-          <div class="endpoints-list">
-            <a href="/estadisticas" class="ep new">/estadisticas</a>
-            <a href="/estadisticas/todas-las-ligas" class="ep new">/estadisticas/todas-las-ligas</a>
-            <a href="/estadisticas/partido/:eventId" class="ep new">/estadisticas/partido/:eventId</a>
+          <div class="info-card">
+            <div class="info-icon">📄</div>
+            <div class="info-key">Formato de Respuesta</div>
+            <div class="info-val">JSON</div>
           </div>
-          <p class="special-desc">Goles, tarjetas, posesión, tiros, pases, corners y faltas por partido en tiempo real.</p>
+          <div class="info-card">
+            <div class="info-icon">🔒</div>
+            <div class="info-key">Autenticación</div>
+            <div class="info-val">API Key</div>
+          </div>
+          <div class="info-card">
+            <div class="info-icon">⚡</div>
+            <div class="info-key">Rate Limit</div>
+            <div class="info-val">100 req/min</div>
+          </div>
+          <div class="info-card">
+            <div class="info-icon">🔄</div>
+            <div class="info-key">Actualización</div>
+            <div class="info-val">cada 20 min</div>
+          </div>
+          <div class="info-card">
+            <div class="info-icon">🌐</div>
+            <div class="info-key">Protocolo</div>
+            <div class="info-val">REST / HTTPS</div>
+          </div>
         </div>
-
-        <!-- Notificaciones -->
-        <div class="special-card fade-up">
-          <div class="special-head">
-            <span class="special-icon">🔔</span>
-            <span class="special-name">Notificaciones</span>
-          </div>
-          <div class="endpoints-list">
-            <a href="/notificaciones" class="ep">/notificaciones</a>
-            <a href="/notificaciones/stats" class="ep">/notificaciones/stats</a>
-            <a href="/notificaciones/:liga" class="ep">/notificaciones/:liga</a>
-          </div>
-          <p class="special-desc">Detecta goles, inicio de partido y fin del primer tiempo automáticamente en todas las ligas.</p>
-        </div>
-
-        <!-- Alineaciones -->
-        <div class="special-card fade-up">
-          <div class="special-head">
-            <span class="special-icon">👥</span>
-            <span class="special-name">Alineaciones</span>
-          </div>
-          <div class="endpoints-list">
-            <a href="/alineaciones" class="ep new">/alineaciones</a>
-            <a href="/alineaciones/todas-las-ligas" class="ep new">/alineaciones/todas-las-ligas</a>
-            <a href="/alineaciones/partido/:eventId" class="ep new">/alineaciones/partido/:eventId</a>
-            <a href="/alineaciones/stats" class="ep">/alineaciones/stats</a>
-          </div>
-          <p class="special-desc">Formaciones titulares y suplentes enriquecidas con fotos de jugadores desde ESPN.</p>
-        </div>
-
-        <!-- Métricas del sistema -->
-        <div class="special-card fade-up">
-          <div class="special-head">
-            <span class="special-icon">📈</span>
-            <span class="special-name">Métricas del Sistema</span>
-          </div>
-          <div class="endpoints-list">
-            <a href="/alineaciones/stats" class="ep">/alineaciones/stats</a>
-            <a href="/api" class="ep">/api</a>
-          </div>
-          <p class="special-desc">Cache hit rate, estadísticas de enriquecimiento de fotos y estado general de la API.</p>
-        </div>
-
+        <p style="font-size:0.82rem;color:var(--muted);margin-top:14px;line-height:1.7">
+          Incluye tu API key en el header <code>X-Api-Key: tu_key</code> o como parámetro de consulta <code>?apiKey=tu_key</code>.
+          Las rutas públicas como <code>/</code>, <code>/api</code> y <code>/l3ho-links</code> no requieren autenticación.
+        </p>
       </div>
-    </div>
-  </section>
 
-  <!-- MULTIMEDIA -->
-  <section id="multimedia">
-    <div class="container">
-      <div class="fade-up">
-        <div class="section-label">MULTIMEDIA</div>
-        <h2 class="section-title">Películas y <span>Series</span></h2>
-      </div>
-      <div class="special-grid">
+      <!-- LIGAS -->
+      <span class="section-anchor" id="ligas"></span>
+      <div class="doc-section">
+        <div class="section-header">
+          <div class="section-icon">⚽</div>
+          <div>
+            <div class="section-title">Ligas Principales</div>
+            <div class="section-subtitle">Los 6 campeonatos con cobertura completa</div>
+          </div>
+          <span class="section-badge">6 LIGAS</span>
+        </div>
+        <div class="league-grid">
 
-        <div class="special-card featured fade-up" style="border-color:rgba(255,159,28,0.3)">
-          <div class="special-head">
-            <span class="special-icon">🎬</span>
-            <span class="special-name">Películas</span>
-            <span class="feat-badge" style="background:rgba(255,159,28,0.12);border-color:rgba(255,159,28,0.3);color:var(--c5)">TMDB + IMDB</span>
+          <!-- Liga MX -->
+          <span class="section-anchor" id="liga-mx"></span>
+          <div class="league-card">
+            <div class="league-head">
+              <span class="flag">🇲🇽</span>
+              <span class="league-name">Liga MX</span>
+              <div class="live-badge"><div class="live-dot"></div> EN VIVO</div>
+            </div>
+            <div class="league-eps">
+              <a href="/tabla" class="l-ep"><span class="l-method">GET</span><span class="l-path">/tabla</span><span class="l-label">Tabla de posiciones</span></a>
+              <a href="/noticias" class="l-ep"><span class="l-method">GET</span><span class="l-path">/noticias</span><span class="l-label">Últimas noticias</span></a>
+              <a href="/goleadores" class="l-ep"><span class="l-method">GET</span><span class="l-path">/goleadores</span><span class="l-label">Top goleadores</span></a>
+              <a href="/equipos" class="l-ep"><span class="l-method">GET</span><span class="l-path">/equipos</span><span class="l-label">Lista de equipos</span></a>
+              <a href="/logos" class="l-ep"><span class="l-method">GET</span><span class="l-path">/logos</span><span class="l-label">Logos de equipos</span></a>
+              <a href="/videos" class="l-ep"><span class="l-method">GET</span><span class="l-path">/videos</span><span class="l-label">Highlights YouTube</span></a>
+              <a href="/calendario" class="l-ep"><span class="l-method">GET</span><span class="l-path">/calendario</span><span class="l-label">Fixture de partidos</span></a>
+              <a href="/marcadores" class="l-ep"><span class="l-method">GET</span><span class="l-path">/marcadores</span><span class="l-new">NUEVO</span></a>
+              <a href="/alineaciones" class="l-ep"><span class="l-method">GET</span><span class="l-path">/alineaciones</span><span class="l-new">NUEVO</span></a>
+              <a href="/estadisticas" class="l-ep"><span class="l-method">GET</span><span class="l-path">/estadisticas</span><span class="l-new">NUEVO</span></a>
+              <a href="/todo" class="l-ep"><span class="l-method">GET</span><span class="l-path">/todo</span><span class="l-label">Todo en uno</span></a>
+            </div>
           </div>
-          <div class="endpoints-list">
-            <a href="/api/pelicula/tmdb/:tmdbId" class="ep">/api/pelicula/tmdb/:tmdbId</a>
-            <a href="/api/pelicula/:imdbId" class="ep">/api/pelicula/:imdbId</a>
-            <a href="/api/pelicula/tmdb/:tmdbId/poster" class="ep">/api/pelicula/tmdb/:tmdbId/poster</a>
-            <a href="/api/pelicula/:imdbId/poster" class="ep">/api/pelicula/:imdbId/poster</a>
-            <a href="/api/buscar/pelicula" class="ep new">/api/buscar/pelicula?q=</a>
-            <a href="/api/buscar/todo" class="ep new">/api/buscar/todo?q=</a>
-          </div>
-          <p class="special-desc">Datos de películas via TMDB ID o IMDB ID. Poster, sinopsis, enlaces y más. Búsqueda por nombre con paginación.</p>
-        </div>
 
-        <div class="special-card featured fade-up" style="border-color:rgba(58,134,255,0.3);margin-top:0">
-          <div class="special-head">
-            <span class="special-icon">📺</span>
-            <span class="special-name">Series y Episodios</span>
-            <span class="feat-badge" style="background:rgba(58,134,255,0.12);border-color:rgba(58,134,255,0.3);color:var(--c4)">TEMPORADAS</span>
+          <!-- Premier League -->
+          <span class="section-anchor" id="premier"></span>
+          <div class="league-card">
+            <div class="league-head">
+              <span class="flag">🏴󠁧󠁢󠁥󠁮󠁧󠁿</span>
+              <span class="league-name">Premier League</span>
+              <div class="live-badge"><div class="live-dot"></div> EN VIVO</div>
+            </div>
+            <div class="league-eps">
+              <a href="/premier/tabla" class="l-ep"><span class="l-method">GET</span><span class="l-path">/premier/tabla</span><span class="l-label">Tabla</span></a>
+              <a href="/premier/noticias" class="l-ep"><span class="l-method">GET</span><span class="l-path">/premier/noticias</span><span class="l-label">Noticias</span></a>
+              <a href="/premier/goleadores" class="l-ep"><span class="l-method">GET</span><span class="l-path">/premier/goleadores</span><span class="l-label">Goleadores</span></a>
+              <a href="/premier/calendario" class="l-ep"><span class="l-method">GET</span><span class="l-path">/premier/calendario</span><span class="l-label">Calendario</span></a>
+              <a href="/premier/marcadores" class="l-ep"><span class="l-method">GET</span><span class="l-path">/premier/marcadores</span><span class="l-new">NUEVO</span></a>
+              <a href="/premier/alineaciones" class="l-ep"><span class="l-method">GET</span><span class="l-path">/premier/alineaciones</span><span class="l-new">NUEVO</span></a>
+              <a href="/premier/estadisticas" class="l-ep"><span class="l-method">GET</span><span class="l-path">/premier/estadisticas</span><span class="l-new">NUEVO</span></a>
+              <a href="/premier/mejores-momentos" class="l-ep"><span class="l-method">GET</span><span class="l-path">/premier/mejores-momentos</span><span class="l-label">Highlights</span></a>
+            </div>
           </div>
-          <div class="endpoints-list">
-            <a href="/api/serie/tmdb/:tmdbId" class="ep">/api/serie/tmdb/:tmdbId</a>
-            <a href="/api/serie/tmdb/:tmdbId/season/:season" class="ep">/api/serie/tmdb/:tmdbId/season/:season</a>
-            <a href="/api/serie/tmdb/:tmdbId/poster" class="ep">/api/serie/tmdb/:tmdbId/poster</a>
-            <a href="/api/buscar/serie" class="ep new">/api/buscar/serie?q=</a>
-            <a href="/serie/tmdb/:tmdbId" class="ep">/serie/tmdb/:tmdbId</a>
-          </div>
-          <p class="special-desc">Datos completos de series con listado de temporadas, episodios y posters via TMDB. Reproductor integrado.</p>
-        </div>
 
-      </div>
-    </div>
-  </section>
+          <!-- La Liga -->
+          <span class="section-anchor" id="laliga"></span>
+          <div class="league-card">
+            <div class="league-head">
+              <span class="flag">🇪🇸</span>
+              <span class="league-name">La Liga</span>
+              <div class="live-badge"><div class="live-dot"></div> EN VIVO</div>
+            </div>
+            <div class="league-eps">
+              <a href="/laliga/tabla" class="l-ep"><span class="l-method">GET</span><span class="l-path">/laliga/tabla</span><span class="l-label">Tabla</span></a>
+              <a href="/laliga/noticias" class="l-ep"><span class="l-method">GET</span><span class="l-path">/laliga/noticias</span><span class="l-label">Noticias</span></a>
+              <a href="/laliga/goleadores" class="l-ep"><span class="l-method">GET</span><span class="l-path">/laliga/goleadores</span><span class="l-label">Goleadores</span></a>
+              <a href="/laliga/calendario" class="l-ep"><span class="l-method">GET</span><span class="l-path">/laliga/calendario</span><span class="l-label">Calendario</span></a>
+              <a href="/laliga/marcadores" class="l-ep"><span class="l-method">GET</span><span class="l-path">/laliga/marcadores</span><span class="l-new">NUEVO</span></a>
+              <a href="/laliga/alineaciones" class="l-ep"><span class="l-method">GET</span><span class="l-path">/laliga/alineaciones</span><span class="l-new">NUEVO</span></a>
+              <a href="/laliga/estadisticas" class="l-ep"><span class="l-method">GET</span><span class="l-path">/laliga/estadisticas</span><span class="l-new">NUEVO</span></a>
+              <a href="/laliga/mejores-momentos" class="l-ep"><span class="l-method">GET</span><span class="l-path">/laliga/mejores-momentos</span><span class="l-label">Highlights</span></a>
+            </div>
+          </div>
 
-  <!-- TRANSMISIONES Y CANALES -->
-  <section id="canales">
-    <div class="container">
-      <div class="fade-up">
-        <div class="section-label">TV EN VIVO</div>
-        <h2 class="section-title">Transmisiones y <span>Canales</span></h2>
-      </div>
-      <div class="special-grid">
+          <!-- Serie A -->
+          <span class="section-anchor" id="seriea"></span>
+          <div class="league-card">
+            <div class="league-head">
+              <span class="flag">🇮🇹</span>
+              <span class="league-name">Serie A</span>
+              <div class="live-badge"><div class="live-dot"></div> EN VIVO</div>
+            </div>
+            <div class="league-eps">
+              <a href="/seriea/tabla" class="l-ep"><span class="l-method">GET</span><span class="l-path">/seriea/tabla</span><span class="l-label">Tabla</span></a>
+              <a href="/seriea/noticias" class="l-ep"><span class="l-method">GET</span><span class="l-path">/seriea/noticias</span><span class="l-label">Noticias</span></a>
+              <a href="/seriea/goleadores" class="l-ep"><span class="l-method">GET</span><span class="l-path">/seriea/goleadores</span><span class="l-label">Goleadores</span></a>
+              <a href="/seriea/calendario" class="l-ep"><span class="l-method">GET</span><span class="l-path">/seriea/calendario</span><span class="l-label">Calendario</span></a>
+              <a href="/seriea/marcadores" class="l-ep"><span class="l-method">GET</span><span class="l-path">/seriea/marcadores</span><span class="l-new">NUEVO</span></a>
+              <a href="/seriea/alineaciones" class="l-ep"><span class="l-method">GET</span><span class="l-path">/seriea/alineaciones</span><span class="l-new">NUEVO</span></a>
+              <a href="/seriea/estadisticas" class="l-ep"><span class="l-method">GET</span><span class="l-path">/seriea/estadisticas</span><span class="l-new">NUEVO</span></a>
+              <a href="/seriea/mejores-momentos" class="l-ep"><span class="l-method">GET</span><span class="l-path">/seriea/mejores-momentos</span><span class="l-label">Highlights</span></a>
+            </div>
+          </div>
 
-        <div class="special-card fade-up">
-          <div class="special-head">
-            <span class="special-icon">📡</span>
-            <span class="special-name">Transmisiones Deportivas</span>
+          <!-- Bundesliga -->
+          <span class="section-anchor" id="bundesliga"></span>
+          <div class="league-card">
+            <div class="league-head">
+              <span class="flag">🇩🇪</span>
+              <span class="league-name">Bundesliga</span>
+              <div class="live-badge"><div class="live-dot"></div> EN VIVO</div>
+            </div>
+            <div class="league-eps">
+              <a href="/bundesliga/tabla" class="l-ep"><span class="l-method">GET</span><span class="l-path">/bundesliga/tabla</span><span class="l-label">Tabla</span></a>
+              <a href="/bundesliga/noticias" class="l-ep"><span class="l-method">GET</span><span class="l-path">/bundesliga/noticias</span><span class="l-label">Noticias</span></a>
+              <a href="/bundesliga/goleadores" class="l-ep"><span class="l-method">GET</span><span class="l-path">/bundesliga/goleadores</span><span class="l-label">Goleadores</span></a>
+              <a href="/bundesliga/calendario" class="l-ep"><span class="l-method">GET</span><span class="l-path">/bundesliga/calendario</span><span class="l-label">Calendario</span></a>
+              <a href="/bundesliga/marcadores" class="l-ep"><span class="l-method">GET</span><span class="l-path">/bundesliga/marcadores</span><span class="l-new">NUEVO</span></a>
+              <a href="/bundesliga/alineaciones" class="l-ep"><span class="l-method">GET</span><span class="l-path">/bundesliga/alineaciones</span><span class="l-new">NUEVO</span></a>
+              <a href="/bundesliga/estadisticas" class="l-ep"><span class="l-method">GET</span><span class="l-path">/bundesliga/estadisticas</span><span class="l-new">NUEVO</span></a>
+              <a href="/bundesliga/mejores-momentos" class="l-ep"><span class="l-method">GET</span><span class="l-path">/bundesliga/mejores-momentos</span><span class="l-label">Highlights</span></a>
+            </div>
           </div>
-          <div class="endpoints-list">
-            <a href="/transmisiones" class="ep">/transmisiones</a>
-            <a href="/transmisiones2" class="ep">/transmisiones2</a>
-            <a href="/transmisiones3" class="ep new">/transmisiones3</a>
-            <a href="/transmisiones4" class="ep new">/transmisiones4</a>
-            <a href="/transmisiones5" class="ep new">/transmisiones5</a>
-            <a href="/transmisiones6" class="ep new">/transmisiones6</a>
-          </div>
-          <p class="special-desc">6 fuentes de transmisión con partidos deportivos, horarios y enlaces directos.</p>
-        </div>
 
-        <div class="special-card fade-up">
-          <div class="special-head">
-            <span class="special-icon">📻</span>
-            <span class="special-name">Canales IPTV</span>
+          <!-- Ligue 1 -->
+          <span class="section-anchor" id="ligue1"></span>
+          <div class="league-card">
+            <div class="league-head">
+              <span class="flag">🇫🇷</span>
+              <span class="league-name">Ligue 1</span>
+              <div class="live-badge"><div class="live-dot"></div> EN VIVO</div>
+            </div>
+            <div class="league-eps">
+              <a href="/ligue1/tabla" class="l-ep"><span class="l-method">GET</span><span class="l-path">/ligue1/tabla</span><span class="l-label">Tabla</span></a>
+              <a href="/ligue1/noticias" class="l-ep"><span class="l-method">GET</span><span class="l-path">/ligue1/noticias</span><span class="l-label">Noticias</span></a>
+              <a href="/ligue1/goleadores" class="l-ep"><span class="l-method">GET</span><span class="l-path">/ligue1/goleadores</span><span class="l-label">Goleadores</span></a>
+              <a href="/ligue1/calendario" class="l-ep"><span class="l-method">GET</span><span class="l-path">/ligue1/calendario</span><span class="l-label">Calendario</span></a>
+              <a href="/ligue1/marcadores" class="l-ep"><span class="l-method">GET</span><span class="l-path">/ligue1/marcadores</span><span class="l-new">NUEVO</span></a>
+              <a href="/ligue1/alineaciones" class="l-ep"><span class="l-method">GET</span><span class="l-path">/ligue1/alineaciones</span><span class="l-new">NUEVO</span></a>
+              <a href="/ligue1/estadisticas" class="l-ep"><span class="l-method">GET</span><span class="l-path">/ligue1/estadisticas</span><span class="l-new">NUEVO</span></a>
+              <a href="/ligue1/mejores-momentos" class="l-ep"><span class="l-method">GET</span><span class="l-path">/ligue1/mejores-momentos</span><span class="l-label">Highlights</span></a>
+            </div>
           </div>
-          <div class="endpoints-list">
-            <a href="/canales" class="ep">/canales</a>
-            <a href="/canales/deportes" class="ep new">/canales/deportes</a>
-            <a href="/canales/premium" class="ep new">/canales/premium</a>
-            <a href="/canales/pais/:codigo" class="ep">/canales/pais/:codigo</a>
-            <a href="/canales/categoria/:categoria" class="ep">/canales/categoria/:categoria</a>
-            <a href="/canales2" class="ep new">/canales2</a>
-          </div>
-          <p class="special-desc">Catálogo completo de canales IPTV filtrable por país, categoría y calidad premium.</p>
-        </div>
 
-        <div class="special-card fade-up">
-          <div class="special-head">
-            <span class="special-icon">🎮</span>
-            <span class="special-name">Reproductores y Proxies</span>
-          </div>
-          <div class="endpoints-list">
-            <a href="/canal-player" class="ep">/canal-player</a>
-            <a href="/hls-canal" class="ep">/hls-canal</a>
-            <a href="/hls-canal-seg" class="ep">/hls-canal-seg</a>
-            <a href="/yt-stream" class="ep">/yt-stream</a>
-            <a href="/yt-proxy" class="ep">/yt-proxy</a>
-            <a href="/ultragol-l3ho" class="ep new">/ultragol-l3ho</a>
-            <a href="/streamed-stream" class="ep new">/streamed-stream</a>
-            <a href="/tvtvhd-relay" class="ep">/tvtvhd-relay</a>
-          </div>
-          <p class="special-desc">Reproductores HLS en vivo con soporte CORS, proxy de segmentos y reproductor embebido sin publicidad.</p>
-        </div>
-
-        <div class="special-card fade-up">
-          <div class="special-head">
-            <span class="special-icon">🔗</span>
-            <span class="special-name">L3HO Links</span>
-          </div>
-          <div class="endpoints-list">
-            <a href="/l3ho-links" class="ep">/l3ho-links</a>
-            <a href="/embed/l3ho-links" class="ep">/embed/l3ho-links</a>
-            <a href="/api/l3ho-links" class="ep">/api/l3ho-links</a>
-          </div>
-          <p class="special-desc">Página de enlaces interna L3HO con versión embebible y acceso vía API JSON.</p>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- INFORMACIÓN TÉCNICA -->
-  <section id="tecnico">
-    <div class="container">
-      <div class="fade-up">
-        <div class="section-label">TÉCNICO</div>
-        <h2 class="section-title">Información de la <span>API</span></h2>
-      </div>
-      <div class="info-grid fade-up">
-        <div class="info-card">
-          <div class="info-icon">🔗</div>
-          <div class="info-label">BASE URL</div>
-          <div class="info-value" id="base-url">cargando...</div>
-        </div>
-        <div class="info-card">
-          <div class="info-icon">📄</div>
-          <div class="info-label">FORMATO</div>
-          <div class="info-value">JSON</div>
-        </div>
-        <div class="info-card">
-          <div class="info-icon">🔒</div>
-          <div class="info-label">AUTENTICACIÓN</div>
-          <div class="info-value">API Key</div>
-        </div>
-        <div class="info-card">
-          <div class="info-icon">⚡</div>
-          <div class="info-label">RATE LIMIT</div>
-          <div class="info-value">100 req/min</div>
-        </div>
-        <div class="info-card">
-          <div class="info-icon">🔄</div>
-          <div class="info-label">ACTUALIZACIÓN</div>
-          <div class="info-value">c/20 min</div>
-        </div>
-        <div class="info-card">
-          <div class="info-icon">🌐</div>
-          <div class="info-label">PROTOCOLO</div>
-          <div class="info-value">REST HTTPS</div>
         </div>
       </div>
-    </div>
-  </section>
 
-  <!-- CTA -->
-  <section class="cta-section">
-    <div class="cta-card fade-up">
-      <h2 class="cta-title">¿Listo para integrarlo?</h2>
-      <p class="cta-desc">Accede a toda la documentación en formato JSON con la estructura completa de cada endpoint, parámetros y ejemplos de respuesta.</p>
-      <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
-        <a href="/api" class="btn-primary">
-          <span>📄</span> Ver Documentación JSON
-        </a>
-        <a href="mailto:servidorl3ho@gmail.com" class="btn-glass">
-          <span>✉️</span> Contacto
-        </a>
+      <!-- TODAS LAS LIGAS -->
+      <span class="section-anchor" id="todas"></span>
+      <div class="doc-section">
+        <div class="section-header">
+          <div class="section-icon">🌍</div>
+          <div>
+            <div class="section-title">Todas las Ligas — Endpoints Unificados</div>
+            <div class="section-subtitle">Las 6 ligas principales en una sola llamada</div>
+          </div>
+        </div>
+        <div class="ep-table">
+          <a href="/resultados/todas-las-ligas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/resultados/todas-las-ligas</span><span class="ep-desc">Resultados unificados<span class="ep-new">NUEVO</span></span></a>
+          <a href="/marcadores/todas-las-ligas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/marcadores/todas-las-ligas</span><span class="ep-desc">Marcadores en vivo<span class="ep-new">NUEVO</span></span></a>
+          <a href="/calendario/todas-las-ligas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/calendario/todas-las-ligas</span><span class="ep-desc">Fixture completo</span></a>
+          <a href="/alineaciones/todas-las-ligas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/alineaciones/todas-las-ligas</span><span class="ep-desc">Alineaciones<span class="ep-new">NUEVO</span></span></a>
+          <a href="/estadisticas/todas-las-ligas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/estadisticas/todas-las-ligas</span><span class="ep-desc">Estadísticas<span class="ep-new">NUEVO</span></span></a>
+        </div>
       </div>
-    </div>
-  </section>
+
+      <!-- ESPECIALES -->
+      <span class="section-anchor" id="especiales"></span>
+
+      <!-- Estadísticas -->
+      <span class="section-anchor" id="estadisticas"></span>
+      <div class="doc-section">
+        <div class="section-header">
+          <div class="section-icon">📊</div>
+          <div>
+            <div class="section-title">Estadísticas en Tiempo Real</div>
+            <div class="section-subtitle">Posesión, tiros, pases, tarjetas, corners y más por partido</div>
+          </div>
+          <span class="section-badge">NUEVO</span>
+        </div>
+        <div class="ep-table">
+          <a href="/estadisticas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/estadisticas</span><span class="ep-desc">Liga MX</span></a>
+          <a href="/estadisticas/partido/:eventId" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/estadisticas/partido/<em>:eventId</em></span><span class="ep-desc">Por partido específico</span></a>
+          <a href="/estadisticas/todas-las-ligas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/estadisticas/todas-las-ligas</span><span class="ep-desc">Todas las ligas</span></a>
+          <a href="/premier/estadisticas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/premier/estadisticas</span><span class="ep-desc">Premier League</span></a>
+          <a href="/laliga/estadisticas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/laliga/estadisticas</span><span class="ep-desc">La Liga</span></a>
+          <a href="/seriea/estadisticas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/seriea/estadisticas</span><span class="ep-desc">Serie A</span></a>
+          <a href="/bundesliga/estadisticas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/bundesliga/estadisticas</span><span class="ep-desc">Bundesliga</span></a>
+          <a href="/ligue1/estadisticas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/ligue1/estadisticas</span><span class="ep-desc">Ligue 1</span></a>
+        </div>
+      </div>
+
+      <!-- Alineaciones -->
+      <span class="section-anchor" id="alineaciones"></span>
+      <div class="doc-section">
+        <div class="section-header">
+          <div class="section-icon">👥</div>
+          <div>
+            <div class="section-title">Alineaciones</div>
+            <div class="section-subtitle">Formaciones con fotos de jugadores desde ESPN + TheSportsDB</div>
+          </div>
+        </div>
+        <div class="ep-table">
+          <a href="/alineaciones" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/alineaciones</span><span class="ep-desc">Liga MX</span></a>
+          <a href="/alineaciones/partido/:eventId" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/alineaciones/partido/<em>:eventId</em></span><span class="ep-desc">Partido específico</span></a>
+          <a href="/alineaciones/todas-las-ligas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/alineaciones/todas-las-ligas</span><span class="ep-desc">Todas las ligas</span></a>
+          <a href="/alineaciones/stats" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/alineaciones/stats</span><span class="ep-desc">Métricas del cache</span></a>
+          <a href="/premier/alineaciones" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/premier/alineaciones</span><span class="ep-desc">Premier League</span></a>
+          <a href="/laliga/alineaciones" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/laliga/alineaciones</span><span class="ep-desc">La Liga</span></a>
+          <a href="/seriea/alineaciones" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/seriea/alineaciones</span><span class="ep-desc">Serie A</span></a>
+          <a href="/bundesliga/alineaciones" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/bundesliga/alineaciones</span><span class="ep-desc">Bundesliga</span></a>
+          <a href="/ligue1/alineaciones" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/ligue1/alineaciones</span><span class="ep-desc">Ligue 1</span></a>
+        </div>
+      </div>
+
+      <!-- Notificaciones -->
+      <span class="section-anchor" id="notificaciones"></span>
+      <div class="doc-section">
+        <div class="section-header">
+          <div class="section-icon">🔔</div>
+          <div>
+            <div class="section-title">Notificaciones</div>
+            <div class="section-subtitle">Detecta goles, inicio de partido y fin de tiempos automáticamente</div>
+          </div>
+        </div>
+        <div class="ep-table">
+          <a href="/notificaciones" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/notificaciones</span><span class="ep-desc">Todas las ligas</span></a>
+          <a href="/notificaciones/stats" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/notificaciones/stats</span><span class="ep-desc">Estadísticas</span></a>
+          <a href="/notificaciones/:liga" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/notificaciones/<em>:liga</em></span><span class="ep-desc">Por liga específica</span></a>
+        </div>
+      </div>
+
+      <!-- DataFactory -->
+      <span class="section-anchor" id="datafactory"></span>
+      <div class="doc-section">
+        <div class="section-header">
+          <div class="section-icon">🌐</div>
+          <div>
+            <div class="section-title">DataFactory — 70+ Ligas Mundiales</div>
+            <div class="section-subtitle">Tablas de todo el mundo agrupadas por categoría</div>
+          </div>
+          <span class="section-badge">70+ LIGAS</span>
+        </div>
+        <div class="ep-table" style="margin-bottom:16px">
+          <a href="/todo-todas-las-ligas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/todo-todas-las-ligas</span><span class="ep-desc">Todas las ligas del mundo</span></a>
+          <a href="/todo-todas-las-ligas?categoria=sudamericanas" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/todo-todas-las-ligas?categoria=<em>:categoria</em></span><span class="ep-desc">Filtrar por categoría</span></a>
+          <a href="/datafactory/:pais" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/datafactory/<em>:codigo</em></span><span class="ep-desc">Liga específica</span></a>
+          <a href="/ligas-disponibles" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/ligas-disponibles</span><span class="ep-desc">Lista de códigos disponibles</span></a>
+        </div>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:12px;font-family:'IBM Plex Mono',monospace">Valores válidos para <code>?categoria=</code></p>
+        <div class="cat-grid">
+          <a href="/todo-todas-las-ligas?categoria=sudamericanas" class="cat-pill">🌎 sudamericanas</a>
+          <a href="/todo-todas-las-ligas?categoria=copas_conmebol" class="cat-pill">🏆 copas_conmebol</a>
+          <a href="/todo-todas-las-ligas?categoria=europeas_top5" class="cat-pill">⚽ europeas_top5</a>
+          <a href="/todo-todas-las-ligas?categoria=europeas_otras" class="cat-pill">🌍 europeas_otras</a>
+          <a href="/todo-todas-las-ligas?categoria=uefa" class="cat-pill">🏆 uefa</a>
+          <a href="/todo-todas-las-ligas?categoria=fifa_mundiales" class="cat-pill">🌟 fifa_mundiales</a>
+          <a href="/todo-todas-las-ligas?categoria=concacaf" class="cat-pill">🇲🇽 concacaf</a>
+          <a href="/todo-todas-las-ligas?categoria=asiaticas" class="cat-pill">🌏 asiaticas</a>
+          <a href="/todo-todas-las-ligas?categoria=femenino" class="cat-pill">👩 femenino</a>
+        </div>
+      </div>
+
+      <!-- MULTIMEDIA -->
+      <span class="section-anchor" id="multimedia"></span>
+
+      <!-- Películas -->
+      <span class="section-anchor" id="peliculas"></span>
+      <div class="doc-section">
+        <div class="section-header">
+          <div class="section-icon">🎬</div>
+          <div>
+            <div class="section-title">Películas</div>
+            <div class="section-subtitle">Búsqueda, datos y posters via TMDB e IMDB</div>
+          </div>
+        </div>
+        <div class="ep-table">
+          <a href="/api/pelicula/tmdb/:tmdbId" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/api/pelicula/tmdb/<em>:tmdbId</em></span><span class="ep-desc">Por TMDB ID</span></a>
+          <a href="/api/pelicula/:imdbId" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/api/pelicula/<em>:imdbId</em></span><span class="ep-desc">Por IMDB ID</span></a>
+          <a href="/api/pelicula/tmdb/:tmdbId/poster" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/api/pelicula/tmdb/<em>:tmdbId</em>/poster</span><span class="ep-desc">Poster por TMDB</span></a>
+          <a href="/api/pelicula/:imdbId/poster" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/api/pelicula/<em>:imdbId</em>/poster</span><span class="ep-desc">Poster por IMDB</span></a>
+          <a href="/api/buscar/pelicula?q=batman" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/api/buscar/pelicula?q=<em>:nombre</em></span><span class="ep-desc">Buscar película</span></a>
+          <a href="/api/buscar/todo?q=batman" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/api/buscar/todo?q=<em>:nombre</em></span><span class="ep-desc">Buscar películas y series</span></a>
+          <a href="/api/pelicula/:imdbId/cache" class="ep-row"><span class="ep-method method-del">DEL</span><span class="ep-path">/api/pelicula/<em>:imdbId</em>/cache</span><span class="ep-desc">Limpiar caché</span></a>
+        </div>
+      </div>
+
+      <!-- Series -->
+      <span class="section-anchor" id="series"></span>
+      <div class="doc-section">
+        <div class="section-header">
+          <div class="section-icon">📺</div>
+          <div>
+            <div class="section-title">Series y Temporadas</div>
+            <div class="section-subtitle">Datos por temporada, episodios y búsqueda</div>
+          </div>
+        </div>
+        <div class="ep-table">
+          <a href="/api/serie/tmdb/:tmdbId" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/api/serie/tmdb/<em>:tmdbId</em></span><span class="ep-desc">Datos de serie</span></a>
+          <a href="/api/serie/tmdb/:tmdbId/season/:season" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/api/serie/tmdb/<em>:tmdbId</em>/season/<em>:season</em></span><span class="ep-desc">Episodios de temporada</span></a>
+          <a href="/api/serie/tmdb/:tmdbId/poster" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/api/serie/tmdb/<em>:tmdbId</em>/poster</span><span class="ep-desc">Poster</span></a>
+          <a href="/api/buscar/serie?q=breaking" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/api/buscar/serie?q=<em>:nombre</em></span><span class="ep-desc">Buscar serie</span></a>
+          <a href="/serie/tmdb/:tmdbId" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/serie/tmdb/<em>:tmdbId</em></span><span class="ep-desc">Reproductor web</span></a>
+          <a href="/api/serie/tmdb/:tmdbId/cache" class="ep-row"><span class="ep-method method-del">DEL</span><span class="ep-path">/api/serie/tmdb/<em>:tmdbId</em>/cache</span><span class="ep-desc">Limpiar caché</span></a>
+        </div>
+      </div>
+
+      <!-- CANALES -->
+      <span class="section-anchor" id="canales"></span>
+
+      <!-- Transmisiones -->
+      <span class="section-anchor" id="transmisiones"></span>
+      <div class="doc-section">
+        <div class="section-header">
+          <div class="section-icon">📡</div>
+          <div>
+            <div class="section-title">Transmisiones Deportivas</div>
+            <div class="section-subtitle">6 fuentes independientes de streaming deportivo</div>
+          </div>
+        </div>
+        <div class="ep-table">
+          <a href="/transmisiones" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/transmisiones</span><span class="ep-desc">Fuente 1</span></a>
+          <a href="/transmisiones2" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/transmisiones2</span><span class="ep-desc">Fuente 2</span></a>
+          <a href="/transmisiones3" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/transmisiones3</span><span class="ep-desc">Fuente 3</span></a>
+          <a href="/transmisiones4" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/transmisiones4</span><span class="ep-desc">Fuente 4</span></a>
+          <a href="/transmisiones5" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/transmisiones5</span><span class="ep-desc">Fuente 5</span></a>
+          <a href="/transmisiones6" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/transmisiones6</span><span class="ep-desc">Fuente 6 — l1l1.link</span></a>
+        </div>
+      </div>
+
+      <!-- Canales IPTV -->
+      <span class="section-anchor" id="canales-iptv"></span>
+      <div class="doc-section">
+        <div class="section-header">
+          <div class="section-icon">📻</div>
+          <div>
+            <div class="section-title">Canales IPTV</div>
+            <div class="section-subtitle">Catálogo de canales por país, categoría y calidad</div>
+          </div>
+        </div>
+        <div class="ep-table">
+          <a href="/canales" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/canales</span><span class="ep-desc">Todos los canales</span></a>
+          <a href="/canales/deportes" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/canales/deportes</span><span class="ep-desc">Solo deportivos</span></a>
+          <a href="/canales/premium" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/canales/premium</span><span class="ep-desc">Canales premium</span></a>
+          <a href="/canales/pais/:codigo" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/canales/pais/<em>:codigo</em></span><span class="ep-desc">Filtrar por país</span></a>
+          <a href="/canales/categoria/:categoria" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/canales/categoria/<em>:categoria</em></span><span class="ep-desc">Filtrar por categoría</span></a>
+          <a href="/canales2" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/canales2</span><span class="ep-desc">Fuente alternativa</span></a>
+        </div>
+      </div>
+
+      <!-- Reproductores -->
+      <span class="section-anchor" id="reproductores"></span>
+      <div class="doc-section">
+        <div class="section-header">
+          <div class="section-icon">▶️</div>
+          <div>
+            <div class="section-title">Reproductores y Proxies</div>
+            <div class="section-subtitle">HLS en vivo, proxy de segmentos y reproductor embebido</div>
+          </div>
+        </div>
+        <div class="ep-table">
+          <a href="/canal-player" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/canal-player</span><span class="ep-desc">Reproductor HLS en vivo</span></a>
+          <a href="/hls-canal" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/hls-canal</span><span class="ep-desc">Proxy HLS</span></a>
+          <a href="/hls-canal-seg" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/hls-canal-seg</span><span class="ep-desc">Proxy segmentos HLS</span></a>
+          <a href="/yt-stream" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/yt-stream</span><span class="ep-desc">Stream YouTube</span></a>
+          <a href="/yt-proxy" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/yt-proxy</span><span class="ep-desc">Proxy YouTube</span></a>
+          <a href="/ultragol-l3ho" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/ultragol-l3ho</span><span class="ep-desc">Reproductor sin publicidad</span></a>
+          <a href="/streamed-stream" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/streamed-stream</span><span class="ep-desc">Stream externo</span></a>
+          <a href="/tvtvhd-relay" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/tvtvhd-relay</span><span class="ep-desc">Relay ftvhd.com</span></a>
+          <a href="/l3ho-links" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/l3ho-links</span><span class="ep-desc">Página de enlaces L3HO</span></a>
+          <a href="/embed/l3ho-links" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/embed/l3ho-links</span><span class="ep-desc">Versión embebible</span></a>
+          <a href="/api/l3ho-links" class="ep-row"><span class="ep-method method-get">GET</span><span class="ep-path">/api/l3ho-links</span><span class="ep-desc">API JSON de links</span></a>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="cta-strip">
+        <div class="cta-left">
+          <h3>¿Necesitas la respuesta exacta de cada endpoint?</h3>
+          <p>Consulta la documentación completa en formato JSON con estructura, campos y ejemplos.</p>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <a href="/api" class="btn-primary">{ } JSON Docs</a>
+          <a href="mailto:servidorl3ho@gmail.com" class="btn-outline">✉ Contacto</a>
+        </div>
+      </div>
+
+    </main>
+  </div>
 
   <!-- FOOTER -->
   <footer>
     <div class="footer-inner">
-      <div class="footer-brand">
+      <div class="footer-left">
         <img src="/attached_assets/1001854641-removebg-preview_1764606701240.png" alt="L3HO">
-        <div>
-          <div class="footer-name">L3HO Interactive</div>
-          <div class="footer-sub">Football Data Hub v3.5.0</div>
-        </div>
+        <span class="footer-text">© 2025 L3HO Interactive — Football Data Hub v3.5.0</span>
       </div>
-      <div class="footer-right">
-        <a href="/api" class="footer-link">Documentación</a>
+      <div class="footer-links">
+        <a href="/api" class="footer-link">Documentación JSON</a>
         <a href="mailto:servidorl3ho@gmail.com" class="footer-link">servidorl3ho@gmail.com</a>
       </div>
     </div>
   </footer>
 
   <script>
-    // BASE URL
     document.getElementById('base-url').textContent = window.location.origin;
-
-    // PARTÍCULAS
-    (function() {
-      const c = document.getElementById('particles');
-      const ctx = c.getContext('2d');
-      let W, H, pts;
-      const colors = ['rgba(0,255,231,', 'rgba(124,58,237,', 'rgba(247,37,133,', 'rgba(58,134,255,'];
-
-      function resize() {
-        W = c.width = window.innerWidth;
-        H = c.height = window.innerHeight;
-      }
-      function init() {
-        resize();
-        pts = Array.from({ length: 55 }, () => ({
-          x: Math.random() * W, y: Math.random() * H,
-          vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
-          r: Math.random() * 1.8 + 0.4,
-          color: colors[Math.floor(Math.random() * colors.length)],
-          a: Math.random() * 0.5 + 0.15
-        }));
-      }
-      function draw() {
-        ctx.clearRect(0, 0, W, H);
-        pts.forEach(p => {
-          p.x += p.vx; p.y += p.vy;
-          if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
-          if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-          ctx.fillStyle = p.color + p.a + ')';
-          ctx.fill();
-        });
-        // Líneas de conexión
-        for (let i = 0; i < pts.length; i++) {
-          for (let j = i + 1; j < pts.length; j++) {
-            const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 130) {
-              ctx.beginPath();
-              ctx.moveTo(pts[i].x, pts[i].y);
-              ctx.lineTo(pts[j].x, pts[j].y);
-              ctx.strokeStyle = pts[i].color + (0.06 * (1 - dist / 130)) + ')';
-              ctx.lineWidth = 0.5;
-              ctx.stroke();
-            }
-          }
-        }
-        requestAnimationFrame(draw);
-      }
-      window.addEventListener('resize', resize);
-      init(); draw();
-    })();
-
-    // SCROLL REVEAL
-    const observer = new IntersectionObserver(entries => {
-      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
-    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
-    document.querySelectorAll('.fade-up').forEach((el, i) => {
-      el.style.transitionDelay = (i % 4) * 0.08 + 's';
-      observer.observe(el);
-    });
   </script>
+
 </body>
 </html>
