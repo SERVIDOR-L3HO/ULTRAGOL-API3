@@ -55,7 +55,6 @@ const { scrapTransmisiones3 } = require("./src/scrapers/transmisiones3");
 const { scrapTransmisiones4 } = require("./src/scrapers/transmisiones4");
 const { scrapTransmisiones5 } = require("./src/scrapers/transmisiones5");
 const { scrapTransmisiones6 } = require("./src/scrapers/transmisiones6");
-const { scrapTransmisiones7 } = require("./src/scrapers/transmisiones7");
 const { 
   scrapCanales, 
   scrapCanalesPorPais, 
@@ -113,7 +112,6 @@ const {
 } = require("./src/scrapers/estadisticas");
 
 const path = require("path");
-const { fetchSegment, fetchPlaylist, rewritePlaylist, getCacheStats } = require("./src/proxy/hlsCache");
 const { securityHeaders, apiLimiter } = require("./src/middleware/auth");
 const app = express();
 
@@ -615,10 +613,6 @@ app.get("/api", (req, res) => {
       transmisiones6: {
         endpoint: "/transmisiones6",
         descripcion: "API Oficial UltraGol (dp.mycraft.click) - Transmisiones deportivas profesionales de múltiples deportes (fútbol, hockey, baloncesto, etc.) con protección Cloudflare, horarios, ligas y enlaces listos para reproducir"
-      },
-      transmisiones7: {
-        endpoint: "/transmisiones7",
-        descripcion: "Agenda deportiva de futbollibretv.su - Partidos con nombre completo, liga, equipos, hora y canales con links decodificados listos para reproducir"
       },
       "ultragol-l3ho": {
         endpoint: "/ultragol-l3ho",
@@ -1586,24 +1580,7 @@ app.get("/transmisiones2", async (req, res) => {
       }
     }
     
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const stream7Allowed = ["latamvidz1.com","esvideofy.com","bolaloca.my","streamtpnew.com","streamvipx.com","capo7play.com","streamx550.com","youtube.com","youtu.be","tvtvhd.com","ftvhd.com","pltvhd.com","streams.center"];
-    const enriched = {
-      ...data,
-      transmisiones: (data.transmisiones || []).map(t => {
-        let stream7Url = null;
-        if (t.url) {
-          try {
-            const hostname = new URL(t.url).hostname;
-            if (stream7Allowed.some(d => hostname === d || hostname.endsWith("." + d))) {
-              stream7Url = `${baseUrl}/stream7?url=${encodeURIComponent(t.url)}`;
-            }
-          } catch {}
-        }
-        return { ...t, stream7Url };
-      })
-    };
-    res.json(enriched);
+    res.json(data);
   } catch (error) {
     console.error("Error en /transmisiones2:", error.message);
     res.status(500).json({ 
@@ -1711,22 +1688,14 @@ app.get("/transmisiones4", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const stream7Allowed = ["latamvidz1.com","esvideofy.com","bolaloca.my","streamtpnew.com","streamvipx.com","capo7play.com","streamx550.com","youtube.com","youtu.be","tvtvhd.com","ftvhd.com","pltvhd.com","streams.center","sportssonline.click"];
     const enriched = {
       ...data,
       transmisiones: (data.transmisiones || []).map(t => ({
         ...t,
-        canales: (t.canales || []).map(c => {
-          let finalUrl = c.url;
-          try {
-            const hostname = new URL(c.url).hostname;
-            if (stream7Allowed.some(d => hostname === d || hostname.endsWith("." + d))) {
-              finalUrl = `${baseUrl}/stream7?url=${encodeURIComponent(c.url)}`;
-            }
-          } catch {}
-          if (c.url) finalUrl = `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(c.url)}`;
-          return { ...c, url: finalUrl };
-        })
+        canales: (t.canales || []).map(c => ({
+          ...c,
+          url: c.url ? `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(c.url)}` : c.url
+        }))
       }))
     };
     res.json(enriched);
@@ -1930,9 +1899,8 @@ app.get("/streamed-stream", async (req, res) => {
       console.log(`🤖 streamed-stream [${source}/${id}] → bundle-jw detectado, usando Puppeteer...`);
       try {
         const extracted = await extractM3u8FromEmbedSports(embedUrl);
-        const proxiedM3u8 = `${baseUrl}/hls7?url=${encodeURIComponent(extracted.m3u8Url)}&ref=${encodeURIComponent(extracted.referer)}`;
         console.log(`🎬 streamed-stream [${source}/${id}] → Puppeteer OK: ${extracted.m3u8Url.substring(0, 80)}...`);
-        return res.send(buildLivePlayer(proxiedM3u8, baseUrl));
+        return res.send(buildLivePlayer(extracted.m3u8Url, baseUrl));
       } catch (puppErr) {
         console.warn(`⚠️ streamed-stream Puppeteer falló (${puppErr.message.substring(0,60)}), usando iframe`);
         return serveIframePlayer(embedUrl, `puppet-fail`);
@@ -1984,145 +1952,13 @@ app.get("/streamed-stream", async (req, res) => {
     if (!m3u8Url) return serveIframePlayer(embedUrl, `no-m3u8/fid=${fid}`);
 
     console.log(`🎬 streamed-stream [${source}/${id}] → fid=${fid} → ${m3u8Url.substring(0, 80)}...`);
-    const proxiedM3u8 = `${baseUrl}/hls7?url=${encodeURIComponent(m3u8Url)}&ref=${encodeURIComponent("https://exposestrat.com/")}`;
-    return res.send(buildLivePlayer(proxiedM3u8, baseUrl));
+    return res.send(buildLivePlayer(m3u8Url, baseUrl));
 
   } catch (err) {
     console.error("❌ streamed-stream error:", err.message);
     return res.status(500).json({ error: "Error obteniendo stream: " + err.message });
   }
 });
-
-app.get("/transmisiones7", async (req, res) => {
-  try {
-    let data = cache.get("transmisiones7");
-
-    if (!data) {
-      console.log("📺 Obteniendo transmisiones desde futbollibretv.su/agenda/ - caché vacío...");
-      try {
-        data = await scrapTransmisiones7();
-        cache.set("transmisiones7", data, 600);
-      } catch (scrapeError) {
-        const staleData = cache.getStale("transmisiones7");
-        if (staleData && staleData.total > 0) {
-          console.log("⚠️ Usando datos en caché (expirados) debido a error en scraping");
-          data = {
-            ...staleData,
-            advertencia: "Datos del caché (pueden no estar actualizados). Error al obtener datos nuevos: " + scrapeError.message,
-            ultimaActualizacion: staleData.actualizado
-          };
-        } else {
-          throw scrapeError;
-        }
-      }
-    }
-
-    res.json(data);
-  } catch (error) {
-    console.error("Error en /transmisiones7:", error.message);
-    res.status(500).json({
-      error: "No se pudieron obtener las transmisiones desde futbollibretv.su",
-      detalles: error.message
-    });
-  }
-});
-
-
-const STREAM7_REFERER = "https://futbollibretv.su/";
-const STREAM7_ALLOWED = [
-  "latamvidz1.com", "esvideofy.com", "envivoslatam.org", "ng0pr.envivoslatam.org",
-  "zohanayaan.com", "hoca6.com", "83870203.net", "12703830.net", "eveningbad.net",
-  "streameasthd.net", "prospectivetoday.fun", "capo7play.com", "streamx550.com",
-  "tvtvhd.com", "ftvhd.com", "pltvhd.com", "cdn.ftvhd.com",
-  "fubohd.com", "fubo18.com", "la18hd.com",
-  "streams.center", "mainstreams.pro",
-  "sportssonline.click", "39564828.net",
-  "embedsports.top", "strmd.top"
-];
-
-function stream7IsAllowed(url) {
-  try {
-    const h = new URL(url).hostname;
-    return STREAM7_ALLOWED.some(d => h === d || h.endsWith("." + d));
-  } catch { return false; }
-}
-
-async function extractM3u8FromStreamsCenter(pageUrl) {
-  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-  const origin = "https://streams.center";
-
-  // Paso 1: ch*.php → extraer iframe con hls.php?stream=ID
-  const chResp = await axios.get(pageUrl, {
-    timeout: 15000,
-    headers: { "User-Agent": UA, "Referer": "https://streamcenter.live/", "Accept": "text/html" }
-  });
-  const iframeMatch = chResp.data.match(/src=["']\/\/streams\.center\/embed\/(hls\.php\?stream=[^"'\s]+)["']/);
-  if (!iframeMatch) throw new Error("No se encontró el iframe hls.php en streams.center");
-  const hlsUrl = `https://streams.center/embed/${iframeMatch[1]}`;
-
-  // Paso 2: hls.php → extraer input encriptado
-  const hlsResp = await axios.get(hlsUrl, {
-    timeout: 15000,
-    headers: { "User-Agent": UA, "Referer": `${origin}/`, "Accept": "text/html" }
-  });
-  const inputMatch = hlsResp.data.match(/input:\s*["']([A-Za-z0-9+/=]+)["']/);
-  if (!inputMatch) throw new Error("No se encontró el input encriptado en streams.center/hls.php");
-
-  // Paso 3: POST decrypt.php → obtener m3u8
-  const decryptResp = await axios.post(
-    `${origin}/embed/decrypt.php`,
-    new URLSearchParams({ input: inputMatch[1] }).toString(),
-    {
-      timeout: 15000,
-      headers: {
-        "User-Agent": UA,
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Referer": hlsUrl,
-        "Origin": origin
-      }
-    }
-  );
-  const m3u8Url = (decryptResp.data || "").trim();
-  if (!m3u8Url || !m3u8Url.includes(".m3u8")) throw new Error("decrypt.php no devolvió un m3u8 válido");
-  return { m3u8Url, referer: `${origin}/` };
-}
-
-async function extractM3u8FromSportsonline(pageUrl) {
-  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-  const browser = await launchStealthBrowser();
-  const page = await browser.newPage();
-  try {
-    await page.setViewport({ width: 1280, height: 720 });
-    await page.setUserAgent(UA);
-    await page.setExtraHTTPHeaders({ "Accept-Language": "es-MX,es;q=0.9", "Referer": "https://sportsonline.st/" });
-
-    let m3u8Found = null;
-    let refererFound = pageUrl;
-    await page.setRequestInterception(true);
-    page.on("request", req => {
-      const u = req.url();
-      if (u.includes(".m3u8") && !m3u8Found) {
-        m3u8Found = u;
-        refererFound = req.headers()["referer"] || pageUrl;
-      }
-      req.continue();
-    });
-
-    await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: 25000 });
-    await new Promise(resolve => {
-      const check = setInterval(() => { if (m3u8Found) { clearInterval(check); resolve(); } }, 300);
-      setTimeout(() => { clearInterval(check); resolve(); }, 20000);
-    });
-
-    await page.close();
-    if (!m3u8Found) throw new Error("No se detectó m3u8 en sportssonline.click");
-    console.log(`✅ sportssonline m3u8: ${m3u8Found}`);
-    return { m3u8Url: m3u8Found, referer: refererFound };
-  } catch (err) {
-    await page.close().catch(() => {});
-    throw err;
-  }
-}
 
 async function extractM3u8FromEmbedSports(pageUrl) {
   const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -2181,98 +2017,6 @@ async function extractM3u8FromEmbedSports(pageUrl) {
   }
 }
 
-async function extractM3u8FromTvtvhd(pageUrl) {
-  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-  const resp = await axios.get(pageUrl, {
-    timeout: 15000,
-    headers: {
-      "User-Agent": UA,
-      "Referer": "https://tvtvhd.com/",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-    }
-  });
-  const html = resp.data;
-  const match = html.match(/var\s+playbackURL\s*=\s*["']([^"']+\.m3u8[^"']*)["']/);
-  if (!match) throw new Error("No se encontró playbackURL en tvtvhd.com");
-  return { m3u8Url: match[1], referer: "https://tvtvhd.com/" };
-}
-
-async function extractM3u8FromStreamtpnew(pageUrl) {
-  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
-  const origin = new URL(pageUrl).origin;
-  const resp = await axios.get(pageUrl, {
-    timeout: 15000,
-    headers: { "User-Agent": UA, "Referer": origin + "/" }
-  });
-  const html = resp.data;
-
-  // Extraer todos los pares [k,"base64"] del array obfuscado
-  const pairs = [...html.matchAll(/\[(\d+),"([A-Za-z0-9+/=]+)"\]/g)];
-  if (!pairs.length) throw new Error("No se encontró el array de obfuscación en streamtpnew");
-
-  // Extraer k: suma de las dos funciones que retornan números antes de var p2pConfig
-  const p2pIdx = html.indexOf("var p2pConfig");
-  const before = p2pIdx > 0 ? html.substring(0, p2pIdx) : html;
-  const kMatches = [...before.matchAll(/function\s+\w+\(\)\{return\s+(\d+);\}/g)];
-  if (kMatches.length < 2) throw new Error("No se pudo extraer k de streamtpnew");
-  const k = parseInt(kMatches[kMatches.length - 2][1]) + parseInt(kMatches[kMatches.length - 1][1]);
-
-  // Decodificar: sort por índice, luego String.fromCharCode(parseInt(atob(v).replace(/\D/g,'')) - k)
-  const sorted = pairs.map(m => [parseInt(m[1]), m[2]]).sort((a, b) => a[0] - b[0]);
-  let m3u8Url = "";
-  for (const [ki, v] of sorted) {
-    const decoded = Buffer.from(v, "base64").toString("latin1");
-    const num = parseInt(decoded.replace(/\D/g, "")) - k;
-    m3u8Url += String.fromCharCode(num);
-  }
-
-  if (!m3u8Url || !m3u8Url.includes(".m3u8")) {
-    throw new Error("streamtpnew: m3u8 decodificado inválido: " + m3u8Url.substring(0, 80));
-  }
-
-  return { m3u8Url, referer: origin + "/" };
-}
-
-async function extractM3u8FromStreamvipx(pageUrl) {
-  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
-  const origin = new URL(pageUrl).origin;
-  const resp = await axios.get(pageUrl, {
-    timeout: 15000,
-    headers: { "User-Agent": UA, "Referer": origin + "/" }
-  });
-  const html = resp.data;
-
-  // El m3u8 está directo en el HTML
-  const m = html.match(/https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*/);
-  if (!m) throw new Error("No se encontró m3u8 en streamvipx");
-
-  return { m3u8Url: m[0], referer: origin + "/" };
-}
-
-async function extractM3u8FromCapo7play(pageUrl) {
-  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36";
-  const origin = new URL(pageUrl).origin;
-  const resp = await axios.get(pageUrl, {
-    timeout: 15000,
-    headers: { "User-Agent": UA, "Referer": origin + "/" }
-  });
-  const html = resp.data;
-
-  // La URL del m3u8 está en un array de caracteres dentro de una función:
-  // return(["h","t","t","p","s",...].join("") + varAleatoria.join("") + document.getElementById("idAleatorio").innerHTML)
-  // La variable y el elemento son siempre cadenas vacías, así que solo necesitamos el array.
-  const arrMatch = html.match(/return\s*\(\s*\[([^\]]+)\]\.join\(""\)/);
-  if (!arrMatch) throw new Error("capo7play: no se encontró el array de caracteres del stream");
-
-  const chars = [...arrMatch[1].matchAll(/"([^"]*)"/g)].map(m => m[1]);
-  const m3u8Url = chars.join("").replace(/\\\//g, "/");
-
-  if (!m3u8Url || !m3u8Url.includes(".m3u8")) {
-    throw new Error("capo7play: m3u8 inválido: " + m3u8Url.substring(0, 80));
-  }
-
-  return { m3u8Url, referer: origin + "/" };
-}
 
 const YTDLP_PATHS = [
   "/home/runner/workspace/.pythonlibs/bin/yt-dlp",
@@ -2441,535 +2185,6 @@ setInterval(async () => {
 async function launchStealthBrowser() {
   return getSharedBrowser();
 }
-
-// ── Caché de m3u8 extraídos para /stream7 (evita re-extracción en cada click) ──
-const stream7ExtractCache = new Map();
-const STREAM7_CACHE_TTL = 2 * 60 * 1000; // 2 minutos
-
-function getStream7Cache(sourceUrl) {
-  const entry = stream7ExtractCache.get(sourceUrl);
-  if (!entry) return null;
-  if (Date.now() - entry.ts > STREAM7_CACHE_TTL) {
-    stream7ExtractCache.delete(sourceUrl);
-    return null;
-  }
-  return entry.value;
-}
-
-function setStream7Cache(sourceUrl, value) {
-  stream7ExtractCache.set(sourceUrl, { value, ts: Date.now() });
-  if (stream7ExtractCache.size > 200) {
-    const oldest = [...stream7ExtractCache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0];
-    if (oldest) stream7ExtractCache.delete(oldest[0]);
-  }
-}
-
-async function extractM3u8FromBolaloca(bola_url) {
-  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-  // ──────────────────────────────────────────────────────────────────
-  // PASO 1: Obtener el iframe del player desde bolaloca.my
-  // Primero intento estático (rápido), luego Puppeteer si no hay iframe.
-  // ──────────────────────────────────────────────────────────────────
-  let playerUrl = null;
-
-  try {
-    const bola = await axios.get(bola_url, { timeout: 12000, headers: { "User-Agent": UA } });
-    // Regex amplio: cualquier iframe que NO sea del propio bolaloca.my ni ads conocidos
-    const m = bola.data.match(
-      /src=["'](https?:\/\/(?!(?:bolaloca\.my|jnbhi\.com|da\.crimean))[^"']{15,})["']/i
-    );
-    if (m) playerUrl = m[1];
-  } catch(e) { /* silencioso — intentamos con Puppeteer */ }
-
-  // Si el axios no encontró iframe (página con JS), usar Puppeteer sobre bolaloca.my
-  if (!playerUrl) {
-    console.log(`🔍 bolaloca sin iframe estático, usando Puppeteer para renderizar: ${bola_url}`);
-    const _bolaBrowser = await launchStealthBrowser();
-    const _bolaPage = await _bolaBrowser.newPage();
-    try {
-      await _bolaPage.setViewport({ width: 1280, height: 720 });
-      await _bolaPage.setUserAgent(UA);
-      await _bolaPage.goto(bola_url, { waitUntil: "domcontentloaded", timeout: 20000 });
-      await new Promise(r => setTimeout(r, 3000));
-      const iframes = await _bolaPage.evaluate(() =>
-        Array.from(document.querySelectorAll("iframe[src]"))
-          .map(f => f.src)
-          .filter(s => s && s.startsWith("http") && !s.includes("bolaloca.my"))
-      );
-      await _bolaPage.close();
-      if (iframes.length > 0) playerUrl = iframes[0];
-    } catch(e) {
-      await _bolaPage.close().catch(() => {});
-      throw new Error(`No se pudo obtener iframe de bolaloca.my: ${e.message}`);
-    }
-  }
-
-  if (!playerUrl) throw new Error("No se encontró iframe de player en bolaloca.my");
-  console.log(`🎬 bolaloca iframe → ${playerUrl}`);
-
-  // ──────────────────────────────────────────────────────────────────
-  // PASO 2: Detectar tipo de player y extraer m3u8
-  // ──────────────────────────────────────────────────────────────────
-  let playerHtml = "";
-  try {
-    const r = await axios.get(playerUrl, {
-      timeout: 12000,
-      headers: { "User-Agent": UA, "Referer": bola_url }
-    });
-    playerHtml = typeof r.data === "string" ? r.data : JSON.stringify(r.data);
-  } catch(e) { /* puede que no cargue sin JS; seguimos */ }
-
-  // ── Tipo A: bstream.st (proveseat, herdnew, etc.) ──
-  // Detectado por la presencia de `stream.js` + `_econfig` en el HTML
-  if (playerHtml.includes("stream.js") && playerHtml.includes("_econfig")) {
-    console.log(`🎬 bolaloca → bstream.st player (stealth Puppeteer): ${playerUrl}`);
-    const _bsBrowser = await launchStealthBrowser();
-    const _bsPage = await _bsBrowser.newPage();
-    try {
-      await _bsPage.setViewport({ width: 1280, height: 720 });
-      await _bsPage.setUserAgent(UA);
-      await _bsPage.setExtraHTTPHeaders({ "Accept-Language": "es-MX,es;q=0.9", "Referer": bola_url });
-
-      let m3u8Url = null, streamReferer = playerUrl;
-      await _bsPage.setRequestInterception(true);
-      _bsPage.on("request", req => {
-        const u = req.url();
-        if (u.includes(".m3u8") && !m3u8Url) {
-          m3u8Url = u;
-          streamReferer = req.headers()["referer"] || playerUrl;
-        }
-        req.continue();
-      });
-
-      await _bsPage.goto(playerUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
-      await new Promise(resolve => {
-        const check = setInterval(() => { if (m3u8Url) { clearInterval(check); resolve(); } }, 300);
-        setTimeout(() => { clearInterval(check); resolve(); }, 25000);
-      });
-
-      await _bsPage.close();
-
-      if (!m3u8Url) throw new Error("No hay stream en vivo ahora en este canal (bstream.st)");
-      console.log(`✅ bolaloca/bstream m3u8: ${m3u8Url}`);
-      return { m3u8Url, referer: streamReferer };
-    } catch(err) {
-      await _bsPage.close().catch(() => {});
-      throw err;
-    }
-  }
-
-  // ── Tipo B: m3u8 directo en el HTML (eveningbad y similares) ──
-  const directM3u8 = playerHtml.match(/https?:\/\/[^\s"'`<>\\]+\.m3u8[^\s"'`<>\\]*/);
-  if (directM3u8) {
-    console.log(`✅ bolaloca/directo m3u8: ${directM3u8[0]}`);
-    return { m3u8Url: directM3u8[0], referer: playerUrl };
-  }
-
-  // ── Tipo C: array ofuscado (hoca6.com / hoca8.com y similares) ──
-  const arrMatch = playerHtml.match(/return\s*\(\s*\[([^\]]+)\]\.join\(""\)/);
-  if (arrMatch) {
-    const chars = arrMatch[1].match(/"([^"]*)"/g).map(s => s.slice(1, -1));
-    const m3u8Base = chars.join("");
-
-    const part2Match = playerHtml.match(/agnlrrtesSaUiuraArbye\s*=\s*\[([^\]]*)\]/);
-    const part2 = part2Match ? (part2Match[1].match(/"([^"]*)"/g) || []).map(s => s.slice(1, -1)).join("") : "";
-
-    const part3Match = playerHtml.match(/id=["']ihgSnuiatrekafctBs["'][^>]*>([^<]*)</);
-    const part3 = part3Match ? part3Match[1].trim() : "";
-
-    const m3u8Url = (m3u8Base + part2 + part3).replace(/\\/g, "");
-    if (m3u8Url.includes(".m3u8")) {
-      console.log(`✅ bolaloca/hoca m3u8: ${m3u8Url}`);
-      return { m3u8Url, referer: playerUrl };
-    }
-  }
-
-  const playerHost = new URL(playerUrl).hostname;
-  throw new Error(`No se pudo extraer el stream del player (${playerHost}) — tipo de player no reconocido`);
-}
-
-app.get("/stream7", async (req, res) => {
-  const targetUrl = req.query.url;
-  if (!targetUrl) return res.status(400).send("Falta el parámetro ?url=");
-
-  let decodedUrl;
-  try {
-    decodedUrl = decodeURIComponent(targetUrl);
-    new URL(decodedUrl);
-  } catch {
-    return res.status(400).send("URL inválida");
-  }
-
-  let hostname = new URL(decodedUrl).hostname;
-
-  const playerAllowed = ["latamvidz1.com", "esvideofy.com", "bolaloca.my", "streamtpnew.com", "streamvipx.com", "capo7play.com", "streamx550.com", "youtube.com", "youtu.be", "tvtvhd.com", "ftvhd.com", "pltvhd.com", "streams.center", "sportssonline.click", "embedsports.top"];
-  if (!playerAllowed.some(d => hostname === d || hostname.endsWith("." + d))) {
-    return res.status(403).send("Dominio no permitido");
-  }
-
-  const baseUrl = `${req.protocol}://${req.get("host")}`;
-  let m3u8Url, streamReferer;
-
-  // ── Caché de extracción: evita repetir el scraping si el mismo canal se abre varias veces ──
-  const cacheKey = decodedUrl;
-  const cached7 = getStream7Cache(cacheKey);
-  if (cached7) {
-    console.log(`⚡ stream7 (caché) → ${decodedUrl}`);
-    const proxiedM3u8Cached = `${baseUrl}/hls7?url=${encodeURIComponent(cached7.m3u8Url)}&ref=${encodeURIComponent(cached7.referer || "")}`;
-    res.set("Content-Type", "text/html; charset=utf-8");
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("Cache-Control", "no-cache");
-    return res.send(buildLivePlayer(proxiedM3u8Cached, baseUrl));
-  }
-
-  try {
-    if (hostname === "youtube.com" || hostname.endsWith(".youtube.com") || hostname === "youtu.be") {
-      console.log(`🎬 stream7 (youtube) → ${decodedUrl}`);
-      // Return player immediately — yt-stream handles extraction+piping asynchronously
-      {
-        const proxyUrl = `${baseUrl}/yt-stream?url=${encodeURIComponent(decodedUrl)}`;
-        const vidTitle = "Video";
-        return res.send(`<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>${vidTitle} - L3HO</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    :root{--a:#f59e0b;--b:#f97316;--grad:linear-gradient(135deg,#f59e0b,#f97316);--glow:rgba(249,115,22,.45);--bg:#0a0805}
-    html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;color:#fff}
-    #wrap{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000}
-    video{width:100%;height:100%;object-fit:contain;display:block}
-    #loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;z-index:20;gap:16px}
-    .spin-ring{width:48px;height:48px;border-radius:50%;border:3px solid transparent;border-top-color:#f59e0b;border-right-color:#f97316;animation:spin .9s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    #loader p{font-size:12px;color:var(--a);letter-spacing:.8px;font-weight:600}
-    #logo{position:absolute;top:10px;right:12px;z-index:10;pointer-events:none;transition:opacity .4s}
-    #logo img{height:48px;width:auto;opacity:.12;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));transition:opacity .4s}
-    #wrap:hover #logo img{opacity:.05}
-    #controls{position:absolute;bottom:0;left:0;right:0;padding:0 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;z-index:10}
-    #wrap:hover #controls,#wrap.showCtrl #controls{opacity:1}
-    #progressWrap{position:relative;height:20px;cursor:pointer;display:flex;align-items:center;margin-bottom:4px}
-    #progressBg{position:absolute;left:0;right:0;height:3px;background:rgba(255,255,255,.2);border-radius:2px;transition:height .15s}
-    #progressWrap:hover #progressBg{height:5px}
-    #progressFill{position:absolute;left:0;height:100%;background:var(--grad);border-radius:2px;width:0%;transition:width .2s linear}
-    #progressThumb{position:absolute;width:12px;height:12px;background:#fff;border-radius:50%;top:50%;transform:translateY(-50%) scale(0);transition:transform .15s;box-shadow:0 0 4px rgba(0,0,0,.6);left:0}
-    #progressWrap:hover #progressThumb{transform:translateY(-50%) scale(1)}
-    #btnRow{display:flex;align-items:center;gap:10px}
-    .btn{background:none;border:none;color:rgba(255,255,255,.75);cursor:pointer;padding:6px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .15s}
-    .btn:hover{background:rgba(255,255,255,.1)}
-    .btn:active{background:rgba(245,158,11,.18)}
-    .btn svg{width:20px;height:20px;fill:url(#iconGrad)}
-    #volWrap{position:relative}
-    #volPanel{
-      position:absolute;bottom:calc(100% + 12px);left:50%;
-      transform:translateX(-50%) translateY(8px) scale(.9);
-      transform-origin:bottom center;
-      display:flex;flex-direction:column;align-items:center;gap:6px;
-      padding:10px 8px;border-radius:14px;
-      background:rgba(10,8,5,.88);border:1px solid rgba(245,158,11,.25);
-      backdrop-filter:blur(16px);box-shadow:0 8px 24px rgba(0,0,0,.6);
-      opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:20;
-    }
-    #volPanel.open{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0) scale(1)}
-    #volPct{font-size:10px;font-weight:700;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-    #volTrack{position:relative;width:8px;height:80px;background:rgba(255,255,255,.12);border-radius:4px;overflow:visible}
-    #volFill{position:absolute;bottom:0;left:0;width:100%;border-radius:4px;background:var(--grad);transition:height .07s linear}
-    #volThumb{position:absolute;left:50%;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(245,158,11,.7);transition:bottom .07s linear;pointer-events:none;z-index:2}
-    #volSlider{position:absolute;inset:-6px;opacity:0;cursor:pointer;writing-mode:vertical-lr;direction:rtl;width:calc(100% + 12px);height:calc(100% + 12px);touch-action:none}
-    #timeLabel{font-size:11px;color:rgba(255,255,255,.7);white-space:nowrap;margin-left:2px}
-    #spacer{flex:1}
-    #errOverlay{position:absolute;inset:0;background:rgba(0,0,0,.92);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:30;gap:14px;padding:24px;text-align:center}
-    #errOverlay svg{width:52px;height:52px;fill:var(--a);opacity:.8}
-    #errOverlay h2{font-size:18px;color:#fff}
-    #errOverlay p{font-size:13px;color:rgba(255,255,255,.5);max-width:280px}
-    #retryBtn{background:var(--grad);color:#fff;border:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .2s}
-    #retryBtn:hover{opacity:.85}
-    #tapFx{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5}
-    .tapCircle{width:70px;height:70px;background:rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.5);transition:opacity .25s,transform .25s;backdrop-filter:blur(4px)}
-    .tapCircle.show{opacity:1;transform:scale(1)}
-    .tapCircle svg{width:30px;height:30px;fill:url(#iconGrad)}
-  </style>
-</head>
-<body>
-<svg width="0" height="0" style="position:absolute;overflow:hidden">
-  <defs>
-    <linearGradient id="iconGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/>
-    </linearGradient>
-  </defs>
-</svg>
-<div id="wrap">
-  <video id="video" playsinline preload="auto"></video>
-  <div id="loader"><div class="spin-ring"></div><p>Cargando video...</p></div>
-  <div id="logo"><img src="${baseUrl}/public/ultragol-logo.png" alt="L3HO"></div>
-  <div id="tapFx"><div class="tapCircle" id="tapCircle"><svg viewBox="0 0 24 24" id="tapIcon"><path d="M8 5v14l11-7z"/></svg></div></div>
-  <div id="controls">
-    <div id="progressWrap">
-      <div id="progressBg"><div id="progressFill"></div></div>
-      <div id="progressThumb"></div>
-    </div>
-    <div id="btnRow">
-      <button class="btn" id="btnPlay"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
-      <div id="volWrap">
-        <button class="btn" id="btnMute" title="Volumen (M)">
-          <svg viewBox="0 0 24 24" id="volIcon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/></svg>
-        </button>
-        <div id="volPanel">
-          <span id="volPct">100%</span>
-          <div id="volTrack">
-            <div id="volFill" style="height:100%"></div>
-            <div id="volThumb" style="bottom:calc(100% - 6px)"></div>
-            <input type="range" id="volSlider" min="0" max="100" step="1" value="100">
-          </div>
-        </div>
-      </div>
-      <span id="timeLabel">0:00 / 0:00</span>
-      <div id="spacer"></div>
-      <button class="btn" id="btnPip" title="Ventana flotante" style="display:none"><svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
-      <button class="btn" id="btnFs"><svg viewBox="0 0 24 24" id="fsIcon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
-    </div>
-  </div>
-  <div id="errOverlay">
-    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-    <h2>Video no disponible</h2>
-    <p>El video puede haber expirado. Vuelve a cargar la página original.</p>
-    <button id="retryBtn">&#8635; Reintentar</button>
-  </div>
-</div>
-<script>
-(function(){
-  var SRC = ${JSON.stringify(proxyUrl)};
-  var video      = document.getElementById("video");
-  var loader     = document.getElementById("loader");
-  var errOverlay = document.getElementById("errOverlay");
-  var btnPlay    = document.getElementById("btnPlay");
-  var playIcon   = document.getElementById("playIcon");
-  var btnMute    = document.getElementById("btnMute");
-  var volIcon    = document.getElementById("volIcon");
-  var volPanel   = document.getElementById("volPanel");
-  var volFill    = document.getElementById("volFill");
-  var volThumb   = document.getElementById("volThumb");
-  var volPct     = document.getElementById("volPct");
-  var volSlider  = document.getElementById("volSlider");
-  var timeLabel  = document.getElementById("timeLabel");
-  var progressFill  = document.getElementById("progressFill");
-  var progressThumb = document.getElementById("progressThumb");
-  var progressWrap  = document.getElementById("progressWrap");
-  var btnFs      = document.getElementById("btnFs");
-  var btnPip     = document.getElementById("btnPip");
-  var wrap       = document.getElementById("wrap");
-  var tapCircle  = document.getElementById("tapCircle");
-  var tapIcon    = document.getElementById("tapIcon");
-  var ctrlTimer;
-
-  var ICONS = {
-    play:  '<path d="M8 5v14l11-7z"/>',
-    pause: '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>',
-    volOn: '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.97z"/>',
-    volOff:'<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>',
-    fsOn:  '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>',
-    fsOff: '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>'
-  };
-  function setIcon(el, key){ el.innerHTML = ICONS[key]; }
-
-  function showCtrl(){ wrap.classList.add("showCtrl"); clearTimeout(ctrlTimer); ctrlTimer=setTimeout(()=>wrap.classList.remove("showCtrl"),3000); }
-  wrap.addEventListener("mousemove", showCtrl);
-  wrap.addEventListener("touchstart", showCtrl, {passive:true});
-
-  function togglePlay(){
-    if(video.paused){ video.play(); } else { video.pause(); }
-    var tapTimer;
-    tapCircle.classList.add("show");
-    clearTimeout(tapTimer);
-    tapTimer = setTimeout(()=>tapCircle.classList.remove("show"), 600);
-  }
-  btnPlay.addEventListener("click", function(e){ e.stopPropagation(); togglePlay(); });
-  video.addEventListener("click", togglePlay);
-  video.addEventListener("play",  function(){ setIcon(playIcon,"pause"); setIcon(tapIcon,"pause"); });
-  video.addEventListener("pause", function(){ setIcon(playIcon,"play");  setIcon(tapIcon,"play"); });
-
-  var volPanelTimer;
-  function updateVolUIYT(){
-    var pct = video.muted ? 0 : Math.round(video.volume*100);
-    volSlider.value = pct; volPct.textContent = pct+"%";
-    volFill.style.height = pct+"%"; volThumb.style.bottom = "calc("+pct+"% - 6px)";
-    setIcon(volIcon, (video.muted||pct===0) ? "volOff" : "volOn");
-  }
-  function openVolPanelYT(){volPanel.classList.add("open");clearTimeout(volPanelTimer);volPanelTimer=setTimeout(function(){volPanel.classList.remove("open");},3000);}
-  document.getElementById("btnMute").addEventListener("click",function(e){
-    e.stopPropagation();
-    if(!volPanel.classList.contains("open")){openVolPanelYT();}
-    else{video.muted=!video.muted;updateVolUIYT();clearTimeout(volPanelTimer);volPanelTimer=setTimeout(function(){volPanel.classList.remove("open");},1800);}
-  });
-  volSlider.addEventListener("input",function(){
-    var v=+this.value/100; video.volume=v; video.muted=v===0;
-    updateVolUIYT(); clearTimeout(volPanelTimer); volPanelTimer=setTimeout(function(){volPanel.classList.remove("open");},2500);
-  });
-  wrap.addEventListener("click",function(e){if(!e.target.closest("#volWrap"))volPanel.classList.remove("open");});
-
-  function fmtTime(s){ var m=Math.floor(s/60); s=Math.floor(s%60); return m+":"+(s<10?"0":"")+s; }
-  video.addEventListener("timeupdate", function(){
-    if(!video.duration) return;
-    var pct = (video.currentTime/video.duration)*100;
-    progressFill.style.width = pct+"%";
-    progressThumb.style.left = pct+"%";
-    timeLabel.textContent = fmtTime(video.currentTime)+" / "+fmtTime(video.duration);
-  });
-  progressWrap.addEventListener("click", function(e){
-    if(!video.duration) return;
-    var r=this.getBoundingClientRect();
-    video.currentTime = ((e.clientX-r.left)/r.width)*video.duration;
-  });
-
-
-  btnFs.addEventListener("click", function(){
-    var el = document.documentElement;
-    if(!document.fullscreenElement && !document.webkitFullscreenElement){
-      (el.requestFullscreen||el.webkitRequestFullscreen).call(el);
-      setIcon(document.getElementById("fsIcon"),"fsOff");
-    } else {
-      (document.exitFullscreen||document.webkitExitFullscreen).call(document);
-      setIcon(document.getElementById("fsIcon"),"fsOn");
-    }
-  });
-  if(document.pictureInPictureEnabled){
-    btnPip.style.display="flex";
-    btnPip.addEventListener("click", function(){
-      if(document.pictureInPictureElement){ document.exitPictureInPicture().catch(function(){}); }
-      else { video.requestPictureInPicture().catch(function(){}); }
-    });
-  }
-
-  var loaderP = loader.querySelector('p');
-  var dotTimer = setInterval(function(){
-    var t = loaderP.textContent.replace(/\.+$/,'');
-    loaderP.textContent = t + (t.length < loaderP.getAttribute('data-base')||false ? '' : '') + '.';
-    if(loaderP.textContent.length > (loaderP.getAttribute('data-base')||'Cargando video').length + 3)
-      loaderP.textContent = loaderP.getAttribute('data-base') || 'Cargando video';
-  }, 600);
-  loaderP.setAttribute('data-base', loaderP.textContent);
-
-  function hideLoaderAndPlay(){
-    clearInterval(dotTimer);
-    loader.style.display = "none";
-    video.play().catch(function(){});
-  }
-  video.addEventListener("canplay",    hideLoaderAndPlay);
-  video.addEventListener("loadeddata", hideLoaderAndPlay);
-  video.addEventListener("playing",    function(){ loader.style.display="none"; clearInterval(dotTimer); });
-
-  video.addEventListener("error", function(){
-    clearInterval(dotTimer);
-    var code = video.error ? video.error.code : '?';
-    var msg  = video.error ? (video.error.message||'') : '';
-    var codes = {1:'ABORTED',2:'NETWORK',3:'DECODE',4:'FORMAT'};
-    errOverlay.querySelector('p').textContent = 'Error ' + code + ' (' + (codes[code]||'?') + ') ' + msg;
-    errOverlay.style.display="flex"; loader.style.display="none";
-  });
-  document.getElementById("retryBtn").addEventListener("click", function(){
-    errOverlay.style.display="none"; loader.style.display="flex";
-    video.load(); video.play().catch(function(){});
-  });
-
-  video.src = SRC;
-})();
-</script>
-</body>
-</html>`);
-      }
-    } else if (hostname === "capo7play.com" || hostname.endsWith(".capo7play.com")) {
-      console.log(`🎬 stream7 (capo7play) → ${decodedUrl}`);
-      const extracted = await extractM3u8FromCapo7play(decodedUrl);
-      m3u8Url = extracted.m3u8Url;
-      streamReferer = extracted.referer;
-    } else if (hostname === "bolaloca.my" || hostname.endsWith(".bolaloca.my")) {
-      console.log(`🎬 stream7 (bolaloca) → ${decodedUrl}`);
-      const extracted = await extractM3u8FromBolaloca(decodedUrl);
-      m3u8Url = extracted.m3u8Url;
-      streamReferer = extracted.referer;
-    } else if (hostname === "streamtpnew.com" || hostname.endsWith(".streamtpnew.com") || hostname === "streamx550.com" || hostname.endsWith(".streamx550.com")) {
-      console.log(`🎬 stream7 (streamtpnew/streamx550) → ${decodedUrl}`);
-      const extracted = await extractM3u8FromStreamtpnew(decodedUrl);
-      m3u8Url = extracted.m3u8Url;
-      streamReferer = extracted.referer;
-    } else if (hostname === "streamvipx.com" || hostname.endsWith(".streamvipx.com")) {
-      console.log(`🎬 stream7 (streamvipx) → ${decodedUrl}`);
-      const extracted = await extractM3u8FromStreamvipx(decodedUrl);
-      m3u8Url = extracted.m3u8Url;
-      streamReferer = extracted.referer;
-    } else if (hostname === "streams.center" || hostname.endsWith(".streams.center")) {
-      console.log(`🎬 stream7 (streams.center) → ${decodedUrl}`);
-      const extracted = await extractM3u8FromStreamsCenter(decodedUrl);
-      m3u8Url = extracted.m3u8Url;
-      streamReferer = extracted.referer;
-    } else if (hostname === "sportssonline.click" || hostname.endsWith(".sportssonline.click")) {
-      console.log(`🎬 stream7 (sportssonline) → ${decodedUrl}`);
-      const extracted = await extractM3u8FromSportsonline(decodedUrl);
-      setStream7Cache(cacheKey, { m3u8Url: extracted.m3u8Url, referer: extracted.referer || "" });
-      return res.send(buildDirectHlsPlayer(extracted.m3u8Url, baseUrl));
-    } else if (hostname === "embedsports.top" || hostname.endsWith(".embedsports.top")) {
-      console.log(`🎬 stream7 (embedsports) → iframe: ${decodedUrl}`);
-      // strmd.top usa TLS fingerprinting y bloquea Node.js → embebemos iframe directo
-      const iframeHtml = `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>En Vivo - L3HO</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    html,body{width:100%;height:100%;background:#000;overflow:hidden}
-    iframe{width:100%;height:100%;border:none;display:block}
-  </style>
-</head>
-<body>
-  <iframe src="${decodedUrl}" allowfullscreen allow="autoplay; fullscreen" scrolling="no" referrerpolicy="no-referrer"></iframe>
-</body>
-</html>`;
-      return res.send(iframeHtml);
-    } else if (hostname === "tvtvhd.com" || hostname.endsWith(".tvtvhd.com") || hostname === "ftvhd.com" || hostname.endsWith(".ftvhd.com")) {
-      console.log(`🎬 stream7 (tvtvhd) → ${decodedUrl}`);
-      // Use a live relay that re-fetches a fresh token on every m3u8 refresh
-      const relayUrl = `${baseUrl}/tvtvhd-relay?page=${encodeURIComponent(decodedUrl)}`;
-      return res.send(buildLivePlayer(relayUrl, baseUrl));
-    } else {
-      console.log(`🎬 stream7 → obteniendo player: ${decodedUrl}`);
-      const upstream = await axios.get(decodedUrl, {
-        timeout: 15000,
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Referer": STREAM7_REFERER,
-          "Origin": "https://futbollibretv.su",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-        }
-      });
-      const html = upstream.data;
-      const m3u8Match = html.match(/var\s+playbackURL\s*=\s*["']([^"']+\.m3u8[^"']*)["']/);
-      if (!m3u8Match) return res.status(502).send("No se encontró el stream en la respuesta del servidor.");
-      m3u8Url = m3u8Match[1];
-      streamReferer = STREAM7_REFERER;
-    }
-
-    // Guardar en caché para próximas peticiones del mismo canal
-    if (m3u8Url) setStream7Cache(cacheKey, { m3u8Url, referer: streamReferer || "" });
-
-    const proxiedM3u8 = `${baseUrl}/hls7?url=${encodeURIComponent(m3u8Url)}&ref=${encodeURIComponent(streamReferer || "")}`;
-
-    res.set("Content-Type", "text/html; charset=utf-8");
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("X-Frame-Options", "ALLOWALL");
-    res.set("Cache-Control", "no-cache");
-    return res.send(buildLivePlayer(proxiedM3u8, baseUrl));
-
-  } catch (error) {
-    console.error("❌ stream7 error:", error.message);
-    res.status(502).send(`No se pudo obtener el stream: ${error.message}`);
-  }
-});
-
 // yt-stream: yt-dlp pipes video directly to browser — avoids all CDN URL/IP issues
 app.get("/yt-stream", (req, res) => {
   const raw = req.query.url;
@@ -4056,19 +3271,17 @@ app.get("/tvtvhd-relay", async (req, res) => {
     const m3u8Base = m3u8Url.substring(0, m3u8Url.lastIndexOf("/") + 1);
     const refParam = `&ref=${encodeURIComponent(streamReferer)}`;
 
-    // Step 4: rewrite segments to go through hls7-seg proxy
+    // Step 4: resolve all relative segment/playlist URLs to absolute
     let content = String(m3u8Resp.data);
-    content = content.replace(/^((?!#).+\.ts(?:[?&][^\s]*)?)$/gm, (line) => {
-      const abs = line.startsWith("http") ? line : m3u8Base + line;
-      return `${baseUrl}/hls7-seg?url=${encodeURIComponent(abs)}${refParam}`;
-    });
-    content = content.replace(/^((?!#)(?!.+\/hls7).+\.m3u8[^\s]*)$/gm, (line) => {
-      const abs = line.startsWith("http") ? line : m3u8Base + line;
-      return `${baseUrl}/hls7?url=${encodeURIComponent(abs)}${refParam}`;
-    });
+    content = content.replace(/^((?!#).+\.ts(?:[?&][^\s]*)?)$/gm, (line) =>
+      line.startsWith("http") ? line : m3u8Base + line
+    );
+    content = content.replace(/^((?!#).+\.m3u8[^\s]*)$/gm, (line) =>
+      line.startsWith("http") ? line : m3u8Base + line
+    );
     content = content.replace(/URI="([^"]+)"/g, (m, uri) => {
       const abs = uri.startsWith("http") ? uri : m3u8Base + uri;
-      return `URI="${baseUrl}/hls7-seg?url=${encodeURIComponent(abs)}${refParam}"`;
+      return `URI="${abs}"`;
     });
 
     res.set("Content-Type", "application/vnd.apple.mpegurl");
@@ -4080,199 +3293,6 @@ app.get("/tvtvhd-relay", async (req, res) => {
     console.error("❌ tvtvhd-relay error:", err.message);
     res.status(502).send("Error en relay: " + err.message);
   }
-});
-
-app.get("/hls7", async (req, res) => {
-  const targetUrl = req.query.url;
-  if (!targetUrl) return res.status(400).send("Falta ?url=");
-
-  let decodedUrl;
-  try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
-  catch { return res.status(400).send("URL inválida"); }
-
-  if (!stream7IsAllowed(decodedUrl)) return res.status(403).send("Dominio no permitido");
-
-  const referer = req.query.ref ? req.query.ref : STREAM7_REFERER;
-  const refParam = req.query.ref ? `&ref=${encodeURIComponent(req.query.ref)}` : "";
-
-  try {
-    // Extraer origin del referer para validación CORS del CDN
-    let refOrigin = "";
-    try { refOrigin = new URL(referer).origin; } catch {}
-
-    const upstream = await axios.get(decodedUrl, {
-      timeout: 15000,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": referer,
-        "Origin": refOrigin
-      }
-    });
-
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const m3u8Origin = new URL(decodedUrl).origin;
-    const m3u8Base = decodedUrl.substring(0, decodedUrl.lastIndexOf("/") + 1);
-
-    // Resuelve rutas relativas, absolutas (/path) y completas (http...)
-    function resolveUrl(line) {
-      if (line.startsWith("http")) return line;
-      if (line.startsWith("/")) return m3u8Origin + line;
-      return m3u8Base + line;
-    }
-
-    let content = upstream.data;
-
-    // Reescribir segmentos .ts primero (evitar que capturemos .ts.m3u8)
-    content = content.replace(/^((?!#).+\.ts(?:[?&][^\s]*)?)$/gm, (line) => {
-      return `${baseUrl}/hls7-seg?url=${encodeURIComponent(resolveUrl(line))}${refParam}`;
-    });
-
-    // Reescribir variantes .m3u8 (incluyendo mono.ts.m3u8, etc.)
-    content = content.replace(/^((?!#)(?!.+\/hls7).+\.m3u8[^\s]*)$/gm, (line) => {
-      return `${baseUrl}/hls7?url=${encodeURIComponent(resolveUrl(line))}${refParam}`;
-    });
-
-    content = content.replace(/URI="([^"]+)"/g, (match, uri) => {
-      return `URI="${baseUrl}/hls7-seg?url=${encodeURIComponent(resolveUrl(uri))}${refParam}"`;
-    });
-
-    res.set("Content-Type", "application/vnd.apple.mpegurl");
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("Cache-Control", "no-cache");
-    res.send(content);
-  } catch (error) {
-    console.error("❌ hls7 error:", error.message);
-    res.status(502).send(`Error en proxy m3u8: ${error.message}`);
-  }
-});
-
-app.get("/hls7-seg", async (req, res) => {
-  const targetUrl = req.query.url;
-  if (!targetUrl) return res.status(400).send("Falta ?url=");
-
-  let decodedUrl;
-  try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
-  catch { return res.status(400).send("URL inválida"); }
-
-  if (!stream7IsAllowed(decodedUrl)) return res.status(403).send("Dominio no permitido");
-
-  const referer = req.query.ref ? req.query.ref : STREAM7_REFERER;
-
-  try {
-    let refOrigin = "";
-    try { refOrigin = new URL(referer).origin; } catch {}
-
-    const upstream = await axios.get(decodedUrl, {
-      timeout: 20000,
-      responseType: "arraybuffer",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": referer,
-        "Origin": refOrigin
-      }
-    });
-
-    const contentType = upstream.headers["content-type"] || "video/MP2T";
-    res.set("Content-Type", contentType);
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("Cache-Control", "no-cache");
-    res.send(upstream.data);
-  } catch (error) {
-    console.error("❌ hls7-seg error:", error.message);
-    res.status(502).send(`Error en proxy segmento: ${error.message}`);
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════════
-// PROXY HLS CON CACHÉ INTELIGENTE
-// Segmentos descargados 1 sola vez, servidos a N usuarios simultáneos
-// ═══════════════════════════════════════════════════════════════════
-
-/**
- * /hls-cache?url=URL_M3U8&ref=REFERER
- * Proxy de playlist con caché de 3 segundos.
- * Reescribe todos los segmentos para que pasen por /hls-cache-seg
- */
-app.get("/hls-cache", async (req, res) => {
-  const targetUrl = req.query.url;
-  if (!targetUrl) return res.status(400).send("Falta ?url=");
-
-  let decodedUrl;
-  try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
-  catch { return res.status(400).send("URL inválida"); }
-
-  const referer = req.query.ref ? decodeURIComponent(req.query.ref) : "";
-  const serverBase = `${req.protocol}://${req.get("host")}`;
-
-  try {
-    let refOrigin = "";
-    try { refOrigin = new URL(referer).origin; } catch {}
-
-    const { data, fromCache } = await fetchPlaylist(decodedUrl, {
-      "Referer": referer,
-      "Origin": refOrigin
-    });
-
-    const rewritten = rewritePlaylist(data, decodedUrl, serverBase, referer);
-
-    res.set("Content-Type", "application/vnd.apple.mpegurl");
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("Cache-Control", "no-cache, no-store");
-    res.set("X-Cache", fromCache ? "HIT" : "MISS");
-    res.send(rewritten);
-  } catch (error) {
-    console.error("❌ hls-cache error:", error.message);
-    res.status(502).send(`Error proxy m3u8: ${error.message}`);
-  }
-});
-
-/**
- * /hls-cache-seg?url=URL_SEGMENTO&ref=REFERER
- * Proxy de segmento .ts con caché compartido entre todos los usuarios.
- * El mismo segmento solo se descarga 1 vez del origen, sin importar
- * cuántos usuarios lo pidan al mismo tiempo.
- */
-app.get("/hls-cache-seg", async (req, res) => {
-  const targetUrl = req.query.url;
-  if (!targetUrl) return res.status(400).send("Falta ?url=");
-
-  let decodedUrl;
-  try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
-  catch { return res.status(400).send("URL inválida"); }
-
-  const referer = req.query.ref ? decodeURIComponent(req.query.ref) : "";
-
-  try {
-    let refOrigin = "";
-    try { refOrigin = new URL(referer).origin; } catch {}
-
-    const { data, contentType, fromCache } = await fetchSegment(decodedUrl, {
-      "Referer": referer,
-      "Origin": refOrigin
-    });
-
-    res.set("Content-Type", contentType);
-    res.set("Access-Control-Allow-Origin", "*");
-    // Segmentos HLS son inmutables — cachear en el navegador también
-    res.set("Cache-Control", "public, max-age=60");
-    res.set("X-Cache", fromCache ? "HIT" : "MISS");
-    res.send(Buffer.from(data));
-  } catch (error) {
-    console.error("❌ hls-cache-seg error:", error.message);
-    res.status(502).send(`Error proxy segmento: ${error.message}`);
-  }
-});
-
-/**
- * /hls-cache-stats
- * Muestra cuántos segmentos están en caché y métricas de rendimiento
- */
-app.get("/hls-cache-stats", (req, res) => {
-  res.json({
-    success: true,
-    descripcion: "Estadísticas del proxy HLS con caché inteligente",
-    ...getCacheStats()
-  });
 });
 
 // === PROXY HLS PARA CANALES ===
@@ -5495,20 +4515,6 @@ app.get("/ultragol-l3ho", (req, res) => {
 </html>`;
   };
   
-  // Si la URL es de un dominio que soporta stream7, redirigir ahí para extracción server-side
-  const STREAM7_PLAYER_DOMAINS = ["streamtpnew.com", "streamvipx.com", "bolaloca.my", "capo7play.com", "streamx550.com"];
-  if (targetUrl) {
-    try {
-      const decoded = decodeURIComponent(targetUrl);
-      const h = new URL(decoded).hostname;
-      if (STREAM7_PLAYER_DOMAINS.some(d => h === d || h.endsWith("." + d))) {
-        const baseUrl = `${req.protocol}://${req.get("host")}`;
-        const stream7Url = `${baseUrl}/stream7?url=${encodeURIComponent(decoded)}`;
-        console.log(`🔀 l3ho → stream7 para ${h}: ${stream7Url}`);
-        return res.redirect(302, stream7Url);
-      }
-    } catch(e) { /* URL inválida, continúa al flujo normal */ }
-  }
 
   const html = generatePlayerHtml(targetUrl);
   
