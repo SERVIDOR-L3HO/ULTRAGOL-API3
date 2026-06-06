@@ -1533,7 +1533,17 @@ app.get("/transmisiones", async (req, res) => {
       }
     }
 
-    res.json(applyBolalocoProxy(data, baseUrl));
+    const enriched = {
+      ...applyBolalocoProxy(data, baseUrl),
+      transmisiones: (data.transmisiones || []).map(t => ({
+        ...t,
+        canales: (t.canales || []).map(c => ({
+          ...c,
+          embed: c.embed ? `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(c.embed)}` : c.embed
+        }))
+      }))
+    };
+    res.json(enriched);
   } catch (error) {
     console.error("Error en /transmisiones:", error.message);
     res.status(500).json({ 
@@ -1580,7 +1590,15 @@ app.get("/transmisiones2", async (req, res) => {
       }
     }
     
-    res.json(data);
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const enriched = {
+      ...data,
+      transmisiones: (data.transmisiones || []).map(t => ({
+        ...t,
+        url: t.url ? `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(t.url)}` : t.url
+      }))
+    };
+    res.json(enriched);
   } catch (error) {
     console.error("Error en /transmisiones2:", error.message);
     res.status(500).json({ 
