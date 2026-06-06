@@ -1652,19 +1652,12 @@ app.get("/transmisiones3", async (req, res) => {
     }
     
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const stream7Allowed = ["latamvidz1.com","esvideofy.com","bolaloca.my","streamtpnew.com","streamvipx.com","capo7play.com","streamx550.com","youtube.com","youtu.be","tvtvhd.com","ftvhd.com","pltvhd.com","streams.center"];
     const enriched = {
       ...data,
       transmisiones: (data.transmisiones || []).map(t => ({
         ...t,
         enlacesDetalle: (t.enlacesDetalle || []).map(({ urlProxy, url, ...rest }) => {
-          let finalUrl = url;
-          try {
-            const hostname = new URL(url).hostname;
-            if (stream7Allowed.some(d => hostname === d || hostname.endsWith("." + d))) {
-              finalUrl = `${baseUrl}/stream7?url=${encodeURIComponent(url)}`;
-            }
-          } catch {}
+          const finalUrl = url ? `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(url)}` : url;
           return { ...rest, url: finalUrl };
         })
       }))
