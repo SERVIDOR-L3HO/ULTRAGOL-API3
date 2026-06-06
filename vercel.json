@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "installCommand": "npm install --omit=optional",
   "builds": [
     {
       "src": "index.js",
@@ -17,8 +16,8 @@
     }
   ],
   "env": {
+    "NODE_ENV": "production",
     "PUPPETEER_SKIP_DOWNLOAD": "true",
-    "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "true",
-    "NODE_ENV": "production"
+    "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "true"
   }
 }
