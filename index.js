@@ -1489,11 +1489,11 @@ function applyBolalocoProxy(obj, baseUrl) {
   if (typeof obj === "string") {
     // Caso 1: URL directa de bolaloca.my
     if (/^https?:\/\/(www\.)?bolaloca\.my/i.test(obj)) {
-      return `${baseUrl}/stream7?url=${encodeURIComponent(obj)}`;
+      return `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(obj)}`;
     }
     // Caso 2: URL directa de streams.center
     if (/^https?:\/\/(www\.)?streams\.center/i.test(obj)) {
-      return `${baseUrl}/stream7?url=${encodeURIComponent(obj)}`;
+      return `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(obj)}`;
     }
     // Caso 3: URL envuelta en GLZ_PROXY externo (ultragol-l3ho?get=...)
     const glzMatch = obj.match(/ultragol-l3ho\?get=(.+)/);
@@ -1501,10 +1501,10 @@ function applyBolalocoProxy(obj, baseUrl) {
       try {
         const inner = decodeURIComponent(glzMatch[1]);
         if (/^https?:\/\/(www\.)?bolaloca\.my/i.test(inner)) {
-          return `${baseUrl}/stream7?url=${encodeURIComponent(inner)}`;
+          return `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(inner)}`;
         }
         if (/^https?:\/\/(www\.)?streams\.center/i.test(inner)) {
-          return `${baseUrl}/stream7?url=${encodeURIComponent(inner)}`;
+          return `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(inner)}`;
         }
       } catch {}
     }
@@ -1522,7 +1522,8 @@ function applyBolalocoProxy(obj, baseUrl) {
 app.get("/transmisiones", async (req, res) => {
   try {
     let data = cache.get("transmisiones");
-    
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+
     if (!data) {
       console.log("📺 Obteniendo transmisiones deportivas (caché vacío)...");
       try {
@@ -1532,14 +1533,13 @@ app.get("/transmisiones", async (req, res) => {
         const staleData = cache.getStale("transmisiones");
         if (staleData) {
           console.warn("⚠️ Usando caché stale para transmisiones:", fetchError.message);
-          const baseUrl = `${req.protocol}://${req.get("host")}`;
-          return res.json({ ...staleData, _stale: true });
+          return res.json({ ...applyBolalocoProxy(staleData, baseUrl), _stale: true });
         }
         throw fetchError;
       }
     }
-    
-    res.json(data);
+
+    res.json(applyBolalocoProxy(data, baseUrl));
   } catch (error) {
     console.error("Error en /transmisiones:", error.message);
     res.status(500).json({ 
