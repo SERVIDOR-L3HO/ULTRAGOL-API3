@@ -116,7 +116,7 @@ async function findAnchorId() {
 
 async function scanRange(anchorId, rangeSize = 300) {
   const start = Math.max(1, anchorId - rangeSize);
-  const end = anchorId + 50;
+  const end = anchorId + 400;
   const ids = [];
   for (let i = start; i <= end; i++) ids.push(i);
 
