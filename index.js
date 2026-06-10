@@ -1563,7 +1563,26 @@ app.get("/gol-2", async (req, res) => {
       }
     }
 
-    res.json(data);
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+    const wrapM3u8 = (m3u8Url) => {
+      if (!m3u8Url) return null;
+      return `${baseUrl}/hls-canal?url=${encodeURIComponent(m3u8Url)}`;
+    };
+
+    const response = {
+      ...data,
+      transmisiones: (data.transmisiones || []).map(t => ({
+        ...t,
+        canales: (t.canales || []).map(c => ({
+          ...c,
+          m3u8: wrapM3u8(c.m3u8),
+          m3u8Direct: c.m3u8 || null
+        }))
+      }))
+    };
+
+    res.json(response);
   } catch (error) {
     console.error("Error en /gol-2:", error.message);
     res.status(500).json({
@@ -3285,14 +3304,21 @@ app.get("/hls-canal", async (req, res) => {
   try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
   catch { return res.status(400).send("URL inválida"); }
 
+  const isKhala = decodedUrl.includes("khala.skylivehd.com") || decodedUrl.includes("skylivehd.com");
+  const hlsHeaders = isKhala ? {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Origin": "https://stream-xhd.com",
+    "Referer": "https://stream-xhd.com/"
+  } : {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Origin": "https://pluto.tv",
+    "Referer": "https://pluto.tv/"
+  };
+
   try {
     const upstream = await axios.get(decodedUrl, {
       timeout: 15000,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Origin": "https://pluto.tv",
-        "Referer": "https://pluto.tv/"
-      }
+      headers: hlsHeaders
     });
     const baseUrl = `${req.protocol}://${req.get("host")}`;
     const m3u8Base = decodedUrl.substring(0, decodedUrl.lastIndexOf("/") + 1);
@@ -3328,15 +3354,22 @@ app.get("/hls-canal-seg", async (req, res) => {
   try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
   catch { return res.status(400).send("URL inválida"); }
 
+  const isKhalaSeg = decodedUrl.includes("khala.skylivehd.com") || decodedUrl.includes("skylivehd.com");
+  const segHeaders = isKhalaSeg ? {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Origin": "https://stream-xhd.com",
+    "Referer": "https://stream-xhd.com/"
+  } : {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Origin": "https://pluto.tv",
+    "Referer": "https://pluto.tv/"
+  };
+
   try {
     const upstream = await axios.get(decodedUrl, {
       timeout: 20000,
       responseType: "arraybuffer",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Origin": "https://pluto.tv",
-        "Referer": "https://pluto.tv/"
-      }
+      headers: segHeaders
     });
     const contentType = upstream.headers["content-type"] || "video/MP2T";
     res.set("Content-Type", contentType);
