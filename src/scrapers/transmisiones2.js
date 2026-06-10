@@ -1,70 +1,81 @@
 const axios = require("axios");
 
-const AGENDA_URL = "https://api.goleafutbol.com/api/agenda";
-const HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  "Referer": "https://www.goleafutbol.com/",
-  "Accept": "application/json"
-};
-
 const m3u8Cache = new Map();
+const CACHE_TTL = 15 * 60 * 1000;
 
-function decodeStreamUrl(raw) {
-  if (!raw) return null;
+const KNOWN_CHANNELS = [
+  { id: "mespn",           nombre: "ESPN",              deporte: "Deportes" },
+  { id: "mespn2",          nombre: "ESPN 2",            deporte: "Deportes" },
+  { id: "mespn3",          nombre: "ESPN 3",            deporte: "Deportes" },
+  { id: "mespn4",          nombre: "ESPN 4",            deporte: "Deportes" },
+  { id: "mespn5",          nombre: "ESPN 5",            deporte: "Deportes" },
+  { id: "mespndeportes",   nombre: "ESPN Deportes",     deporte: "Deportes" },
+  { id: "mnbatv",          nombre: "NBA TV",            deporte: "Baloncesto" },
+  { id: "mmlbtv",          nombre: "MLB TV",            deporte: "Béisbol" },
+  { id: "mtnt",            nombre: "TNT",               deporte: "Deportes" },
+  { id: "mtbs",            nombre: "TBS",               deporte: "Deportes" },
+  { id: "mcbs",            nombre: "CBS",               deporte: "Deportes" },
+  { id: "mnfln",           nombre: "NFL Network",       deporte: "Fútbol Americano" },
+  { id: "mtudn",           nombre: "TUDN",              deporte: "Fútbol" },
+  { id: "mtorontobluejays",nombre: "Blue Jays Live",    deporte: "Béisbol" },
+  { id: "mchicagocubs",    nombre: "Chicago Cubs Live",  deporte: "Béisbol" },
+  { id: "mbostonredsox",   nombre: "Boston Red Sox Live",deporte: "Béisbol" },
+  { id: "mlosangelesdodgers", nombre: "LA Dodgers Live", deporte: "Béisbol" },
+  { id: "matlantabraves",  nombre: "Atlanta Braves Live",deporte: "Béisbol" },
+  { id: "mdetroittigers",  nombre: "Detroit Tigers Live",deporte: "Béisbol" },
+  { id: "mmiamimarlins",   nombre: "Miami Marlins Live", deporte: "Béisbol" },
+  { id: "mtexasrangers",   nombre: "Texas Rangers Live", deporte: "Béisbol" },
+  { id: "mchicagowhitesox",nombre: "White Sox Live",    deporte: "Béisbol" },
+  { id: "msandiegopadres", nombre: "Padres Live",        deporte: "Béisbol" },
+];
+
+async function extractM3u8(channelId) {
+  const cached = m3u8Cache.get(channelId);
+  if (cached && (Date.now() - cached.ts) < CACHE_TTL) return cached.url;
+
   try {
-    const match = raw.match(/[?&]r=([^&]+)/);
-    if (match) return Buffer.from(match[1], "base64").toString("utf8");
-    return raw;
-  } catch {
-    return raw;
-  }
-}
+    const res = await axios.get(
+      `https://exposestrat.com/maestrohd1.php?player=desktop&live=${channelId}`,
+      {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Referer": "https://embedhd.org/"
+        },
+        timeout: 12000
+      }
+    );
+    const html = res.data;
 
-async function resolveM3u8(streamXhdUrl) {
-  if (!streamXhdUrl || !streamXhdUrl.includes("stream-xhd.com")) return null;
+    const m = html.match(/return\s*\(\s*(\[[\s\S]*?\])\.join\s*\(\s*""\s*\)/);
+    if (!m) return null;
 
-  const cached = m3u8Cache.get(streamXhdUrl);
-  if (cached && (Date.now() - cached.ts) < 30 * 60 * 1000) return cached.url;
+    let chars;
+    try { chars = JSON.parse(m[1]); } catch { return null; }
+    if (!Array.isArray(chars)) return null;
 
-  try {
-    const r = await axios.get(streamXhdUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-        "Referer": "https://stream-xhd.com/"
-      },
-      timeout: 10000
-    });
-    const html = r.data;
+    let url = chars.join("");
 
-    const varNameMatch = html.match(/var playbackURL="",(\w+)=\[\]/);
-    if (!varNameMatch) return null;
-    const varName = varNameMatch[1];
-
-    const arrStart = html.indexOf(varName + "=[[");
-    if (arrStart === -1) return null;
-
-    let depth = 0, i = arrStart + varName.length + 1;
-    while (i < html.length) {
-      if (html[i] === "[") depth++;
-      else if (html[i] === "]") { depth--; if (depth === 0) { i++; break; } }
-      i++;
+    const varJoins = [...html.matchAll(/(\w+)\.join\s*\(\s*""\s*\)/g)];
+    for (const vj of varJoins) {
+      const varName = vj[1];
+      const varDef = html.match(new RegExp(`var\\s+${varName}\\s*=\\s*(\\[[^\\]]*\\])`));
+      if (varDef) {
+        try {
+          const extra = JSON.parse(varDef[1]);
+          if (Array.isArray(extra)) url += extra.join("");
+        } catch {}
+      }
     }
-    const arr = JSON.parse(html.slice(arrStart + varName.length + 1, i));
 
-    const kVals = [...html.matchAll(/return\s+(\d{4,})\s*;/g)].map(m => parseInt(m[1]));
-    if (kVals.length < 2) return null;
-    const k = kVals[0] + kVals[1];
+    const spanRefs = [...html.matchAll(/getElementById\s*\(\s*["']([^"']+)["']\s*\)\.innerHTML/g)];
+    for (const sr of spanRefs) {
+      const spanId = sr[1];
+      const spanVal = html.match(new RegExp(`id=${spanId}>([^<]*)<`));
+      if (spanVal) url += spanVal[1];
+    }
 
-    arr.sort((a, b) => a[0] - b[0]);
-    let url = "";
-    arr.forEach(e => {
-      const decoded = Buffer.from(e[1], "base64").toString("utf8");
-      const num = parseInt(decoded.replace(/\D/g, ""));
-      url += String.fromCharCode(num - k);
-    });
-
-    if (url.includes(".m3u8") || url.includes("://")) {
-      m3u8Cache.set(streamXhdUrl, { url, ts: Date.now() });
+    if (url.includes("cdn") && (url.includes(".m3u8") || url.includes("zohanayaan") || url.includes("skylivehd"))) {
+      m3u8Cache.set(channelId, { url, ts: Date.now() });
       return url;
     }
     return null;
@@ -73,118 +84,74 @@ async function resolveM3u8(streamXhdUrl) {
   }
 }
 
-async function resolveWithConcurrency(tasks, limit = 5) {
+async function resolveWithConcurrency(tasks, limit = 6) {
   const results = new Array(tasks.length).fill(null);
   let idx = 0;
-
   async function worker() {
     while (idx < tasks.length) {
       const i = idx++;
       results[i] = await tasks[i]();
     }
   }
-
   await Promise.all(Array.from({ length: limit }, worker));
   return results;
 }
 
-function extractTeams(title) {
-  const clean = title.replace(/^[^:]+:\s*/, "").trim();
-  const sep = clean.match(/\s+vs\.?\s+/i);
-  if (sep) {
-    const idx = clean.search(/\s+vs\.?\s+/i);
-    return {
-      equipo1: clean.slice(0, idx).trim(),
-      equipo2: clean.slice(idx + sep[0].length).trim()
-    };
-  }
-  return { equipo1: clean, equipo2: "" };
-}
-
 async function scrapTransmisiones2() {
   try {
-    console.log("📺 Obteniendo agenda de partidos desde goleafutbol.com...");
+    console.log("📺 Obteniendo canales en vivo de skylivehd.com...");
 
-    const response = await axios.get(AGENDA_URL, { headers: HEADERS, timeout: 15000 });
-
-    if (!response.data || !Array.isArray(response.data)) {
-      throw new Error("Respuesta inesperada de api.goleafutbol.com/api/agenda");
-    }
-
-    const eventos = response.data;
-
-    const allChannelUrls = [];
-    eventos.forEach(evento => {
-      (evento.channels || []).forEach(c => {
-        const streamUrl = decodeStreamUrl(c.url);
-        if (streamUrl && !allChannelUrls.includes(streamUrl)) {
-          allChannelUrls.push(streamUrl);
-        }
-      });
+    const tasks = KNOWN_CHANNELS.map(ch => async () => {
+      const m3u8 = await extractM3u8(ch.id);
+      if (!m3u8) return null;
+      return { ...ch, m3u8 };
     });
 
-    console.log(`🔓 Resolviendo m3u8 de ${allChannelUrls.length} canales únicos...`);
-    const m3u8Tasks = allChannelUrls.map(url => () => resolveM3u8(url));
-    const m3u8Results = await resolveWithConcurrency(m3u8Tasks, 8);
-    const m3u8Map = {};
-    allChannelUrls.forEach((url, i) => { if (m3u8Results[i]) m3u8Map[url] = m3u8Results[i]; });
+    const results = await resolveWithConcurrency(tasks, 6);
+    const activeChannels = results.filter(Boolean);
+
+    const transmisiones = activeChannels.map(ch => ({
+      titulo: ch.nombre,
+      evento: ch.nombre,
+      equipo1: ch.nombre,
+      equipo2: "",
+      liga: ch.deporte,
+      deporte: ch.deporte,
+      hora: "",
+      fecha: new Date().toLocaleDateString("es-MX", { timeZone: "America/Mexico_City" }),
+      estado: "EN VIVO",
+      channelId: ch.id,
+      canales: [{
+        nombre: ch.nombre,
+        calidad: "HD",
+        m3u8: ch.m3u8,
+        m3u8Direct: ch.m3u8
+      }]
+    }));
 
     const ligas = {};
-    const transmisiones = [];
-
-    eventos.forEach(evento => {
-      const { title, time, category, language, status, date, channels } = evento;
-      if (!title) return;
-
-      const { equipo1, equipo2 } = extractTeams(title);
-      const liga = category || "Deportes";
-      ligas[liga] = (ligas[liga] || 0) + 1;
-
-      const canales = (channels || []).map(c => {
-        const streamUrl = decodeStreamUrl(c.url);
-        return {
-          nombre: c.name,
-          calidad: c.quality || "720p",
-          url: streamUrl,
-          m3u8: m3u8Map[streamUrl] || null,
-          channelId: c.channelId
-        };
-      }).filter(c => c.url);
-
-      transmisiones.push({
-        titulo: title,
-        evento: title,
-        equipo1,
-        equipo2,
-        liga,
-        deporte: liga,
-        hora: time || "",
-        fecha: date || "",
-        idioma: language || "Español",
-        estado: status === "EN VIVO" ? "EN VIVO" : status === "PROXIMO" ? "Próximo" : status || "Programado",
-        canales
-      });
+    transmisiones.forEach(t => {
+      ligas[t.liga] = (ligas[t.liga] || 0) + 1;
     });
 
-    const resolved = Object.keys(m3u8Map).length;
-    console.log(`✅ goleafutbol.com: ${transmisiones.length} partidos, ${resolved}/${allChannelUrls.length} m3u8 resueltos`);
+    console.log(`✅ gol-2 (skylivehd): ${transmisiones.length}/${KNOWN_CHANNELS.length} canales activos`);
 
     return {
       total: transmisiones.length,
       actualizado: new Date().toISOString(),
-      fuente: "goleafutbol.com",
+      fuente: "skylivehd.com",
       ligas,
       ligasDisponibles: Object.keys(ligas),
       transmisiones
     };
 
   } catch (error) {
-    console.error("❌ Error en scrapTransmisiones2 (goleafutbol.com):", error.message);
+    console.error("❌ Error en scrapTransmisiones2 (skylivehd):", error.message);
     return {
       total: 0,
       actualizado: new Date().toISOString(),
-      fuente: "goleafutbol.com",
-      error: `Error obteniendo agenda: ${error.message}`,
+      fuente: "skylivehd.com",
+      error: `Error obteniendo canales: ${error.message}`,
       ligas: {},
       ligasDisponibles: [],
       transmisiones: []

@@ -1547,11 +1547,11 @@ app.get("/gol-2", async (req, res) => {
     let data = cache.get("transmisiones2");
 
     if (!data) {
-      console.log("📺 Obteniendo canales desde goleafutbol.com (caché vacío)...");
+      console.log("📺 Obteniendo canales desde skylivehd.com (caché vacío)...");
       try {
         data = await scrapTransmisiones2();
         if (data && data.total > 0) {
-          cache.set("transmisiones2", data);
+          cache.set("transmisiones2", data, 15 * 60);
         }
       } catch (scrapeError) {
         const staleData = cache.getStale("transmisiones2");
@@ -1563,30 +1563,11 @@ app.get("/gol-2", async (req, res) => {
       }
     }
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-
-    const wrapM3u8 = (m3u8Url) => {
-      if (!m3u8Url) return null;
-      return `${baseUrl}/hls-canal?url=${encodeURIComponent(m3u8Url)}`;
-    };
-
-    const response = {
-      ...data,
-      transmisiones: (data.transmisiones || []).map(t => ({
-        ...t,
-        canales: (t.canales || []).map(c => ({
-          ...c,
-          m3u8: wrapM3u8(c.m3u8),
-          m3u8Direct: c.m3u8 || null
-        }))
-      }))
-    };
-
-    res.json(response);
+    res.json(data);
   } catch (error) {
     console.error("Error en /gol-2:", error.message);
     res.status(500).json({
-      error: "No se pudieron obtener los canales desde goleafutbol.com",
+      error: "No se pudieron obtener los canales desde skylivehd.com",
       detalles: error.message
     });
   }
