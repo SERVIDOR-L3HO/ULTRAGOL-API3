@@ -1516,7 +1516,6 @@ function applyBolalocoProxy(obj, baseUrl) {
 app.get("/gol-1", async (req, res) => {
   try {
     let data = cache.get("transmisiones");
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
 
     if (!data) {
       console.log("📺 Obteniendo transmisiones deportivas (caché vacío)...");
@@ -1527,23 +1526,13 @@ app.get("/gol-1", async (req, res) => {
         const staleData = cache.getStale("transmisiones");
         if (staleData) {
           console.warn("⚠️ Usando caché stale para transmisiones:", fetchError.message);
-          return res.json({ ...applyBolalocoProxy(staleData, baseUrl), _stale: true });
+          return res.json({ ...staleData, _stale: true });
         }
         throw fetchError;
       }
     }
 
-    const enriched = {
-      ...applyBolalocoProxy(data, baseUrl),
-      transmisiones: (data.transmisiones || []).map(t => ({
-        ...t,
-        canales: (t.canales || []).map(c => ({
-          ...c,
-          embed: c.embed ? `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(c.embed)}` : c.embed
-        }))
-      }))
-    };
-    res.json(enriched);
+    res.json(data);
   } catch (error) {
     console.error("Error en /transmisiones:", error.message);
     res.status(500).json({ 
