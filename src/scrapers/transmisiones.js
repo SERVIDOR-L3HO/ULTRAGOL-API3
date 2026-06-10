@@ -144,32 +144,35 @@ async function scrapTransmisiones() {
       cachedAnchorId = Math.max(...rawEvents.map(e => e.id));
     }
 
-    const seen = new Set();
-    const transmisiones = [];
+    const eventMap = new Map();
 
     for (const ev of rawEvents) {
-      if (seen.has(ev.evento)) continue;
-      seen.add(ev.evento);
+      if (!eventMap.has(ev.evento)) {
+        const deporte = detectSport(ev.evento);
+        const { equipo1, equipo2 } = extractTeams(ev.evento);
+        eventMap.set(ev.evento, {
+          evento: ev.evento,
+          liga: deporte,
+          deporte,
+          equipo1,
+          equipo2,
+          estado: "EN VIVO",
+          embedId: ev.id,
+          canales: []
+        });
+      }
 
-      const deporte = detectSport(ev.evento);
-      const { equipo1, equipo2 } = extractTeams(ev.evento);
-
-      transmisiones.push({
-        evento: ev.evento,
-        liga: deporte,
-        deporte,
-        equipo1,
-        equipo2,
-        estado: "EN VIVO",
-        embedId: ev.id,
-        canales: [{
-          nombre: "Stream Principal",
-          idioma: "es",
-          calidad: "720p",
-          embed: ev.embedUrl
-        }]
+      const entry = eventMap.get(ev.evento);
+      const canalNum = entry.canales.length + 1;
+      entry.canales.push({
+        nombre: canalNum === 1 ? "Stream Principal" : `Canal ${canalNum}`,
+        idioma: "es",
+        calidad: "720p",
+        embed: ev.embedUrl
       });
     }
+
+    const transmisiones = Array.from(eventMap.values());
 
     const deportes = {};
     transmisiones.forEach(t => {
