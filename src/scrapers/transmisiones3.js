@@ -4,51 +4,84 @@ const DIARIES_URL = "https://pltvhd.com/diaries.json";
 const IMG_BASE    = "https://cdn.ftvhd.com";
 const BASE_SITE   = "https://tvtvhd.com";
 
+const m3u8Cache = new Map();
+const CACHE_TTL  = 15 * 60 * 1000;
+
 function tryBase64Decode(str) {
   try {
     const decoded = Buffer.from(str, "base64").toString("utf8");
-    if (decoded.startsWith("http") || decoded.startsWith("/")) {
-      return decoded;
-    }
+    if (decoded.startsWith("http") || decoded.startsWith("/")) return decoded;
   } catch {}
   return null;
 }
 
-function decodeEmbedUrl(iframePath) {
+function extractStreamName(iframePath) {
   try {
-    let embedUrl = iframePath;
-
+    let url = iframePath;
     const layer1 = tryBase64Decode(iframePath);
-    if (layer1) {
-      embedUrl = layer1;
+    if (layer1) url = layer1;
+
+    const rMatch = url.match(/[?&]r=([^&]+)/);
+    if (rMatch) {
+      const layer2 = tryBase64Decode(rMatch[1]);
+      if (layer2) url = layer2;
+      else url = decodeURIComponent(rMatch[1]);
     }
 
-    const match = embedUrl.match(/[?&]r=([^&]+)/);
-    if (match && match[1]) {
-      const layer2 = tryBase64Decode(match[1]);
-      if (layer2) return layer2;
-      return decodeURIComponent(match[1]);
-    }
+    if (!url.startsWith("http")) url = BASE_SITE + url;
 
-    return embedUrl.startsWith("http") ? embedUrl : `${BASE_SITE}${embedUrl}`;
-  } catch {}
-  return iframePath.startsWith("http") ? iframePath : `${BASE_SITE}${iframePath}`;
+    const streamMatch = url.match(/[?&]stream=([^&]+)/);
+    return streamMatch ? streamMatch[1] : null;
+  } catch {
+    return null;
+  }
 }
 
-function getEmbedUrl(iframePath) {
+async function resolveM3u8(streamName) {
+  if (!streamName) return null;
+
+  const cached = m3u8Cache.get(streamName);
+  if (cached && (Date.now() - cached.ts) < CACHE_TTL) return cached.url;
+
   try {
-    const layer1 = tryBase64Decode(iframePath);
-    if (layer1) {
-      return layer1.startsWith("http") ? layer1 : `${BASE_SITE}${layer1}`;
+    const res = await axios.get(
+      `https://la18hd.com/vivo/canales.php?stream=${streamName}`,
+      {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Referer": "https://tvtvhd.com/"
+        },
+        timeout: 10000
+      }
+    );
+
+    const match = res.data.match(/var\s+playbackURL\s*=\s*["']([^"']+\.m3u8[^"']*)["']/);
+    if (!match) return null;
+
+    const url = match[1];
+    m3u8Cache.set(streamName, { url, ts: Date.now() });
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveWithConcurrency(tasks, limit = 5) {
+  const results = new Array(tasks.length).fill(null);
+  let idx = 0;
+  async function worker() {
+    while (idx < tasks.length) {
+      const i = idx++;
+      results[i] = await tasks[i]();
     }
-    return iframePath.startsWith("http") ? iframePath : `${BASE_SITE}${iframePath}`;
-  } catch {}
-  return iframePath.startsWith("http") ? iframePath : `${BASE_SITE}${iframePath}`;
+  }
+  await Promise.all(Array.from({ length: limit }, worker));
+  return results;
 }
 
 async function scrapTransmisiones3() {
   try {
-    console.log("📺 Obteniendo transmisiones desde tvtvhd.com/eventos...");
+    console.log("📺 Obteniendo transmisiones desde tvtvhd.com...");
 
     const response = await axios.get(DIARIES_URL, {
       headers: {
@@ -60,49 +93,55 @@ async function scrapTransmisiones3() {
     });
 
     const items = response.data?.data || [];
-    const transmisiones = [];
 
-    for (const item of items) {
-      const attr = item.attributes || {};
-      const embeds = (attr.embeds && attr.embeds.data) || [];
+    const tasks = items.map(item => async () => {
+      const attr   = item.attributes || {};
+      const embeds = (attr.embeds?.data) || [];
 
       const titulo = (attr.diary_description || "Evento desconocido").replace(/\n/g, " ").trim();
-      const hora   = attr.diary_hour   ? attr.diary_hour.substring(0, 5) : "00:00";
-      const fecha  = attr.date_diary   || new Date().toISOString().split("T")[0];
+      const hora   = attr.diary_hour ? attr.diary_hour.substring(0, 5) : "00:00";
+      const fecha  = attr.date_diary || new Date().toISOString().split("T")[0];
       const liga   = attr.country?.data?.attributes?.name || "Deportes";
-
       const flagPath = attr.country?.data?.attributes?.image?.data?.attributes?.url;
       const logoUrl  = flagPath ? `${IMG_BASE}${flagPath}` : null;
 
-      const enlaces = embeds
-        .filter(e => e && e.attributes && e.attributes.embed_iframe)
-        .map(e => {
-          const iframePath = e.attributes.embed_iframe;
-          const nombre     = e.attributes.embed_name || "Ver";
-          const url        = decodeEmbedUrl(iframePath);
-          const urlProxy   = getEmbedUrl(iframePath);
-          return { nombre, url, urlProxy };
-        });
+      // Intentar cada embed en orden hasta encontrar un m3u8
+      let m3u8 = null;
+      let canalNombre = "";
+      for (const e of embeds) {
+        const ea = e?.attributes || {};
+        const streamName = extractStreamName(ea.embed_iframe || "");
+        if (!streamName) continue;
+        const url = await resolveM3u8(streamName);
+        if (url) {
+          m3u8 = url;
+          canalNombre = ea.embed_name || streamName;
+          break;
+        }
+      }
 
-      if (enlaces.length === 0) continue;
+      if (!m3u8) return null;
 
-      transmisiones.push({
+      return {
         titulo,
         hora,
         fecha,
         liga,
         logoUrl,
-        enlacesDetalle: enlaces
-      });
-    }
+        canal: canalNombre,
+        m3u8
+      };
+    });
 
-    console.log(`📺 Transmisiones3 (tvtvhd.com): ${transmisiones.length} eventos encontrados`);
+    const results = await resolveWithConcurrency(tasks, 5);
+    const transmisiones = results.filter(Boolean);
+
+    console.log(`✅ gol-3 (tvtvhd): ${transmisiones.length}/${items.length} eventos con m3u8`);
 
     return {
-      total:        transmisiones.length,
-      actualizado:  new Date().toISOString(),
-      fuente:       "tvtvhd.com/eventos",
-      nota:         "Eventos deportivos en vivo con múltiples canales por evento",
+      total:       transmisiones.length,
+      actualizado: new Date().toISOString(),
+      fuente:      "tvtvhd.com",
       transmisiones
     };
 
