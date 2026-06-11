@@ -4896,18 +4896,18 @@ app.get("/api/l3ho-links", async (req, res) => {
                 linkGroup.data.forEach((link, i) => {
                   if (typeof link === 'string') {
                     const nombre = `${match.title || "Transmision"} - ${linkGroup.type || ""} ${i + 1}`;
-                    addLink(nombre, link, "DonRomans", null, null, match.league, null, match.hour);
+                    addLink(nombre, link, "Gol5", null, null, match.league, null, match.hour);
                   } else if (link && link.match_url) {
                     const nombre = `${match.title || "Transmision"} - ${link.stream_source || linkGroup.type || ""} ${i + 1}`;
-                    addLink(nombre, link.match_url, "DonRomans", null, null, match.league, null, match.hour);
+                    addLink(nombre, link.match_url, "Gol5", null, null, match.league, null, match.hour);
                   } else if (link && link.url) {
                     const nombre = `${match.title || "Transmision"} - ${link.name || linkGroup.type || ""} ${i + 1}`;
-                    addLink(nombre, link.url, "DonRomans", null, null, match.league, null, match.hour);
+                    addLink(nombre, link.url, "Gol5", null, null, match.league, null, match.hour);
                   } else if (link && typeof link === 'object') {
                     Object.values(link).forEach((v, j) => {
                       if (typeof v === 'string' && v.startsWith('http')) {
                         const nombre = `${match.title || "Transmision"} - ${linkGroup.type || ""} ${i + 1}.${j + 1}`;
-                        addLink(nombre, v, "DonRomans", null, null, match.league, null, match.hour);
+                        addLink(nombre, v, "Gol5", null, null, match.league, null, match.hour);
                       }
                     });
                   }
@@ -4916,12 +4916,12 @@ app.get("/api/l3ho-links", async (req, res) => {
                 Object.entries(linkGroup.data).forEach(([key, value]) => {
                   if (typeof value === 'string' && value.startsWith('http')) {
                     const nombre = `${match.title || "Transmision"} - ${key}`;
-                    addLink(nombre, value, "DonRomans", null, null, match.league, null, match.hour);
+                    addLink(nombre, value, "Gol5", null, null, match.league, null, match.hour);
                   } else if (Array.isArray(value)) {
                     value.forEach((v, i) => {
                       if (typeof v === 'string' && v.startsWith('http')) {
                         const nombre = `${match.title || "Transmision"} - ${key} ${i + 1}`;
-                        addLink(nombre, v, "DonRomans", null, null, match.league, null, match.hour);
+                        addLink(nombre, v, "Gol5", null, null, match.league, null, match.hour);
                       }
                     });
                   }
