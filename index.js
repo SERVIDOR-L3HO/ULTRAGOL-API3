@@ -1594,7 +1594,16 @@ app.get("/gol-3", async (req, res) => {
       }
     }
 
-    res.json(data);
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const response = {
+      ...data,
+      transmisiones: (data.transmisiones || []).map(t => ({
+        ...t,
+        m3u8Direct: t.m3u8 || null,
+        m3u8: t.m3u8 ? `${baseUrl}/hls-canal?url=${encodeURIComponent(t.m3u8)}` : null
+      }))
+    };
+    res.json(response);
   } catch (error) {
     console.error("Error en /gol-3:", error.message);
     res.status(500).json({
@@ -3257,11 +3266,16 @@ app.get("/hls-canal", async (req, res) => {
   try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
   catch { return res.status(400).send("URL inválida"); }
 
-  const isKhala = decodedUrl.includes("khala.skylivehd.com") || decodedUrl.includes("skylivehd.com");
+  const isKhala  = decodedUrl.includes("khala.skylivehd.com") || decodedUrl.includes("skylivehd.com") || decodedUrl.includes("zohanayaan.com");
+  const isFubo   = decodedUrl.includes("fubo18.com");
   const hlsHeaders = isKhala ? {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Origin": "https://stream-xhd.com",
     "Referer": "https://stream-xhd.com/"
+  } : isFubo ? {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Origin": "https://la18hd.com",
+    "Referer": "https://la18hd.com/"
   } : {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Origin": "https://pluto.tv",
@@ -3307,11 +3321,16 @@ app.get("/hls-canal-seg", async (req, res) => {
   try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
   catch { return res.status(400).send("URL inválida"); }
 
-  const isKhalaSeg = decodedUrl.includes("khala.skylivehd.com") || decodedUrl.includes("skylivehd.com");
+  const isKhalaSeg = decodedUrl.includes("khala.skylivehd.com") || decodedUrl.includes("skylivehd.com") || decodedUrl.includes("zohanayaan.com");
+  const isFuboSeg  = decodedUrl.includes("fubo18.com");
   const segHeaders = isKhalaSeg ? {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Origin": "https://stream-xhd.com",
     "Referer": "https://stream-xhd.com/"
+  } : isFuboSeg ? {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Origin": "https://la18hd.com",
+    "Referer": "https://la18hd.com/"
   } : {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Origin": "https://pluto.tv",
