@@ -94,49 +94,38 @@ async function scrapTransmisiones3() {
 
     const items = response.data?.data || [];
 
-    const tasks = items.map(item => async () => {
-      const attr   = item.attributes || {};
-      const embeds = (attr.embeds?.data) || [];
-
-      const titulo = (attr.diary_description || "Evento desconocido").replace(/\n/g, " ").trim();
-      const hora   = attr.diary_hour ? attr.diary_hour.substring(0, 5) : "00:00";
-      const fecha  = attr.date_diary || new Date().toISOString().split("T")[0];
-      const liga   = attr.country?.data?.attributes?.name || "Deportes";
+    // Aplanar todos los embeds de todos los eventos en tareas paralelas
+    const allTasks = [];
+    for (const item of items) {
+      const attr    = item.attributes || {};
+      const embeds  = (attr.embeds?.data) || [];
+      const titulo  = (attr.diary_description || "Evento desconocido").replace(/\n/g, " ").trim();
+      const hora    = attr.diary_hour ? attr.diary_hour.substring(0, 5) : "00:00";
+      const fecha   = attr.date_diary || new Date().toISOString().split("T")[0];
+      const liga    = attr.country?.data?.attributes?.name || "Deportes";
       const flagPath = attr.country?.data?.attributes?.image?.data?.attributes?.url;
       const logoUrl  = flagPath ? `${IMG_BASE}${flagPath}` : null;
 
-      // Intentar cada embed en orden hasta encontrar un m3u8
-      let m3u8 = null;
-      let canalNombre = "";
       for (const e of embeds) {
         const ea = e?.attributes || {};
-        const streamName = extractStreamName(ea.embed_iframe || "");
-        if (!streamName) continue;
-        const url = await resolveM3u8(streamName);
-        if (url) {
-          m3u8 = url;
-          canalNombre = ea.embed_name || streamName;
-          break;
-        }
+        const canalNombre = (ea.embed_name || "").trim();
+        const iframePath  = ea.embed_iframe || "";
+        if (!iframePath) continue;
+
+        allTasks.push(async () => {
+          const streamName = extractStreamName(iframePath);
+          if (!streamName) return null;
+          const m3u8 = await resolveM3u8(streamName);
+          if (!m3u8) return null;
+          return { titulo, hora, fecha, liga, logoUrl, canal: canalNombre || streamName, m3u8 };
+        });
       }
+    }
 
-      if (!m3u8) return null;
-
-      return {
-        titulo,
-        hora,
-        fecha,
-        liga,
-        logoUrl,
-        canal: canalNombre,
-        m3u8
-      };
-    });
-
-    const results = await resolveWithConcurrency(tasks, 5);
+    const results = await resolveWithConcurrency(allTasks, 8);
     const transmisiones = results.filter(Boolean);
 
-    console.log(`✅ gol-3 (tvtvhd): ${transmisiones.length}/${items.length} eventos con m3u8`);
+    console.log(`✅ gol-3 (tvtvhd): ${transmisiones.length}/${allTasks.length} canales resueltos de ${items.length} eventos`);
 
     return {
       total:       transmisiones.length,
