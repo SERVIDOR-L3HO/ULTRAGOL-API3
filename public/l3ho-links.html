@@ -479,6 +479,71 @@
 
         .filter-pill.active .pill-count { background: var(--accent); color: #000; }
 
+        /* ── SOURCE FILTER ROW ── */
+        .src-filter-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            padding: 8px 0 4px;
+            border-top: 1px solid var(--glass-border);
+            margin-top: 6px;
+        }
+
+        .src-filter-label {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text-3);
+            white-space: nowrap;
+            margin-right: 2px;
+        }
+
+        .src-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 11px;
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-2);
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+            backdrop-filter: blur(10px);
+        }
+        .src-pill:hover { border-color: rgba(255,255,255,0.2); color: #fff; }
+        .src-pill.active {
+            color: #fff;
+            border-color: transparent;
+        }
+        .src-pill-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .src-pill-count {
+            background: rgba(0,0,0,0.3);
+            padding: 1px 6px;
+            border-radius: 8px;
+            font-size: 9px;
+        }
+        .src-pill.active .src-pill-count { background: rgba(0,0,0,0.35); }
+
+        /* source-specific active colors */
+        .src-pill.active.sp-src-1 { background: rgba(249,115,22,0.2); border-color: rgba(249,115,22,0.45); color: var(--src-1); }
+        .src-pill.active.sp-src-2 { background: rgba(6,182,212,0.2); border-color: rgba(6,182,212,0.45); color: var(--src-2); }
+        .src-pill.active.sp-src-3 { background: rgba(168,85,247,0.2); border-color: rgba(168,85,247,0.45); color: var(--src-3); }
+        .src-pill.active.sp-src-4 { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.45); color: var(--src-4); }
+        .src-pill.active.sp-src-5 { background: rgba(59,130,246,0.2); border-color: rgba(59,130,246,0.45); color: var(--src-5); }
+        .src-pill.active.sp-src-6 { background: rgba(236,72,153,0.2); border-color: rgba(236,72,153,0.45); color: var(--src-6); }
+        .src-pill.active.sp-src-7 { background: rgba(234,179,8,0.2); border-color: rgba(234,179,8,0.45); color: var(--src-7); }
+        .src-pill.active.sp-todas  { background: rgba(0,212,255,0.12); border-color: rgba(0,212,255,0.4); color: var(--accent); }
+
         .filters-right {
             margin-left: auto;
             display: flex;
@@ -1171,6 +1236,14 @@
                     <option value="status">Por Estado</option>
                 </select>
             </div>
+
+            <!-- SOURCE FILTER PILLS ROW -->
+            <div class="src-filter-row" id="src-filter-row">
+                <span class="src-filter-label">Servidor</span>
+                <button class="src-pill sp-todas active" id="spill-todas" onclick="filterSrcPill('todas')">
+                    📡 Todas <span class="src-pill-count" id="spc-todas">0</span>
+                </button>
+            </div>
         </div>
 
         <!-- GRID -->
@@ -1229,6 +1302,7 @@
     let activeSport = 'todos';
     let activeEstado = 'todos';
     let activeSources = new Set();
+    let activeSrcPill = 'todas';
     let currentView = 'grid';
     let lastUpdated = null;
 
@@ -1272,6 +1346,7 @@
     function matchesSport(l) { return activeSport === 'todos' || detectSport(l) === activeSport; }
     function matchesEstado(l) { return activeEstado === 'todos' || (l.estado || 'Programado') === activeEstado; }
     function matchesSource(l) { return activeSources.has(l.source); }
+    function matchesSrcPill(l) { return activeSrcPill === 'todas' || l.source === activeSrcPill; }
     function matchesSearch(l, q) {
         if (!q) return true;
         const srcLabel = (SOURCES.find(s => s.key === l.source)?.label || l.source);
@@ -1279,12 +1354,47 @@
         return q.split(' ').every(w => hay.includes(w));
     }
 
+    function filterSrcPill(key) {
+        activeSrcPill = key;
+        document.querySelectorAll('.src-pill').forEach(p => p.classList.remove('active'));
+        const el = document.getElementById('spill-' + (key === 'todas' ? 'todas' : key));
+        if (el) el.classList.add('active');
+        applyFilters();
+    }
+
+    function renderSrcPills() {
+        const row = document.getElementById('src-filter-row');
+        if (!row) return;
+
+        const totalEl = document.getElementById('spc-todas');
+        if (totalEl) totalEl.textContent = allLinks.length;
+
+        const existingDynamic = row.querySelectorAll('.src-pill-dynamic');
+        existingDynamic.forEach(el => el.remove());
+
+        const knownSources = SOURCES.filter(s => sourceCounts[s.key] > 0);
+        knownSources.forEach(s => {
+            const btn = document.createElement('button');
+            btn.className = `src-pill src-pill-dynamic sp-${s.cls}${activeSrcPill === s.key ? ' active' : ''}`;
+            btn.id = 'spill-' + s.key;
+            btn.onclick = () => filterSrcPill(s.key);
+
+            const dotColor = getComputedStyle(document.documentElement).getPropertyValue(`--${s.cls}`).trim();
+            btn.innerHTML = `<span class="src-pill-dot" style="background:var(--${s.cls})"></span>${s.label}<span class="src-pill-count">${sourceCounts[s.key]}</span>`;
+            row.appendChild(btn);
+        });
+
+        document.querySelectorAll('.src-pill').forEach(p => {
+            p.classList.toggle('active', p.id === 'spill-' + (activeSrcPill === 'todas' ? 'todas' : activeSrcPill));
+        });
+    }
+
     function applyFilters() {
         const rawQ = document.getElementById('search-input').value.trim();
         const q = rawQ.toLowerCase();
         const sort = document.getElementById('sort-select').value;
 
-        let filtered = allLinks.filter(l => matchesSport(l) && (rawQ ? true : matchesEstado(l)) && matchesSource(l) && matchesSearch(l, q));
+        let filtered = allLinks.filter(l => matchesSport(l) && (rawQ ? true : matchesEstado(l)) && matchesSource(l) && matchesSrcPill(l) && matchesSearch(l, q));
 
         if (sort === 'source') filtered.sort((a,b) => a.source.localeCompare(b.source));
         else if (sort === 'status') {
@@ -1364,6 +1474,7 @@
         allLinks.forEach(l => { counts[l.source] = (counts[l.source] || 0) + 1; });
         sourceCounts = counts;
         renderSourceList();
+        renderSrcPills();
     }
 
     function animateCount(id, val) {
