@@ -168,7 +168,7 @@ async function scrapTransmisiones() {
         nombre: canalNum === 1 ? "Stream Principal" : `Canal ${canalNum}`,
         idioma: "es",
         calidad: "720p",
-        embed: ev.embedUrl
+        url: ev.embedUrl
       });
     }
 
