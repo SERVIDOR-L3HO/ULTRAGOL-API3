@@ -1599,10 +1599,11 @@ app.get("/gol-3", async (req, res) => {
       ...data,
       transmisiones: (data.transmisiones || []).map(t => {
         const proxiedM3u8 = t.m3u8 ? `${baseUrl}/hls-canal?url=${encodeURIComponent(t.m3u8)}` : null;
-        const playerUrl = proxiedM3u8
+        const url = proxiedM3u8
           ? `${baseUrl}/canal-player?url=${encodeURIComponent(proxiedM3u8)}&nombre=${encodeURIComponent(t.titulo || t.canal || "En vivo")}`
           : null;
-        return { ...t, m3u8: proxiedM3u8, player: playerUrl };
+        const { m3u8: _removed, ...rest } = t;
+        return { ...rest, url };
       })
     };
     res.json(response);
