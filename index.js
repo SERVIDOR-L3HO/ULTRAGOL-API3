@@ -1599,7 +1599,6 @@ app.get("/gol-3", async (req, res) => {
       ...data,
       transmisiones: (data.transmisiones || []).map(t => ({
         ...t,
-        m3u8Direct: t.m3u8 || null,
         m3u8: t.m3u8 ? `${baseUrl}/hls-canal?url=${encodeURIComponent(t.m3u8)}` : null
       }))
     };
