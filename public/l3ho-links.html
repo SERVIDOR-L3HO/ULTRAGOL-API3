@@ -1274,7 +1274,8 @@
     function matchesSource(l) { return activeSources.has(l.source); }
     function matchesSearch(l, q) {
         if (!q) return true;
-        const hay = [l.name, l.source, l.deporte, l.league, l.team1, l.team2].filter(Boolean).join(' ').toLowerCase();
+        const srcLabel = (SOURCES.find(s => s.key === l.source)?.label || l.source);
+        const hay = [l.name, l.source, srcLabel, l.deporte, l.league].filter(Boolean).join(' ').toLowerCase();
         return q.split(' ').every(w => hay.includes(w));
     }
 
