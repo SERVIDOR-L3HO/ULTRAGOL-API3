@@ -4825,7 +4825,10 @@ app.get("/api/l3ho-links", async (req, res) => {
         if (t.canales && Array.isArray(t.canales)) {
           t.canales.forEach(canal => {
             const nombre = `${t.evento} - ${canal.nombre}`;
-            if (canal.links) {
+            // canal.url directo (estructura real del scraper)
+            if (canal.url) {
+              addLink(nombre, localProxy(canal.url), "Rereyano", t.logo1, t.logo2, t.deporte, t.estado, t.hora);
+            } else if (canal.links) {
               if (canal.links.principal) addLink(nombre, localProxy(canal.links.principal), "Rereyano", t.logo1, t.logo2, t.deporte, t.estado, t.hora);
               if (canal.links.backup) addLink(nombre + " (Backup)", localProxy(canal.links.backup), "Rereyano", t.logo1, t.logo2, t.deporte, t.estado, t.hora);
             }
@@ -4836,16 +4839,27 @@ app.get("/api/l3ho-links", async (req, res) => {
     
     if (trans2 && trans2.transmisiones) {
       trans2.transmisiones.forEach(t => {
-        if (t.url) {
+        // Los canales de skylivehd tienen m3u8 dentro de t.canales[]
+        if (t.canales && Array.isArray(t.canales)) {
+          t.canales.forEach((canal, i) => {
+            const nombre = t.evento || t.titulo || t.liga || "Transmision";
+            const url = canal.m3u8 || canal.m3u8Direct || canal.url || null;
+            if (url) addLink(`${nombre}${t.canales.length > 1 ? ` - ${canal.nombre || i + 1}` : ""}`, url, "StreamCenter", null, null, t.deporte, t.estado, t.hora);
+          });
+        } else if (t.url) {
           const nombre = t.evento || t.titulo || t.liga || "Transmision";
-          addLink(nombre, t.url, "StreamCenter", t.logo1, t.logo2, t.deporte, t.estado, t.hora);
+          addLink(nombre, t.url, "StreamCenter", null, null, t.deporte, t.estado, t.hora);
         }
       });
     }
     
     if (trans3 && trans3.transmisiones) {
       trans3.transmisiones.forEach(t => {
-        if (t.enlacesDetalle && Array.isArray(t.enlacesDetalle)) {
+        // Los items de tvtvhd tienen m3u8 directo
+        if (t.m3u8) {
+          const nombre = t.titulo || t.canal || t.evento || "Transmision";
+          addLink(nombre, localProxy(t.m3u8), "E1Link", null, null, t.liga || null, null, t.hora);
+        } else if (t.enlacesDetalle && Array.isArray(t.enlacesDetalle)) {
           t.enlacesDetalle.forEach((enlace, i) => {
             const base = t.titulo || t.evento || t.canal || "Transmision";
             const nombre = `${base} - ${enlace.nombre || `Opcion ${i + 1}`}`;
@@ -4913,6 +4927,19 @@ app.get("/api/l3ho-links", async (req, res) => {
                   }
                 });
               }
+            }
+          });
+        }
+      });
+    }
+
+    if (trans6 && trans6.transmisiones) {
+      trans6.transmisiones.forEach(t => {
+        if (t.fuentes && Array.isArray(t.fuentes)) {
+          t.fuentes.forEach((fuente, i) => {
+            if (fuente.url) {
+              const nombre = `${t.titulo || t.evento || "Transmision"} - ${fuente.fuente || `Fuente ${i + 1}`}`;
+              addLink(nombre, fuente.url, "StreamedPK", null, null, t.deporte, t.estado, t.hora);
             }
           });
         }
