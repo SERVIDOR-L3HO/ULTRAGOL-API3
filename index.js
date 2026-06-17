@@ -3284,6 +3284,24 @@ app.get("/hls-canal", async (req, res) => {
   try { decodedUrl = decodeURIComponent(targetUrl); new URL(decodedUrl); }
   catch { return res.status(400).send("URL inválida"); }
 
+  // Si es un link de canales.php de la18hd, extraer el m3u8 fresco antes de proxear
+  if (decodedUrl.includes("la18hd.com/vivo/canales.php")) {
+    try {
+      const pageRes = await axios.get(decodedUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Referer": "https://la18hd.com/eventos/"
+        },
+        timeout: 10000
+      });
+      const m = pageRes.data.toString().match(/var\s+playbackURL\s*=\s*["']([^"']+)["']/);
+      if (!m) return res.status(502).send("No se encontró playbackURL en la página");
+      decodedUrl = m[1];
+    } catch (e) {
+      return res.status(502).send("Error extrayendo stream de la18hd: " + e.message);
+    }
+  }
+
   const isKhala  = decodedUrl.includes("khala.skylivehd.com") || decodedUrl.includes("skylivehd.com") || decodedUrl.includes("zohanayaan.com");
   const isFubo   = decodedUrl.includes("fubo18.com");
   const hlsHeaders = isKhala ? {

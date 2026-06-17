@@ -80,40 +80,6 @@ function toStatusCode(status) {
   return "PROXIMO";
 }
 
-function isCanalesPhp(link) {
-  return link && link.includes("la18hd.com/vivo/canales.php");
-}
-
-async function extractM3u8FromPage(link) {
-  try {
-    const res = await axios.get(link, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Referer": "https://la18hd.com/eventos/"
-      },
-      timeout: 10000
-    });
-    const html = res.data.toString();
-    const m = html.match(/var\s+playbackURL\s*=\s*["']([^"']+)["']/);
-    return m ? m[1] : null;
-  } catch {
-    return null;
-  }
-}
-
-async function resolveWithConcurrency(tasks, limit = 6) {
-  const results = new Array(tasks.length).fill(null);
-  let idx = 0;
-  async function worker() {
-    while (idx < tasks.length) {
-      const i = idx++;
-      results[i] = await tasks[i]();
-    }
-  }
-  await Promise.all(Array.from({ length: limit }, worker));
-  return results;
-}
-
 async function scrapTransmisiones2() {
   const now = Date.now();
   if (_cache && (now - _cacheTs) < CACHE_TTL) {
@@ -134,23 +100,8 @@ async function scrapTransmisiones2() {
     });
 
     const items = Array.isArray(res.data) ? res.data : [];
-
-    // Collect unique canales.php links to resolve
-    const uniqueLinks = [...new Set(items.map(i => i.link).filter(isCanalesPhp))];
-    console.log(`Extrayendo m3u8 de ${uniqueLinks.length} canales...`);
-
-    const tasks = uniqueLinks.map(link => async () => {
-      const m3u8 = await extractM3u8FromPage(link);
-      return { link, m3u8 };
-    });
-    const resolved = await resolveWithConcurrency(tasks, 6);
-    const m3u8Map = {};
-    for (const r of resolved) {
-      if (r.m3u8) m3u8Map[r.link] = r.m3u8;
-    }
-
-    // Group by event title
     const grouped = new Map();
+
     for (const item of items) {
       const titulo = (item.title || "Sin titulo").trim();
       if (!grouped.has(titulo)) {
@@ -165,14 +116,13 @@ async function scrapTransmisiones2() {
       }
 
       const link = item.link || "";
-      const m3u8 = m3u8Map[link] || (isCanalesPhp(link) ? null : link);
-
-      if (!m3u8) continue;
+      if (!link) continue;
 
       grouped.get(titulo).canales.push({
         nombre: getNombreCanal(link, item.language || ""),
         calidad: "HD",
-        m3u8
+        // Devolver el link original; /hls-canal extraerá el m3u8 fresco en cada solicitud
+        m3u8: link
       });
     }
 
@@ -207,8 +157,7 @@ async function scrapTransmisiones2() {
       return diff !== 0 ? diff : a.hora.localeCompare(b.hora);
     });
 
-    const found = transmisiones.reduce((s, t) => s + t.canales.length, 0);
-    console.log(`gol-2 (la18hd): ${transmisiones.length} eventos, ${found}/${uniqueLinks.length} m3u8 extraidos`);
+    console.log(`gol-2 (la18hd): ${transmisiones.length} eventos, ${items.length} canales totales`);
 
     const result = {
       total: transmisiones.length,
