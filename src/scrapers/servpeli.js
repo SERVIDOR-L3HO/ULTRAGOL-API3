@@ -217,8 +217,55 @@ function cleanHtml(html, pageUrl) {
   const antiAdScript = `
 <script>
 (function() {
+  var PROXY = '/servpeli';
+  var STREAM = '/servpeli-stream';
+  var TARGET_HOST = 'unlimplay.com';
+
+  function rewriteAjaxUrl(url) {
+    if (!url || typeof url !== 'string') return url;
+    if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+    // Already proxied
+    if (url.startsWith(PROXY) || url.startsWith(STREAM)) return url;
+    // m3u8 → stream proxy
+    if (/\\.m3u8(\\?|$)/i.test(url)) {
+      var abs = url.startsWith('/') ? 'https://' + TARGET_HOST + url : url;
+      return STREAM + '?url=' + encodeURIComponent(abs);
+    }
+    // Absolute URL to target
+    if (url.indexOf('://' + TARGET_HOST) !== -1) {
+      return url.replace(/https?:\\/\\/unlimplay\\.com/, PROXY);
+    }
+    // Protocol-relative
+    if (url.startsWith('//' + TARGET_HOST)) {
+      return url.replace('//' + TARGET_HOST, PROXY);
+    }
+    // Relative URL
+    if (url.startsWith('/')) {
+      return PROXY + url;
+    }
+    return url;
+  }
+
+  // Patch fetch
+  var _fetch = window.fetch;
+  window.fetch = function(input, init) {
+    try {
+      if (typeof input === 'string') input = rewriteAjaxUrl(input);
+      else if (input && input.url) input = new Request(rewriteAjaxUrl(input.url), input);
+    } catch(e) {}
+    return _fetch.apply(this, [input, init]);
+  };
+
+  // Patch XHR
+  var _open = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, url, async, user, pass) {
+    try { url = rewriteAjaxUrl(url); } catch(e) {}
+    return _open.call(this, method, url, async !== undefined ? async : true, user, pass);
+  };
+
+  // Block ads
   window.open = function() { return null; };
-  Object.defineProperty(document, 'onvisibilitychange', { set: function(){} });
+  try { Object.defineProperty(document, 'onvisibilitychange', { set: function(){} }); } catch(e) {}
   window.addEventListener('blur', function(e) { e.stopImmediatePropagation(); }, true);
 })();
 </script>`;
@@ -247,6 +294,8 @@ const SKIP_HEADERS = [
   'x-frame-options', 'content-security-policy', 'speculation-rules',
   'cf-ray', 'cf-cache-status', 'cf-connecting-ip', 'alt-svc',
   'report-to', 'nel', 'server',
+  'access-control-allow-origin', 'access-control-allow-credentials',
+  'access-control-allow-methods', 'access-control-expose-headers',
 ];
 
 function forwardHeaders(srcHeaders, res) {
@@ -268,14 +317,36 @@ async function proxyServpeli(req, res) {
     : '';
   const targetUrl = `${TARGET}/${subPath}${queryString}`;
 
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+    return res.status(204).end();
+  }
+
   try {
-    const response = await axios.get(targetUrl, {
-      headers: buildRequestHeaders(req, TARGET + '/'),
+    const reqHeaders = buildRequestHeaders(req, TARGET + '/');
+    const reqContentType = req.headers['content-type'];
+    if (reqContentType) reqHeaders['Content-Type'] = reqContentType;
+
+    const axiosConfig = {
+      method: req.method,
+      url: targetUrl,
+      headers: reqHeaders,
       responseType: 'arraybuffer',
       timeout: 20000,
       maxRedirects: 5,
       validateStatus: (s) => s < 500,
-    });
+    };
+
+    if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
+      axiosConfig.data = typeof req.body === 'object'
+        ? JSON.stringify(req.body)
+        : req.body;
+    }
+
+    const response = await axios(axiosConfig);
 
     const contentType = (response.headers['content-type'] || '').toLowerCase();
     forwardHeaders(response.headers, res);
