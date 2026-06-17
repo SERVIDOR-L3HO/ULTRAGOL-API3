@@ -113,7 +113,7 @@ const {
 
 const path = require("path");
 const { securityHeaders, apiLimiter } = require("./src/middleware/auth");
-const { proxyServpeli } = require("./src/scrapers/servpeli");
+const { proxyServpeli, proxyServpeliStream } = require("./src/scrapers/servpeli");
 const app = express();
 
 app.set('trust proxy', 1);
@@ -5209,6 +5209,10 @@ app.get('/servpeli', (req, res) => {
 app.all('/servpeli/*', (req, res) => {
   req.params[0] = req.params[0] || '';
   return proxyServpeli(req, res);
+});
+
+app.get('/servpeli-stream', (req, res) => {
+  return proxyServpeliStream(req, res);
 });
 
 app.all('/cdn-cgi/*', (req, res) => {
