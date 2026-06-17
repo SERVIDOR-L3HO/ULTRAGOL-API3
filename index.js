@@ -1567,7 +1567,18 @@ app.get("/gol-2", async (req, res) => {
       }
     }
 
-    res.json(data);
+    const base = `${req.protocol}://${req.get("host")}`;
+    const proxied = {
+      ...data,
+      transmisiones: (data.transmisiones || []).map(ev => ({
+        ...ev,
+        canales: (ev.canales || []).map(c => ({
+          ...c,
+          m3u8: c.m3u8 ? `${base}/hls-canal?url=${encodeURIComponent(c.m3u8)}` : c.m3u8
+        }))
+      }))
+    };
+    res.json(proxied);
   } catch (error) {
     console.error("Error en /gol-2:", error.message);
     res.status(500).json({
