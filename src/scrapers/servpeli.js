@@ -19,26 +19,32 @@ const AD_SCRIPT_DOMAINS = [
 ];
 
 const AD_SCRIPT_PATTERNS = [
-  /window\.(open|location)\s*=/,
-  /popunder/i,
-  /popup/i,
-  /document\.write\s*\(/,
   /window\.popunder/i,
-  /adblock/i,
+  /popunder\s*=/i,
   /anti.?adblock/i,
-  /adsense/i,
-  /googletag/i,
-  /gtag\(/,
+  /googletag\.pubads/i,
+  /googletag\.defineSlot/i,
   /_atsv/,
-  /push.*subscribe/i,
-  /notification.*permission/i,
+  /Notification\.requestPermission/i,
   /new\s+Worker\s*\(\s*['"]blob:/,
+  /\.push\s*\(\s*function\s*\(\s*\)\s*\{\s*var\s+sw\s*=/,
 ];
 
-const AD_CLASSES = [
-  'ad', 'ads', 'adsbygoogle', 'ad-container', 'ad-wrapper', 'advertisement',
-  'banner-ad', 'popup', 'pop-up', 'popunder', 'overlay-ad', 'sticky-ad',
-  'sponsor', 'sponsored', 'promo', 'interstitial', 'preroll',
+const AD_EXACT_SELECTORS = [
+  '.adsbygoogle',
+  'ins[class="adsbygoogle"]',
+  '[id="ad"]', '[id="ads"]', '[id="advertisement"]',
+  '[id="banner-ad"]', '[id="ad-container"]', '[id="ad-wrapper"]',
+  '[id="adsense"]', '[id="google-ads"]', '[id="dfp-ad"]',
+  '[class="ad"]', '[class="ads"]',
+  'div[class*="adsbygoogle"]',
+  'div[id^="google_ads"]',
+  'div[id^="div-gpt-ad"]',
+  'div[id*="adsense"]',
+  'div[id*="banner-ad"]',
+  'div[id*="ad-container"]',
+  'div[id*="ad-wrapper"]',
+  '.overlay-ad', '.sticky-ad', '.popunder-overlay',
 ];
 
 function isAdDomain(src) {
@@ -169,14 +175,8 @@ function cleanHtml(html, pageUrl) {
     $(el).attr('src', rewriteUrl(src, pageUrl));
   });
 
-  $('ins.adsbygoogle').remove();
-  AD_CLASSES.forEach(cls => {
-    $(`[id*="${cls}"], [class*="${cls}"]`).each((_, el) => {
-      const tag = el.tagName;
-      if (['div', 'section', 'aside', 'ins', 'span'].includes(tag)) {
-        $(el).remove();
-      }
-    });
+  AD_EXACT_SELECTORS.forEach(sel => {
+    try { $(sel).remove(); } catch {}
   });
 
   $('a[href]').each((_, el) => {
