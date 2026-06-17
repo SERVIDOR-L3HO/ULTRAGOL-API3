@@ -7,98 +7,88 @@ let _cache = null;
 let _cacheTs = 0;
 
 const STREAM_MAP = {
-  dsports:              "📺 DSports",
-  dsports2:             "📺 DSports 2",
-  dsportsplus:          "📺 DSports Plus",
-  vtvplus:              "📺 VTV Plus",
-  tycsports:            "📺 TyC Sports",
-  tycinternacional:     "📺 TyC Internacional",
-  foxsports:            "🦊 Fox Sports",
-  foxsportsmx:          "🦊 Fox Sports MX",
-  foxsports2mx:         "🦊 Fox Sports 2",
-  foxsports3mx:         "🦊 Fox Sports 3",
-  foxsports1_usa:       "🦊 Fox Sports 1 USA",
-  espnmx:               "🏟 ESPN",
-  espn2mx:              "🏟 ESPN 2",
-  espn3mx:              "🏟 ESPN 3",
-  espn4mx:              "🏟 ESPN 4",
-  espn5:                "🏟 ESPN 5",
-  espn6:                "🏟 ESPN 6",
-  espn7:                "🏟 ESPN 7",
-  espnpremium:          "🏟 ESPN Premium",
-  espndeportes:         "🏟 ESPN Deportes",
-  disney1:              "⭐ Star+",
-  disney2:              "⭐ Star+ 2",
-  disney6:              "⭐ Star+ 6",
-  telefe:               "📡 Telefe",
-  tvpublica:            "📡 TV Pública",
-  canal11:              "📡 Canal 11",
-  canal5:               "📡 Canal 5",
-  azteca7:              "🦅 Azteca 7",
-  aztecadeportes:       "🦅 Azteca Deportes",
-  calientetv:           "🔥 Caliente TV",
-  tntsports:            "⚡ TNT Sports",
-  cbssports:            "📺 CBS Sports",
-  beinsports_spanish:   "🟢 BeIN Sports",
-  beinsports_xtra_spanish: "🟢 BeIN Sports Xtra",
-  golperu:              "⚽ GO Perú",
-  movistar:             "📺 Movistar Deportes",
-  winsports:            "🏆 Win Sports",
-  winsportsplus:        "🏆 Win Sports+",
-  winsports2:           "🏆 Win Sports+ 2",
-  caracol:              "📡 Caracol TV",
-  americatv:            "📺 América TV",
-  sportv:               "📺 SporTV",
-  caze1:                "📺 CazeTV",
-  caze2:                "📺 CazeTV 2",
-  dazn1:                "🔴 DAZN 1",
-  dazn2:                "🔴 DAZN 2",
-  dazn3:                "🔴 DAZN 3",
-  dazn4:                "🔴 DAZN 4",
-  liga1max:             "🏟 Liga 1 MAX",
-  goltv:                "⚽ Deportes TV",
-  tudn:                 "📺 TUDN",
-  tudnmx:               "📺 TUDN MX",
-  vix1:                 "📺 VIX+",
-};
-
-const LANG_EMOJI = {
-  espa:  "🇪🇸",
-  ingl:  "🇺🇸",
-  portu: "🇧🇷",
+  dsports:                 "DSports",
+  dsports2:                "DSports 2",
+  dsportsplus:             "DSports Plus",
+  vtvplus:                 "VTV Plus",
+  tycsports:               "TyC Sports",
+  tycinternacional:        "TyC Internacional",
+  foxsports:               "Fox Sports",
+  foxsportsmx:             "Fox Sports MX",
+  foxsports2mx:            "Fox Sports 2",
+  foxsports3mx:            "Fox Sports 3",
+  foxsports1_usa:          "Fox Sports 1 USA",
+  espnmx:                  "ESPN",
+  espn2mx:                 "ESPN 2",
+  espn3mx:                 "ESPN 3",
+  espn4mx:                 "ESPN 4",
+  espn5:                   "ESPN 5",
+  espn6:                   "ESPN 6",
+  espn7:                   "ESPN 7",
+  espnpremium:             "ESPN Premium",
+  espndeportes:            "ESPN Deportes",
+  disney1:                 "Star+",
+  disney2:                 "Star+ 2",
+  disney6:                 "Star+ 6",
+  telefe:                  "Telefe",
+  tvpublica:               "TV Publica",
+  canal11:                 "Canal 11",
+  canal5:                  "Canal 5",
+  azteca7:                 "Azteca 7",
+  aztecadeportes:          "Azteca Deportes",
+  calientetv:              "Caliente TV",
+  tntsports:               "TNT Sports",
+  cbssports:               "CBS Sports",
+  beinsports_spanish:      "BeIN Sports",
+  beinsports_xtra_spanish: "BeIN Sports Xtra",
+  golperu:                 "GO Peru",
+  movistar:                "Movistar Deportes",
+  winsports:               "Win Sports",
+  winsportsplus:           "Win Sports+",
+  winsports2:              "Win Sports+ 2",
+  caracol:                 "Caracol TV",
+  americatv:               "America TV",
+  sportv:                  "SporTV",
+  caze1:                   "CazeTV",
+  caze2:                   "CazeTV 2",
+  dazn1:                   "DAZN 1",
+  dazn2:                   "DAZN 2",
+  dazn3:                   "DAZN 3",
+  dazn4:                   "DAZN 4",
+  liga1max:                "Liga 1 MAX",
+  goltv:                   "Deportes TV",
+  tudn:                    "TUDN",
+  tudnmx:                  "TUDN MX",
+  vix1:                    "VIX+",
 };
 
 function getNombreCanal(link, language) {
   try {
     const stream = new URL(link).searchParams.get("stream");
     if (stream) {
-      const base = STREAM_MAP[stream] || `📺 ${stream.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}`;
-      const lang = (language || "").toLowerCase();
-      const flag = Object.entries(LANG_EMOJI).find(([k]) => lang.includes(k))?.[1] || "";
-      return flag ? `${base} ${flag}` : base;
+      return STREAM_MAP[stream] || stream.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
     }
   } catch {}
-  const lang = (language || "").toLowerCase();
-  const flag = Object.entries(LANG_EMOJI).find(([k]) => lang.includes(k))?.[1] || "";
-  return flag ? `📡 Stream ${flag}` : "📡 Stream";
+  const lang = (language || "").trim();
+  return lang ? `Stream (${lang})` : "Stream";
 }
 
 function toStatusCode(status) {
   const s = (status || "").toLowerCase();
   if (s.includes("vivo") || s.includes("live")) return "EN VIVO";
   if (s.includes("final")) return "FINALIZADO";
-  return "PRÓXIMO";
+  return "PROXIMO";
 }
 
 async function scrapTransmisiones2() {
   const now = Date.now();
   if (_cache && (now - _cacheTs) < CACHE_TTL) {
-    console.log("📺 gol-2 (la18hd): usando caché");
+    console.log("gol-2 (la18hd): usando cache");
     return _cache;
   }
 
   try {
-    console.log("📺 Obteniendo eventos de la18hd.com...");
+    console.log("Obteniendo eventos de la18hd.com...");
 
     const res = await axios.get(AGENDA_URL, {
       headers: {
@@ -110,15 +100,14 @@ async function scrapTransmisiones2() {
     });
 
     const items = Array.isArray(res.data) ? res.data : [];
-
     const grouped = new Map();
 
     for (const item of items) {
-      const titulo = (item.title || "Sin título").trim();
+      const titulo = (item.title || "Sin titulo").trim();
       if (!grouped.has(titulo)) {
         grouped.set(titulo, {
           titulo,
-          categoria: item.category || "Fútbol",
+          categoria: item.category || "Futbol",
           hora: item.time || "",
           fecha: item.date || new Date().toISOString().slice(0, 10),
           estado: toStatusCode(item.status),
@@ -136,7 +125,7 @@ async function scrapTransmisiones2() {
     const ligas = {};
 
     for (const [, ev] of grouped) {
-      const deporte = ev.categoria || "Fútbol";
+      const deporte = ev.categoria || "Futbol";
       ligas[deporte] = (ligas[deporte] || 0) + 1;
 
       const partes = ev.titulo.split(/:\s*/);
@@ -157,12 +146,12 @@ async function scrapTransmisiones2() {
     }
 
     transmisiones.sort((a, b) => {
-      const order = { "EN VIVO": 0, "PRÓXIMO": 1, "FINALIZADO": 2 };
+      const order = { "EN VIVO": 0, "PROXIMO": 1, "FINALIZADO": 2 };
       const diff = (order[a.estado] ?? 1) - (order[b.estado] ?? 1);
       return diff !== 0 ? diff : a.hora.localeCompare(b.hora);
     });
 
-    console.log(`✅ gol-2 (la18hd): ${transmisiones.length} eventos, ${items.length} canales totales`);
+    console.log(`gol-2 (la18hd): ${transmisiones.length} eventos, ${items.length} canales totales`);
 
     const result = {
       total: transmisiones.length,
@@ -178,7 +167,7 @@ async function scrapTransmisiones2() {
     return result;
 
   } catch (error) {
-    console.error("❌ Error en scrapTransmisiones2 (la18hd):", error.message);
+    console.error("Error en scrapTransmisiones2 (la18hd):", error.message);
     return {
       total: 0,
       actualizado: new Date().toISOString(),
