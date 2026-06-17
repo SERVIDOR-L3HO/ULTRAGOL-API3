@@ -1572,10 +1572,13 @@ app.get("/gol-2", async (req, res) => {
       ...data,
       transmisiones: (data.transmisiones || []).map(ev => ({
         ...ev,
-        canales: (ev.canales || []).map(c => ({
-          ...c,
-          link: c.link ? `${base}/hls-canal?url=${encodeURIComponent(c.link)}` : c.link
-        }))
+        canales: (ev.canales || []).map(c => {
+          const proxiedLink = c.link ? `${base}/hls-canal?url=${encodeURIComponent(c.link)}` : null;
+          const playerUrl = proxiedLink
+            ? `${base}/canal-player?url=${encodeURIComponent(proxiedLink)}&nombre=${encodeURIComponent(ev.titulo + (c.nombre ? " - " + c.nombre : ""))}`
+            : null;
+          return { ...c, link: proxiedLink, url: playerUrl };
+        })
       }))
     };
     res.json(proxied);
