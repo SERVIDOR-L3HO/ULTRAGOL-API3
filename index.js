@@ -113,6 +113,7 @@ const {
 
 const path = require("path");
 const { securityHeaders, apiLimiter } = require("./src/middleware/auth");
+const { proxyServpeli } = require("./src/scrapers/servpeli");
 const app = express();
 
 app.set('trust proxy', 1);
@@ -5198,6 +5199,21 @@ app.get("/ligas-disponibles", (req, res) => {
     ligas: ligasDisponibles,
     actualizacion: new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" })
   });
+});
+
+app.get('/servpeli', (req, res) => {
+  req.params = { 0: '' };
+  return proxyServpeli(req, res);
+});
+
+app.all('/servpeli/*', (req, res) => {
+  req.params[0] = req.params[0] || '';
+  return proxyServpeli(req, res);
+});
+
+app.all('/cdn-cgi/*', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  res.status(200).send('/* blocked */');
 });
 
 updateAllData();
