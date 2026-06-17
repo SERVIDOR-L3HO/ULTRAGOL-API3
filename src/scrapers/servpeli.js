@@ -605,6 +605,7 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
 
     for (const [nombre, url] of Object.entries(servidores)) {
       if (typeof url !== 'string') continue;
+      if (nombre === 'proxy') continue;
       const isM3u8 = /\.m3u8(\?|$)/i.test(url);
       const entry = { nombre, url, tipo: isM3u8 ? 'm3u8_directo' : 'embed' };
       if (isM3u8) {
