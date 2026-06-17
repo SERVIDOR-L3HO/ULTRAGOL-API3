@@ -1574,7 +1574,7 @@ app.get("/gol-2", async (req, res) => {
         ...ev,
         canales: (ev.canales || []).map(c => ({
           ...c,
-          m3u8: c.m3u8 ? `${base}/hls-canal?url=${encodeURIComponent(c.m3u8)}` : c.m3u8
+          link: c.link ? `${base}/hls-canal?url=${encodeURIComponent(c.link)}` : c.link
         }))
       }))
     };

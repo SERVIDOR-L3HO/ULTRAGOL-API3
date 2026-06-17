@@ -121,8 +121,7 @@ async function scrapTransmisiones2() {
       grouped.get(titulo).canales.push({
         nombre: getNombreCanal(link, item.language || ""),
         calidad: "HD",
-        // Devolver el link original; /hls-canal extraerá el m3u8 fresco en cada solicitud
-        m3u8: link
+        link
       });
     }
 
