@@ -107,6 +107,42 @@ function rewriteM3u8InJs(js, pageUrl) {
   });
 }
 
+function rewriteValueInJson(val) {
+  if (typeof val === 'string') {
+    // Rewrite m3u8 URLs
+    if (/\.m3u8(\?|$)/i.test(val)) {
+      return rewriteStreamUrl(val);
+    }
+    // Rewrite unlimplay.com absolute URLs to proxy
+    if (val.startsWith('https://unlimplay.com') || val.startsWith('http://unlimplay.com')) {
+      return val.replace(/https?:\/\/unlimplay\.com/, PROXY_PATH);
+    }
+    return val;
+  }
+  if (Array.isArray(val)) {
+    return val.map(rewriteValueInJson);
+  }
+  if (val && typeof val === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(val)) {
+      out[k] = rewriteValueInJson(v);
+    }
+    return out;
+  }
+  return val;
+}
+
+function rewriteJson(jsonStr) {
+  try {
+    const obj = JSON.parse(jsonStr);
+    const rewritten = rewriteValueInJson(obj);
+    return JSON.stringify(rewritten);
+  } catch {
+    // Not valid JSON — try a regex fallback for m3u8 URLs
+    return jsonStr.replace(/(https?:\/\/[^\s"'\\]+\.m3u8[^\s"'\\]*)/gi, (url) => rewriteStreamUrl(url));
+  }
+}
+
 function rewriteCss(css, pageUrl) {
   return css.replace(/url\(\s*['"]?([^'")]+)['"]?\s*\)/g, (match, url) => {
     const rewritten = rewriteUrl(url.trim(), pageUrl);
@@ -280,17 +316,26 @@ function cleanHtml(html, pageUrl) {
 }
 
 function buildRequestHeaders(req, referer) {
-  return {
+  const headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Accept': req.headers['accept'] || '*/*',
     'Accept-Language': 'es-MX,es;q=0.9,en;q=0.8',
     'Accept-Encoding': 'identity',
     'Referer': referer || TARGET + '/',
+    'Origin': TARGET,
   };
+  // Forward client cookies so Cloudflare session tokens are passed through
+  if (req.headers['cookie']) {
+    headers['Cookie'] = req.headers['cookie'];
+  }
+  if (req.headers['x-requested-with']) {
+    headers['X-Requested-With'] = req.headers['x-requested-with'];
+  }
+  return headers;
 }
 
 const SKIP_HEADERS = [
-  'content-encoding', 'transfer-encoding', 'connection', 'set-cookie',
+  'content-encoding', 'transfer-encoding', 'connection',
   'x-frame-options', 'content-security-policy', 'speculation-rules',
   'cf-ray', 'cf-cache-status', 'cf-connecting-ip', 'alt-svc',
   'report-to', 'nel', 'server',
@@ -304,9 +349,19 @@ function forwardHeaders(srcHeaders, res) {
   res.setHeader('X-Frame-Options', 'ALLOWALL');
   res.setHeader('Content-Security-Policy', "frame-ancestors *");
   Object.entries(srcHeaders).forEach(([k, v]) => {
-    if (!SKIP_HEADERS.includes(k.toLowerCase())) {
-      res.setHeader(k, v);
+    const key = k.toLowerCase();
+    if (SKIP_HEADERS.includes(key)) return;
+    // Forward Set-Cookie so browser stores Cloudflare session tokens
+    if (key === 'set-cookie') {
+      const cookies = Array.isArray(v) ? v : [v];
+      // Strip Secure/SameSite flags so cookie works over proxy
+      const stripped = cookies.map(c =>
+        c.replace(/;\s*Secure/gi, '').replace(/;\s*SameSite=[^;]*/gi, '; SameSite=None')
+      );
+      res.setHeader('Set-Cookie', stripped);
+      return;
     }
+    res.setHeader(k, v);
   });
 }
 
@@ -373,6 +428,15 @@ async function proxyServpeli(req, res) {
       res.setHeader('Content-Type', contentType);
       res.removeHeader('content-length');
       return res.status(response.status).send(js);
+    }
+
+    // Rewrite m3u8 URLs inside JSON API responses (e.g. server-list AJAX calls)
+    if (contentType.includes('application/json') || contentType.includes('text/json')) {
+      const jsonStr = response.data.toString('utf-8');
+      const rewritten = rewriteJson(jsonStr);
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.removeHeader('content-length');
+      return res.status(response.status).send(rewritten);
     }
 
     return res.status(response.status).send(response.data);
