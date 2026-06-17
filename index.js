@@ -113,7 +113,7 @@ const {
 
 const path = require("path");
 const { securityHeaders, apiLimiter } = require("./src/middleware/auth");
-const { proxyServpeli, proxyServpeliStream } = require("./src/scrapers/servpeli");
+const { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8 } = require("./src/scrapers/servpeli");
 const app = express();
 
 app.set('trust proxy', 1);
@@ -5199,6 +5199,18 @@ app.get("/ligas-disponibles", (req, res) => {
     ligas: ligasDisponibles,
     actualizacion: new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" })
   });
+});
+
+// Endpoint: extraer m3u8 directo de unlimplay por TMDB movie ID
+app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
+  try {
+    const { movieId } = req.params;
+    const data = await scrapUnlimplayM3u8(movieId);
+    res.json(data);
+  } catch (err) {
+    console.error('[unlimplay/m3u8] Error:', err.message);
+    res.status(502).json({ error: 'No se pudo obtener el m3u8', detalle: err.message });
+  }
 });
 
 app.get('/servpeli', (req, res) => {
