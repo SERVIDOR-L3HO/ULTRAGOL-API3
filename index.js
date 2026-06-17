@@ -1551,7 +1551,7 @@ app.get("/gol-2", async (req, res) => {
     let data = cache.get("transmisiones2");
 
     if (!data) {
-      console.log("📺 Obteniendo canales desde skylivehd.com (caché vacío)...");
+      console.log("📺 Obteniendo eventos desde la18hd.com (caché vacío)...");
       try {
         data = await scrapTransmisiones2();
         if (data && data.total > 0) {
@@ -1571,7 +1571,7 @@ app.get("/gol-2", async (req, res) => {
   } catch (error) {
     console.error("Error en /gol-2:", error.message);
     res.status(500).json({
-      error: "No se pudieron obtener los canales desde skylivehd.com",
+      error: "No se pudieron obtener los eventos desde la18hd.com",
       detalles: error.message
     });
   }
