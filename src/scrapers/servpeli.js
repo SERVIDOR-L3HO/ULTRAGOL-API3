@@ -659,6 +659,77 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
 const embedM3u8Cache = new Map();
 const EMBED_TTL = 8 * 60 * 1000;
 
+// Dominios que requieren navegador real para obtener m3u8
+const BROWSER_DOMAINS = [
+  'bysejikuar.com', 'filemoon.sx', 'filemoon.to', 'filemoon.in',
+  'bysedikamoum.com', 'moonembed.com', 'filemoonembed.com',
+  'moonfeel.com', 'kerapoxy.cc', 'ridoo.net'
+];
+
+function needsBrowser(url) {
+  try { return BROWSER_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch { return false; }
+}
+
+function getChromiumPath() {
+  const { execSync } = require('child_process');
+  try { return execSync('which chromium 2>/dev/null || which chromium-browser 2>/dev/null').toString().trim(); } catch { return null; }
+}
+
+async function extractM3u8WithBrowser(embedUrl, referer) {
+  const puppeteer = require('puppeteer-core');
+  const chromePath = getChromiumPath();
+  if (!chromePath) return { ok: false, error: 'Chromium no disponible', embedUrl };
+
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      executablePath: chromePath,
+      headless: 'new',
+      args: [
+        '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+        '--disable-gpu', '--no-first-run', '--disable-extensions', '--mute-audio',
+        '--disable-web-security', '--disable-features=IsolateOrigins,site-per-process'
+      ],
+      timeout: 30000
+    });
+
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setExtraHTTPHeaders({ Referer: referer || 'https://unlimplay.com/' });
+
+    let m3u8 = null;
+
+    const found = new Promise((resolve) => {
+      page.on('request', req => {
+        const u = req.url();
+        if (u.includes('master.m3u8') || (u.includes('.m3u8') && !u.includes('index-') && !u.includes('seg-'))) {
+          m3u8 = u; resolve(u);
+        }
+      });
+    });
+
+    await page.goto(embedUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+
+    // Esperar hasta que se encuentre el m3u8 o timeout de 15s
+    await Promise.race([found, new Promise(r => setTimeout(r, 15000))]);
+
+    if (!m3u8) {
+      // Intentar click en el video para iniciar reproducción
+      try { await page.click('video, .play-button, [class*="play"], button[class*="play"]'); } catch {}
+      await Promise.race([found, new Promise(r => setTimeout(r, 8000))]);
+    }
+
+    if (m3u8) {
+      return { ok: true, m3u8, m3u8_proxied: `/servpeli-stream?url=${encodeURIComponent(m3u8)}`, embedUrl };
+    }
+    return { ok: false, error: 'No se encontró m3u8 en la página (browser)', embedUrl };
+  } catch (err) {
+    return { ok: false, error: `Browser error: ${err.message}`, embedUrl };
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+  }
+}
+
 function unpackEvalJs(html) {
   const scripts = html.match(/<script[^>]*>([\s\S]*?)<\/script>/g) || [];
   for (const script of scripts) {
@@ -696,6 +767,14 @@ async function extractM3u8FromEmbed(embedUrl, referer) {
   const cacheKey = `embed_${embedUrl}`;
   const cached = embedM3u8Cache.get(cacheKey);
   if (cached && (Date.now() - cached.ts) < EMBED_TTL) return cached.data;
+
+  // Dominios que requieren navegador real
+  if (needsBrowser(embedUrl)) {
+    console.log(`[embed/m3u8] Usando browser para: ${embedUrl}`);
+    const result = await extractM3u8WithBrowser(embedUrl, referer);
+    embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
+    return result;
+  }
 
   let html;
   try {
