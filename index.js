@@ -5208,7 +5208,7 @@ app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
     const data = await scrapUnlimplayM3u8(movieId);
     const base = `${req.protocol}://${req.get('host')}`;
 
-    // Limpiar servidores: solo nombre, tipo y m3u8_proxied (absoluto)
+    // Solo nombre, tipo y url (absoluta)
     const makeAbsolute = (u) => u && u.startsWith('/') ? base + u : u;
     const processData = JSON.parse(JSON.stringify(data));
     for (const info of Object.values(processData.idiomas || {})) {
@@ -5218,14 +5218,10 @@ app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
           url = s.m3u8_proxied
             ? makeAbsolute(s.m3u8_proxied)
             : s.url ? `${base}/servpeli-stream?url=${encodeURIComponent(s.url)}` : null;
-        } else {
-          url = s.url || null;
+          return { nombre: s.nombre, tipo: 'direct', url };
         }
-        const entry = { nombre: s.nombre, tipo: s.tipo };
-        if (url) entry.url = url;
-        return entry;
+        return { nombre: s.nombre, tipo: 'embed', url: s.url || null };
       });
-      // Limpiar campos del nivel de idioma
       delete info.m3u8;
       delete info.m3u8_proxied;
       delete info.proxy_stream;
@@ -5296,12 +5292,16 @@ if (Hls.isSupported()) {
 // Endpoint: extraer m3u8 directo de cualquier URL embed (vidhide, filemoon, etc.)
 // GET /api/embed/m3u8?url=https://vidhidepro.com/v/xxx&referer=https://unlimplay.com/
 app.get('/api/embed/m3u8', async (req, res) => {
-  const { url, referer } = req.query;
+  const { url, referer, nombre } = req.query;
   if (!url) return res.status(400).json({ error: 'Parámetro ?url= requerido' });
   try {
+    const base = `${req.protocol}://${req.get('host')}`;
+    const makeAbsolute = (u) => u && u.startsWith('/') ? base + u : u;
     const result = await extractM3u8FromEmbed(url, referer || 'https://unlimplay.com/');
-    if (result.ok) return res.json(result);
-    return res.status(422).json(result);
+    if (result.ok) {
+      return res.json({ nombre: nombre || 'embed', tipo: 'direct', url: makeAbsolute(result.m3u8_proxied) });
+    }
+    return res.status(422).json({ nombre: nombre || 'embed', tipo: 'embed', url: null, error: result.error });
   } catch (err) {
     console.error('[embed/m3u8] Error:', err.message);
     res.status(502).json({ error: 'Error al extraer m3u8', detalle: err.message });
@@ -5312,26 +5312,31 @@ app.get('/api/embed/m3u8', async (req, res) => {
 app.get('/api/unlimplay/m3u8-all/:movieId', async (req, res) => {
   try {
     const { movieId } = req.params;
+    const baseHost = `${req.protocol}://${req.get('host')}`;
+    const makeAbsolute = (u) => u && u.startsWith('/') ? baseHost + u : u;
     const base = await scrapUnlimplayM3u8(movieId);
 
     const resolveServer = async (servidor) => {
-      if (servidor.tipo === 'm3u8_directo') return servidor;
+      if (servidor.tipo === 'm3u8_directo') {
+        const url = servidor.url ? makeAbsolute(servidor.url) : null;
+        return { nombre: servidor.nombre, tipo: 'direct', url };
+      }
       try {
         const extracted = await extractM3u8FromEmbed(servidor.url, 'https://unlimplay.com/');
         if (extracted.ok) {
-          return { ...servidor, m3u8: extracted.m3u8, m3u8_proxied: extracted.m3u8_proxied, tipo: 'm3u8_directo' };
+          return { nombre: servidor.nombre, tipo: 'direct', url: makeAbsolute(extracted.m3u8_proxied) };
         }
       } catch {}
-      return servidor;
+      return { nombre: servidor.nombre, tipo: 'embed', url: servidor.url || null };
     };
 
     const idiomasResueltos = {};
     for (const [idioma, info] of Object.entries(base.idiomas || {})) {
-      const servidoresResueltos = await Promise.all((info.servidores || []).map(resolveServer));
-      idiomasResueltos[idioma] = { ...info, servidores: servidoresResueltos };
+      const servidores = await Promise.all((info.servidores || []).map(resolveServer));
+      idiomasResueltos[idioma] = { servidores };
     }
 
-    res.json({ ...base, idiomas: idiomasResueltos });
+    res.json({ nombre: base.nombre, tipo: base.tipo, idiomas: idiomasResueltos });
   } catch (err) {
     console.error('[unlimplay/m3u8-all] Error:', err.message);
     res.status(502).json({ error: 'No se pudo obtener el m3u8', detalle: err.message });
