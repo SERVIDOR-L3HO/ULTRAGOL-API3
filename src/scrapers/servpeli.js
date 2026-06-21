@@ -634,6 +634,24 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
     }
   }
 
+  // Resolver m3u8 directo de todos los servidores embed en paralelo
+  const resolveServer = async (servidor) => {
+    if (servidor.tipo === 'm3u8_directo') return servidor;
+    try {
+      const extracted = await extractM3u8FromEmbed(servidor.url, `${TARGET}/`);
+      if (extracted.ok) {
+        return { ...servidor, m3u8: extracted.m3u8, m3u8_proxied: extracted.m3u8_proxied, tipo: 'm3u8_directo' };
+      }
+    } catch {}
+    return servidor;
+  };
+
+  for (const idioma of Object.keys(result.idiomas)) {
+    result.idiomas[idioma].servidores = await Promise.all(
+      result.idiomas[idioma].servidores.map(resolveServer)
+    );
+  }
+
   unlimplayCache.set(cacheKey, { data: result, ts: Date.now() });
   return result;
 }
