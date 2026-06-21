@@ -638,4 +638,94 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
   return result;
 }
 
-module.exports = { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8 };
+const embedM3u8Cache = new Map();
+const EMBED_TTL = 8 * 60 * 1000;
+
+function unpackEvalJs(html) {
+  const scripts = html.match(/<script[^>]*>([\s\S]*?)<\/script>/g) || [];
+  for (const script of scripts) {
+    if (!script.includes('eval(function(p,a,c,k')) continue;
+    try {
+      const vm = require('vm');
+      let captured = '';
+      const ctx = vm.createContext({
+        eval: (code) => { captured = code; },
+        document: { cookie: '' },
+        window: {},
+        location: { hostname: '' }
+      });
+      const safeCode = script.replace(/<\/?script[^>]*>/g, '');
+      vm.runInContext(safeCode, ctx, { timeout: 3000 });
+      if (captured) return captured;
+    } catch {}
+  }
+  return null;
+}
+
+function findM3u8InText(text) {
+  if (!text) return null;
+  const matches = text.match(/https?:\/\/[^\s"'\\]+\.m3u8(?:\?[^\s"'\\]*)?/g);
+  return matches ? matches[0] : null;
+}
+
+const EMBED_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'es-MX,es;q=0.9,en;q=0.8',
+};
+
+async function extractM3u8FromEmbed(embedUrl, referer) {
+  const cacheKey = `embed_${embedUrl}`;
+  const cached = embedM3u8Cache.get(cacheKey);
+  if (cached && (Date.now() - cached.ts) < EMBED_TTL) return cached.data;
+
+  let html;
+  try {
+    const res = await axios.get(embedUrl, {
+      headers: { ...EMBED_HEADERS, Referer: referer || TARGET + '/' },
+      timeout: 15000,
+      maxRedirects: 5,
+    });
+    html = res.data;
+  } catch (err) {
+    const result = { ok: false, error: `HTTP ${err.response?.status || err.message}`, embedUrl };
+    embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
+    return result;
+  }
+
+  let m3u8 = findM3u8InText(html);
+
+  if (!m3u8) {
+    const unpacked = unpackEvalJs(html);
+    if (unpacked) {
+      m3u8 = findM3u8InText(unpacked);
+      if (!m3u8) {
+        const linksMatch = unpacked.match(/var\s+links\s*=\s*(\{[^;]+\})/);
+        if (linksMatch) {
+          try {
+            const links = JSON.parse(linksMatch[1].replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":').replace(/:\s*'([^']+)'/g, ':"$1"'));
+            m3u8 = links.hls4 || links.hls2 || links.hls3 || Object.values(links).find(v => typeof v === 'string' && v.includes('.m3u8'));
+            if (m3u8 && m3u8.startsWith('/')) {
+              const base = new URL(embedUrl);
+              m3u8 = base.origin + m3u8;
+            }
+          } catch {}
+        }
+      }
+    }
+  }
+
+  if (!m3u8) {
+    const fileMatch = html.match(/['"](https?:\/\/[^'"]+\.m3u8[^'"]*)['"]/);
+    if (fileMatch) m3u8 = fileMatch[1];
+  }
+
+  const result = m3u8
+    ? { ok: true, m3u8, m3u8_proxied: `/servpeli-stream?url=${encodeURIComponent(m3u8)}`, embedUrl }
+    : { ok: false, error: 'No se encontró m3u8 en la página', embedUrl };
+
+  embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
+  return result;
+}
+
+module.exports = { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, extractM3u8FromEmbed };
