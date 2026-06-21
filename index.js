@@ -5213,14 +5213,16 @@ app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
     const processData = JSON.parse(JSON.stringify(data));
     for (const info of Object.values(processData.idiomas || {})) {
       info.servidores = (info.servidores || []).map(s => {
-        // Construir m3u8_proxied absoluto para servidores directos
-        let proxied = s.m3u8_proxied
-          ? makeAbsolute(s.m3u8_proxied)
-          : s.tipo === 'm3u8_directo' && s.url
-            ? `${base}/servpeli-stream?url=${encodeURIComponent(s.url)}`
-            : null;
+        let url;
+        if (s.tipo === 'm3u8_directo') {
+          url = s.m3u8_proxied
+            ? makeAbsolute(s.m3u8_proxied)
+            : s.url ? `${base}/servpeli-stream?url=${encodeURIComponent(s.url)}` : null;
+        } else {
+          url = s.url || null;
+        }
         const entry = { nombre: s.nombre, tipo: s.tipo };
-        if (proxied) entry.m3u8_proxied = proxied;
+        if (url) entry.url = url;
         return entry;
       });
       // Limpiar campos del nivel de idioma
