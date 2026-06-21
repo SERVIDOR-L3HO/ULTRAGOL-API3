@@ -5206,11 +5206,81 @@ app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
   try {
     const { movieId } = req.params;
     const data = await scrapUnlimplayM3u8(movieId);
-    res.json(data);
+    const base = `${req.protocol}://${req.get('host')}`;
+
+    // Hacer absolutas las URLs proxied para que funcionen en players externos
+    // Nota: trabajamos sobre una copia para no mutar el cache
+    const makeAbsolute = (u) => u && u.startsWith('/') ? base + u : u;
+    const processData = JSON.parse(JSON.stringify(data));
+    for (const info of Object.values(processData.idiomas || {})) {
+      for (const s of info.servidores || []) {
+        if (s.m3u8_proxied) s.m3u8_proxied = makeAbsolute(s.m3u8_proxied);
+        const streamUrl = s.m3u8_proxied || (s.tipo === 'm3u8_directo' ? s.url : null) || s.m3u8;
+        if (streamUrl) s.player_url = `${base}/player?url=${encodeURIComponent(streamUrl)}`;
+      }
+      if (info.m3u8_proxied) info.m3u8_proxied = makeAbsolute(info.m3u8_proxied);
+      const infoStream = info.m3u8_proxied || info.m3u8;
+      if (infoStream) info.player_url = `${base}/player?url=${encodeURIComponent(infoStream)}`;
+    }
+
+    res.json(processData);
   } catch (err) {
     console.error('[unlimplay/m3u8] Error:', err.message);
     res.status(502).json({ error: 'No se pudo obtener el m3u8', detalle: err.message });
   }
+});
+
+// Página player HLS embebible
+app.get('/player', (req, res) => {
+  const { url, title } = req.query;
+  if (!url) return res.status(400).send('Parámetro ?url= requerido');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('X-Frame-Options', 'ALLOWALL');
+  res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title ? title.replace(/</g,'&lt;') : 'Player'}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; font-family:sans-serif; }
+  video { width:100%; max-width:960px; max-height:90vh; background:#000; }
+  #error { color:#ff4444; padding:20px; text-align:center; display:none; }
+  #loading { color:#aaa; padding:20px; text-align:center; }
+</style>
+</head>
+<body>
+<div id="loading">Cargando stream...</div>
+<video id="video" controls autoplay playsinline></video>
+<div id="error"></div>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+<script>
+const src = ${JSON.stringify(url)};
+const video = document.getElementById('video');
+const loading = document.getElementById('loading');
+const errorDiv = document.getElementById('error');
+function showError(msg) {
+  loading.style.display = 'none';
+  errorDiv.style.display = 'block';
+  errorDiv.textContent = 'Error: ' + msg;
+}
+if (Hls.isSupported()) {
+  const hls = new Hls({ enableWorker: false });
+  hls.loadSource(src);
+  hls.attachMedia(video);
+  hls.on(Hls.Events.MANIFEST_PARSED, () => { loading.style.display='none'; video.play().catch(()=>{}); });
+  hls.on(Hls.Events.ERROR, (e, data) => { if (data.fatal) showError(data.details); });
+} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+  video.src = src;
+  video.addEventListener('loadedmetadata', () => { loading.style.display='none'; video.play().catch(()=>{}); });
+  video.addEventListener('error', () => showError('No se pudo cargar el stream'));
+} else {
+  showError('Tu navegador no soporta HLS. Usa VLC u otro reproductor con la URL m3u8.');
+}
+</script>
+</body>
+</html>`);
 });
 
 // Endpoint: extraer m3u8 directo de cualquier URL embed (vidhide, filemoon, etc.)
