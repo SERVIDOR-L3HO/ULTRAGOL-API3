@@ -494,6 +494,17 @@ async function proxyServpeliStream(req, res) {
   }
 }
 
+// Dominios que requieren navegador real para obtener m3u8
+const BROWSER_DOMAINS = [
+  'bysejikuar.com', 'filemoon.sx', 'filemoon.to', 'filemoon.in',
+  'bysedikamoum.com', 'moonembed.com', 'filemoonembed.com',
+  'moonfeel.com', 'kerapoxy.cc', 'ridoo.net'
+];
+
+function needsBrowser(url) {
+  try { return BROWSER_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch { return false; }
+}
+
 const unlimplayCache = new Map();
 const UNLIMPLAY_TTL = 8 * 60 * 1000; // 8 minutos (tokens m3u8 expiran en ~12 min)
 
@@ -634,9 +645,11 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
     }
   }
 
-  // Resolver m3u8 directo de todos los servidores embed en paralelo
+  // Resolver m3u8 solo para servidores rápidos (HTTP scraping, sin browser)
+  // Filemoon y similares se omiten aquí — usa /m3u8-all para extracción completa
   const resolveServer = async (servidor) => {
     if (servidor.tipo === 'm3u8_directo') return servidor;
+    if (needsBrowser(servidor.url)) return servidor; // saltar filemoon en endpoint rápido
     try {
       const extracted = await extractM3u8FromEmbed(servidor.url, `${TARGET}/`);
       if (extracted.ok) {
@@ -658,17 +671,6 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
 
 const embedM3u8Cache = new Map();
 const EMBED_TTL = 8 * 60 * 1000;
-
-// Dominios que requieren navegador real para obtener m3u8
-const BROWSER_DOMAINS = [
-  'bysejikuar.com', 'filemoon.sx', 'filemoon.to', 'filemoon.in',
-  'bysedikamoum.com', 'moonembed.com', 'filemoonembed.com',
-  'moonfeel.com', 'kerapoxy.cc', 'ridoo.net'
-];
-
-function needsBrowser(url) {
-  try { return BROWSER_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch { return false; }
-}
 
 function getChromiumPath() {
   const { execSync } = require('child_process');
