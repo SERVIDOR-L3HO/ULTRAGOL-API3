@@ -5208,19 +5208,27 @@ app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
     const data = await scrapUnlimplayM3u8(movieId);
     const base = `${req.protocol}://${req.get('host')}`;
 
-    // Hacer absolutas las URLs proxied para que funcionen en players externos
-    // Nota: trabajamos sobre una copia para no mutar el cache
+    // Limpiar servidores: solo nombre, tipo y m3u8_proxied (absoluto)
     const makeAbsolute = (u) => u && u.startsWith('/') ? base + u : u;
     const processData = JSON.parse(JSON.stringify(data));
     for (const info of Object.values(processData.idiomas || {})) {
-      for (const s of info.servidores || []) {
-        if (s.m3u8_proxied) s.m3u8_proxied = makeAbsolute(s.m3u8_proxied);
-        const streamUrl = s.m3u8_proxied || (s.tipo === 'm3u8_directo' ? s.url : null) || s.m3u8;
-        if (streamUrl) s.player_url = `${base}/player?url=${encodeURIComponent(streamUrl)}`;
-      }
-      if (info.m3u8_proxied) info.m3u8_proxied = makeAbsolute(info.m3u8_proxied);
-      const infoStream = info.m3u8_proxied || info.m3u8;
-      if (infoStream) info.player_url = `${base}/player?url=${encodeURIComponent(infoStream)}`;
+      info.servidores = (info.servidores || []).map(s => {
+        // Construir m3u8_proxied absoluto para servidores directos
+        let proxied = s.m3u8_proxied
+          ? makeAbsolute(s.m3u8_proxied)
+          : s.tipo === 'm3u8_directo' && s.url
+            ? `${base}/servpeli-stream?url=${encodeURIComponent(s.url)}`
+            : null;
+        const entry = { nombre: s.nombre, tipo: s.tipo };
+        if (proxied) entry.m3u8_proxied = proxied;
+        return entry;
+      });
+      // Limpiar campos del nivel de idioma
+      delete info.m3u8;
+      delete info.m3u8_proxied;
+      delete info.proxy_stream;
+      delete info.embed_url;
+      delete info.player_url;
     }
 
     res.json(processData);
