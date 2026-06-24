@@ -113,7 +113,7 @@ const {
 
 const path = require("path");
 const { securityHeaders, apiLimiter } = require("./src/middleware/auth");
-const { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, extractM3u8FromEmbed } = require("./src/scrapers/servpeli");
+const { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, extractM3u8FromEmbed } = require("./src/scrapers/servpeli");
 const app = express();
 
 app.set('trust proxy', 1);
@@ -5305,6 +5305,81 @@ app.get('/api/embed/m3u8', async (req, res) => {
   } catch (err) {
     console.error('[embed/m3u8] Error:', err.message);
     res.status(502).json({ error: 'Error al extraer m3u8', detalle: err.message });
+  }
+});
+
+// Endpoint: m3u8 de un episodio de serie desde Unlimplay (rápido, sin browser)
+app.get('/api/unlimplay/m3u8/tv/:seriesId/:season/:episode', async (req, res) => {
+  try {
+    const { seriesId, season, episode } = req.params;
+    const data = await scrapUnlimplayM3u8Tv(seriesId, season, episode);
+    const base = `${req.protocol}://${req.get('host')}`;
+
+    const makeAbsolute = (u) => u && u.startsWith('/') ? base + u : u;
+    const processData = JSON.parse(JSON.stringify(data));
+    for (const info of Object.values(processData.idiomas || {})) {
+      info.servidores = (info.servidores || []).map(s => {
+        let url;
+        if (s.tipo === 'm3u8_directo') {
+          url = s.m3u8_proxied
+            ? makeAbsolute(s.m3u8_proxied)
+            : s.url ? `${base}/servpeli-stream?url=${encodeURIComponent(s.url)}` : null;
+          return { nombre: s.nombre, tipo: 'direct', url };
+        }
+        return { nombre: s.nombre, tipo: 'embed', url: s.url || null };
+      });
+      delete info.m3u8;
+      delete info.m3u8_proxied;
+      delete info.proxy_stream;
+      delete info.embed_url;
+      delete info.player_url;
+    }
+
+    res.json(processData);
+  } catch (err) {
+    console.error('[unlimplay/m3u8/tv] Error:', err.message);
+    res.status(502).json({ error: 'No se pudo obtener el m3u8 del episodio', detalle: err.message });
+  }
+});
+
+// Endpoint: m3u8 de todos los servidores de un episodio en paralelo (incluyendo browser)
+app.get('/api/unlimplay/m3u8-all/tv/:seriesId/:season/:episode', async (req, res) => {
+  try {
+    const { seriesId, season, episode } = req.params;
+    const baseHost = `${req.protocol}://${req.get('host')}`;
+    const makeAbsolute = (u) => u && u.startsWith('/') ? baseHost + u : u;
+    const base = await scrapUnlimplayM3u8Tv(seriesId, season, episode);
+
+    const resolveServer = async (servidor) => {
+      if (servidor.tipo === 'm3u8_directo') {
+        const url = servidor.url ? makeAbsolute(servidor.url) : null;
+        return { nombre: servidor.nombre, tipo: 'direct', url };
+      }
+      try {
+        const extracted = await extractM3u8FromEmbed(servidor.url, 'https://unlimplay.com/');
+        if (extracted.ok) {
+          return { nombre: servidor.nombre, tipo: 'direct', url: makeAbsolute(extracted.m3u8_proxied) };
+        }
+      } catch {}
+      return { nombre: servidor.nombre, tipo: 'embed', url: servidor.url || null };
+    };
+
+    const idiomasResueltos = {};
+    for (const [idioma, info] of Object.entries(base.idiomas || {})) {
+      const servidores = await Promise.all((info.servidores || []).map(resolveServer));
+      idiomasResueltos[idioma] = { servidores };
+    }
+
+    res.json({
+      series_id: base.series_id,
+      season: base.season,
+      episode: base.episode,
+      tipo: base.tipo,
+      idiomas: idiomasResueltos
+    });
+  } catch (err) {
+    console.error('[unlimplay/m3u8-all/tv] Error:', err.message);
+    res.status(502).json({ error: 'No se pudo obtener el m3u8 del episodio', detalle: err.message });
   }
 });
 

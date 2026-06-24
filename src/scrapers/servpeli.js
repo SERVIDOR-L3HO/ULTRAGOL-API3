@@ -669,6 +669,134 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
   return result;
 }
 
+async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = false) {
+  const cacheKey = `unlimplay_tv_${seriesId}_${season}_${episode}`;
+  if (!forceRefresh) {
+    const cached = unlimplayCache.get(cacheKey);
+    if (cached && (Date.now() - cached.ts) < UNLIMPLAY_TTL) return cached.data;
+  }
+
+  // Paso 1: PHP API para disparar scraping fresco
+  let phpData = null;
+  try {
+    const phpUrl = `${TARGET}/play.php/embed/tv/${seriesId}/${season}/${episode}?api=1&t=${Date.now()}`;
+    const phpRes = await axios.get(phpUrl, {
+      headers: {
+        ...UNLIMPLAY_HEADERS,
+        'Accept': 'application/json, text/javascript, */*',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Referer': `${TARGET}/play/embed/tv/${seriesId}/${season}/${episode}`,
+      },
+      timeout: 25000,
+      maxRedirects: 5,
+    });
+    if (phpRes.data && phpRes.data.success) {
+      phpData = phpRes.data;
+      console.log(`[unlimplay/tv] PHP API: ${phpData.total_servers} servidores, fuente: ${phpData.source}`);
+    }
+  } catch (e) {
+    console.warn(`[unlimplay/tv] PHP API falló (no crítico): ${e.message}`);
+  }
+
+  // Paso 2: Página /f/embed/tv/ con EMBEDS embebido
+  const fEmbedUrl = `${TARGET}/f/embed/tv/${seriesId}/${season}/${episode}`;
+  const htmlRes = await axios.get(fEmbedUrl, {
+    headers: { ...UNLIMPLAY_HEADERS, 'Accept': 'text/html,application/xhtml+xml' },
+    timeout: 20000,
+    maxRedirects: 5,
+  });
+
+  const html = htmlRes.data;
+  const embeds = extractEmbedsFromHtml(html);
+
+  if (!embeds) {
+    if (phpData && phpData.data && phpData.data.length > 0) {
+      const result = {
+        series_id: seriesId,
+        season: parseInt(season),
+        episode: parseInt(episode),
+        tipo: 'tv',
+        fuente: 'unlimplay.com',
+        actualizado: new Date().toISOString(),
+        php_api: phpData.source,
+        idiomas: {}
+      };
+      for (const item of phpData.data) {
+        result.idiomas[item.language] = {
+          embed_url: item.embed_url,
+          servidores: [{ nombre: 'embed', url: item.embed_url, tipo: 'embed' }]
+        };
+      }
+      unlimplayCache.set(cacheKey, { data: result, ts: Date.now() });
+      return result;
+    }
+    throw new Error('No se encontró EMBEDS en la página y PHP API no retornó datos');
+  }
+
+  const result = {
+    series_id: seriesId,
+    season: parseInt(season),
+    episode: parseInt(episode),
+    tipo: 'tv',
+    fuente: 'unlimplay.com',
+    actualizado: new Date().toISOString(),
+    php_api: phpData ? phpData.source : null,
+    idiomas: {}
+  };
+
+  for (const [idioma, servidores] of Object.entries(embeds)) {
+    result.idiomas[idioma] = { servidores: [] };
+
+    for (const [nombre, url] of Object.entries(servidores)) {
+      if (typeof url !== 'string') continue;
+      if (nombre === 'proxy') continue;
+      const isM3u8 = /\.m3u8(\?|$)/i.test(url);
+      const entry = { nombre, url, tipo: isM3u8 ? 'm3u8_directo' : 'embed' };
+      if (isM3u8) {
+        entry.m3u8_proxied = `/servpeli-stream?url=${encodeURIComponent(url)}`;
+      }
+      result.idiomas[idioma].servidores.push(entry);
+    }
+
+    const directEntry = result.idiomas[idioma].servidores.find(s => s.nombre === 'direct');
+    if (directEntry) {
+      result.idiomas[idioma].m3u8 = directEntry.url;
+      result.idiomas[idioma].m3u8_proxied = directEntry.m3u8_proxied;
+    }
+  }
+
+  // Agregar embed_urls del PHP API si están disponibles
+  if (phpData && phpData.data) {
+    for (const item of phpData.data) {
+      if (result.idiomas[item.language]) {
+        result.idiomas[item.language].embed_url = item.embed_url;
+      }
+    }
+  }
+
+  // Resolver m3u8 para servidores rápidos (sin browser)
+  const resolveServer = async (servidor) => {
+    if (servidor.tipo === 'm3u8_directo') return servidor;
+    if (needsBrowser(servidor.url)) return servidor;
+    try {
+      const extracted = await extractM3u8FromEmbed(servidor.url, `${TARGET}/`);
+      if (extracted.ok) {
+        return { ...servidor, m3u8: extracted.m3u8, m3u8_proxied: extracted.m3u8_proxied, tipo: 'm3u8_directo' };
+      }
+    } catch {}
+    return servidor;
+  };
+
+  for (const idioma of Object.keys(result.idiomas)) {
+    result.idiomas[idioma].servidores = await Promise.all(
+      result.idiomas[idioma].servidores.map(resolveServer)
+    );
+  }
+
+  unlimplayCache.set(cacheKey, { data: result, ts: Date.now() });
+  return result;
+}
+
 const embedM3u8Cache = new Map();
 const EMBED_TTL = 8 * 60 * 1000;
 
@@ -827,4 +955,4 @@ async function extractM3u8FromEmbed(embedUrl, referer) {
   return result;
 }
 
-module.exports = { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, extractM3u8FromEmbed };
+module.exports = { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, extractM3u8FromEmbed };
