@@ -507,6 +507,14 @@ const VIDHIDE_DOMAINS = ['vidhide.com', 'vidhidepro.com', 'vidhideplus.com', 'vi
 // Dominios filelions
 const FILELIONS_DOMAINS = ['filelions.com', 'filelions.to', 'filelions.live', 'filelions.site', 'filelions.online'];
 
+// Dominios streamwish
+const STREAMWISH_DOMAINS = [
+  'streamwish.to', 'streamwish.com', 'streamwish.site', 'streamwish.pro',
+  'hglink.to', 'sfastwish.com', 'awish.live', 'strwish.com',
+  'wish4you.online', 'wishfast.top', 'embedwish.com', 'flaswish.com',
+  'playerwish.com', 'swdyu.com', 'hlsplay.pro'
+];
+
 function isFilemoon(url) {
   try { return FILEMOON_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch { return false; }
 }
@@ -515,6 +523,9 @@ function isVidhide(url) {
 }
 function isFilelions(url) {
   try { return FILELIONS_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch { return false; }
+}
+function isStreamwish(url) {
+  try { return STREAMWISH_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch { return false; }
 }
 
 function needsBrowser(url) {
@@ -710,6 +721,85 @@ async function extractFilelions(embedUrl, referer) {
     return { ok: false, error: 'API filelions no retornó m3u8', embedUrl };
   } catch (err) {
     return { ok: false, error: `Filelions: ${err.message}`, embedUrl };
+  }
+}
+
+async function extractStreamwish(embedUrl, referer) {
+  try {
+    // Intentar API POST primero (mismo patrón que filelions/vidhide)
+    const match = embedUrl.match(/\/(?:v|e|f)\/([a-zA-Z0-9]+)/);
+    if (match) {
+      const videoId = match[1];
+      const host = new URL(embedUrl).origin;
+      try {
+        const apiRes = await axios.post(
+          `${host}/api/source/${videoId}`,
+          `r=${encodeURIComponent(referer || '')}&d=${new URL(embedUrl).hostname}`,
+          {
+            headers: {
+              ...EMBED_HEADERS,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Referer': embedUrl,
+              'Origin': host,
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            timeout: 12000,
+          }
+        );
+        const data = apiRes.data;
+        if (data && data.success && Array.isArray(data.data)) {
+          const hls = data.data.find(s => s.type === 'hls' || (s.file || '').includes('.m3u8'))
+                    || data.data.find(s => s.file);
+          if (hls && hls.file) {
+            const isM = hls.file.includes('.m3u8');
+            return {
+              ok: true,
+              m3u8: hls.file,
+              m3u8_proxied: isM ? `/servpeli-stream?url=${encodeURIComponent(hls.file)}` : null,
+              embedUrl
+            };
+          }
+        }
+      } catch {}
+    }
+
+    // Fallback: scraping de la página embed
+    const res = await axios.get(embedUrl, {
+      headers: { ...EMBED_HEADERS, Referer: referer || TARGET + '/' },
+      timeout: 15000,
+      maxRedirects: 5,
+    });
+    const html = res.data;
+
+    // Buscar m3u8 directo
+    let m3u8 = findM3u8InText(html);
+
+    if (!m3u8) {
+      // Streamwish usa eval-packed JS en algunos mirrors
+      const unpacked = unpackEvalJs(html);
+      if (unpacked) m3u8 = findM3u8InText(unpacked);
+    }
+
+    if (!m3u8) {
+      // Patrón JWPlayer: sources:[{file:"..."}]
+      const jwMatch = html.match(/sources\s*:\s*\[\s*\{[^}]*file\s*:\s*["']([^"']+\.m3u8[^"']*)['"]/i)
+                   || html.match(/"file"\s*:\s*"(https?:[^"]+\.m3u8[^"]*)"/i)
+                   || html.match(/file\s*:\s*["'](https?:[^"']+\.m3u8[^"']*)['"]/i);
+      if (jwMatch) m3u8 = jwMatch[1];
+    }
+
+    if (!m3u8) {
+      // Patrón m3u8 en cualquier atributo
+      const anyMatch = html.match(/['"](https?:\/\/[^'"]+\.m3u8[^'"]*)['"]/);
+      if (anyMatch) m3u8 = anyMatch[1];
+    }
+
+    if (m3u8) {
+      return { ok: true, m3u8, m3u8_proxied: `/servpeli-stream?url=${encodeURIComponent(m3u8)}`, embedUrl };
+    }
+    return { ok: false, error: 'No se encontró m3u8 en streamwish', embedUrl };
+  } catch (err) {
+    return { ok: false, error: `Streamwish: ${err.message}`, embedUrl };
   }
 }
 
@@ -1099,6 +1189,13 @@ async function extractM3u8FromEmbed(embedUrl, referer) {
   if (isFilelions(embedUrl)) {
     console.log(`[embed/m3u8] Filelions: ${embedUrl}`);
     result = await extractFilelions(embedUrl, referer);
+    embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
+    return result;
+  }
+
+  if (isStreamwish(embedUrl)) {
+    console.log(`[embed/m3u8] Streamwish: ${embedUrl}`);
+    result = await extractStreamwish(embedUrl, referer);
     embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
     return result;
   }
