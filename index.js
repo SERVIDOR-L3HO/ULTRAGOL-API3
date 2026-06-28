@@ -3308,6 +3308,9 @@ app.get("/hls-canal", async (req, res) => {
 
   const isKhala  = decodedUrl.includes("khala.skylivehd.com") || decodedUrl.includes("skylivehd.com") || decodedUrl.includes("zohanayaan.com");
   const isFubo   = decodedUrl.includes("fubo18.com");
+  // Referer personalizado pasado por el player (ej. unlimplay.com, vimeos.net, etc.)
+  const customReferer = req.query.referer ? decodeURIComponent(req.query.referer) : null;
+  const customOrigin  = customReferer ? (() => { try { const u = new URL(customReferer); return u.origin; } catch { return null; } })() : null;
   const hlsHeaders = isKhala ? {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Origin": "https://stream-xhd.com",
@@ -3316,6 +3319,10 @@ app.get("/hls-canal", async (req, res) => {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Origin": "https://la18hd.com",
     "Referer": "https://la18hd.com/"
+  } : customReferer ? {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Origin": customOrigin,
+    "Referer": customReferer
   } : {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Origin": "https://pluto.tv",
@@ -3331,17 +3338,18 @@ app.get("/hls-canal", async (req, res) => {
     const m3u8Base = decodedUrl.substring(0, decodedUrl.lastIndexOf("/") + 1);
     let content = upstream.data;
 
+    const refSuffix = customReferer ? `&referer=${encodeURIComponent(customReferer)}` : '';
     content = content.replace(/^((?!#).+\.ts(?:[?&][^\s]*)?)$/gm, (line) => {
       const abs = line.startsWith("http") ? line : m3u8Base + line;
-      return `${baseUrl}/hls-canal-seg?url=${encodeURIComponent(abs)}`;
+      return `${baseUrl}/hls-canal-seg?url=${encodeURIComponent(abs)}${refSuffix}`;
     });
     content = content.replace(/^((?!#)(?!.+\/hls-canal).+\.m3u8[^\s]*)$/gm, (line) => {
       const abs = line.startsWith("http") ? line : m3u8Base + line;
-      return `${baseUrl}/hls-canal?url=${encodeURIComponent(abs)}`;
+      return `${baseUrl}/hls-canal?url=${encodeURIComponent(abs)}${refSuffix}`;
     });
     content = content.replace(/URI="([^"]+)"/g, (match, uri) => {
       const abs = uri.startsWith("http") ? uri : m3u8Base + uri;
-      return `URI="${baseUrl}/hls-canal-seg?url=${encodeURIComponent(abs)}"`;
+      return `URI="${baseUrl}/hls-canal-seg?url=${encodeURIComponent(abs)}${refSuffix}"`;
     });
 
     res.set("Content-Type", "application/vnd.apple.mpegurl");
@@ -3363,6 +3371,8 @@ app.get("/hls-canal-seg", async (req, res) => {
 
   const isKhalaSeg = decodedUrl.includes("khala.skylivehd.com") || decodedUrl.includes("skylivehd.com") || decodedUrl.includes("zohanayaan.com");
   const isFuboSeg  = decodedUrl.includes("fubo18.com");
+  const customSegReferer = req.query.referer ? decodeURIComponent(req.query.referer) : null;
+  const customSegOrigin  = customSegReferer ? (() => { try { const u = new URL(customSegReferer); return u.origin; } catch { return null; } })() : null;
   const segHeaders = isKhalaSeg ? {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Origin": "https://stream-xhd.com",
@@ -3371,6 +3381,10 @@ app.get("/hls-canal-seg", async (req, res) => {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Origin": "https://la18hd.com",
     "Referer": "https://la18hd.com/"
+  } : customSegReferer ? {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Origin": customSegOrigin,
+    "Referer": customSegReferer
   } : {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Origin": "https://pluto.tv",
@@ -5238,8 +5252,23 @@ app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
 
 // Página player HLS embebible
 app.get('/player', (req, res) => {
-  const { url, title } = req.query;
+  const { url, title, referer, direct } = req.query;
   if (!url) return res.status(400).send('Parámetro ?url= requerido');
+
+  const base = `${req.protocol}://${req.get('host')}`;
+  const isAlreadyProxied = url.startsWith(base) || url.startsWith('/');
+  const forceDirect = direct === '1';
+
+  // Si el URL es externo y no forzamos directo, lo pasamos por nuestro proxy HLS
+  // para evitar bloqueos CORS y añadir Referer correcto automáticamente
+  let proxiedSrc = url;
+  if (!isAlreadyProxied && !forceDirect) {
+    const ref = referer || 'https://unlimplay.com/';
+    proxiedSrc = `${base}/hls-canal?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(ref)}`;
+  }
+
+  const safeTitle = title ? title.replace(/</g,'&lt;').replace(/>/g,'&gt;') : 'Player';
+
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('X-Frame-Options', 'ALLOWALL');
   res.send(`<!DOCTYPE html>
@@ -5247,43 +5276,84 @@ app.get('/player', (req, res) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${title ? title.replace(/</g,'&lt;') : 'Player'}</title>
+<title>${safeTitle}</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; font-family:sans-serif; }
   video { width:100%; max-width:960px; max-height:90vh; background:#000; }
-  #error { color:#ff4444; padding:20px; text-align:center; display:none; }
+  #error { color:#ff4444; padding:20px; text-align:center; font-size:14px; display:none; }
   #loading { color:#aaa; padding:20px; text-align:center; }
+  #retry-btn { margin-top:12px; padding:8px 18px; background:#333; color:#fff; border:1px solid #555; border-radius:6px; cursor:pointer; font-size:13px; }
+  #retry-btn:hover { background:#555; }
 </style>
 </head>
 <body>
-<div id="loading">Cargando stream...</div>
+<div id="loading">⏳ Cargando stream...</div>
 <video id="video" controls autoplay playsinline></video>
-<div id="error"></div>
+<div id="error">
+  <div id="error-msg"></div>
+  <button id="retry-btn" onclick="retryDirect()" style="display:none">▶ Intentar sin proxy</button>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
 <script>
-const src = ${JSON.stringify(url)};
-const video = document.getElementById('video');
-const loading = document.getElementById('loading');
-const errorDiv = document.getElementById('error');
-function showError(msg) {
+const proxiedSrc = ${JSON.stringify(proxiedSrc)};
+const directSrc  = ${JSON.stringify(url)};
+const video      = document.getElementById('video');
+const loading    = document.getElementById('loading');
+const errorDiv   = document.getElementById('error');
+const errorMsg   = document.getElementById('error-msg');
+const retryBtn   = document.getElementById('retry-btn');
+let hlsInstance  = null;
+
+function showError(msg, allowRetry) {
   loading.style.display = 'none';
   errorDiv.style.display = 'block';
-  errorDiv.textContent = 'Error: ' + msg;
+  errorMsg.textContent = 'Error: ' + msg;
+  if (allowRetry) retryBtn.style.display = 'inline-block';
 }
-if (Hls.isSupported()) {
-  const hls = new Hls({ enableWorker: false });
-  hls.loadSource(src);
-  hls.attachMedia(video);
-  hls.on(Hls.Events.MANIFEST_PARSED, () => { loading.style.display='none'; video.play().catch(()=>{}); });
-  hls.on(Hls.Events.ERROR, (e, data) => { if (data.fatal) showError(data.details); });
-} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-  video.src = src;
-  video.addEventListener('loadedmetadata', () => { loading.style.display='none'; video.play().catch(()=>{}); });
-  video.addEventListener('error', () => showError('No se pudo cargar el stream'));
-} else {
-  showError('Tu navegador no soporta HLS. Usa VLC u otro reproductor con la URL m3u8.');
+
+function destroyHls() {
+  if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
 }
+
+function loadHls(src, isRetry) {
+  destroyHls();
+  if (Hls.isSupported()) {
+    hlsInstance = new Hls({ enableWorker: false, maxBufferLength: 30 });
+    hlsInstance.loadSource(src);
+    hlsInstance.attachMedia(video);
+    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+      loading.style.display = 'none';
+      errorDiv.style.display = 'none';
+      video.play().catch(() => {});
+    });
+    hlsInstance.on(Hls.Events.ERROR, (e, data) => {
+      if (data.fatal) {
+        if (!isRetry && src !== directSrc) {
+          showError(data.details + ' — reintentando sin proxy...', false);
+          setTimeout(() => loadHls(directSrc, true), 1500);
+        } else {
+          showError(data.details, src !== directSrc);
+        }
+      }
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = src;
+    video.addEventListener('loadedmetadata', () => { loading.style.display='none'; video.play().catch(()=>{}); });
+    video.addEventListener('error', () => showError('No se pudo cargar el stream', !isRetry));
+  } else {
+    showError('Tu navegador no soporta HLS. Usa VLC con la URL: ' + directSrc, false);
+  }
+}
+
+function retryDirect() {
+  retryBtn.style.display = 'none';
+  loading.style.display = 'block';
+  loading.textContent = '⏳ Reintentando directo...';
+  loadHls(directSrc, true);
+}
+
+loadHls(proxiedSrc, false);
 </script>
 </body>
 </html>`);
