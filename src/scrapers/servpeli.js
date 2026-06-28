@@ -494,15 +494,38 @@ async function proxyServpeliStream(req, res) {
   }
 }
 
-// Dominios que requieren navegador real para obtener m3u8
-const BROWSER_DOMAINS = [
+// Dominios filemoon (extracción HTTP propia, sin browser)
+const FILEMOON_DOMAINS = [
   'bysejikuar.com', 'filemoon.sx', 'filemoon.to', 'filemoon.in',
   'bysedikamoum.com', 'moonembed.com', 'filemoonembed.com',
   'moonfeel.com', 'kerapoxy.cc', 'ridoo.net'
 ];
 
+// Dominios vidhide
+const VIDHIDE_DOMAINS = ['vidhide.com', 'vidhidepro.com', 'vidhideplus.com', 'vid.gg', 'vidhide.in'];
+
+// Dominios filelions
+const FILELIONS_DOMAINS = ['filelions.com', 'filelions.to', 'filelions.live', 'filelions.site', 'filelions.online'];
+
+function isFilemoon(url) {
+  try { return FILEMOON_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch { return false; }
+}
+function isVidhide(url) {
+  try { return VIDHIDE_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch { return false; }
+}
+function isFilelions(url) {
+  try { return FILELIONS_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch { return false; }
+}
+
 function needsBrowser(url) {
-  try { return BROWSER_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch { return false; }
+  return false; // ahora todo se maneja con HTTP
+}
+
+function containsM3u8(url) {
+  if (!url) return false;
+  if (/\.m3u8/i.test(url)) return true;
+  try { if (/\.m3u8/i.test(decodeURIComponent(url))) return true; } catch {}
+  return false;
 }
 
 const unlimplayCache = new Map();
@@ -534,9 +557,159 @@ function extractEmbedsFromHtml(html) {
   if (jsonEnd === -1) return null;
 
   try {
-    return JSON.parse(html.slice(jsonStart, jsonEnd + 1));
+    const raw = JSON.parse(html.slice(jsonStart, jsonEnd + 1));
+    // Normalizar: los valores pueden ser strings o {url, tipo}
+    const normalized = {};
+    for (const [lang, servers] of Object.entries(raw)) {
+      normalized[lang] = {};
+      for (const [name, val] of Object.entries(servers)) {
+        if (typeof val === 'string') {
+          normalized[lang][name] = val;
+        } else if (val && typeof val === 'object' && val.url) {
+          normalized[lang][name] = val.url;
+          if (val.tipo) normalized[lang][`${name}__tipo`] = val.tipo;
+        }
+      }
+    }
+    return normalized;
   } catch {
     return null;
+  }
+}
+
+// ─── Extractores específicos por servidor ─────────────────────────────────────
+
+async function extractFilemoon(embedUrl, referer) {
+  try {
+    const res = await axios.get(embedUrl, {
+      headers: { ...EMBED_HEADERS, Referer: referer || TARGET + '/' },
+      timeout: 15000,
+      maxRedirects: 5,
+    });
+    const html = res.data;
+
+    // Buscar m3u8 directamente
+    let m3u8 = findM3u8InText(html);
+
+    if (!m3u8) {
+      // Desempaquetar JS eval-packed (filemoon usa p,a,c,k)
+      const unpacked = unpackEvalJs(html);
+      if (unpacked) {
+        m3u8 = findM3u8InText(unpacked);
+        if (!m3u8) {
+          const src = unpacked.match(/"file"\s*:\s*"(https?:[^"]+\.m3u8[^"]*)"/i);
+          if (src) m3u8 = src[1];
+        }
+      }
+    }
+
+    if (!m3u8) {
+      // Patrón sources:[{file:"..."}]
+      const src = html.match(/sources\s*:\s*\[\s*\{[^}]*file\s*:\s*["']([^"']+\.m3u8[^"']*)['"]/i)
+                || html.match(/"file"\s*:\s*"(https?:[^"]+\.m3u8[^"]*)"/i);
+      if (src) m3u8 = src[1];
+    }
+
+    if (m3u8) {
+      return { ok: true, m3u8, m3u8_proxied: `/servpeli-stream?url=${encodeURIComponent(m3u8)}`, embedUrl };
+    }
+    return { ok: false, error: 'No se encontró m3u8 en filemoon', embedUrl };
+  } catch (err) {
+    return { ok: false, error: `Filemoon HTTP: ${err.message}`, embedUrl };
+  }
+}
+
+async function extractVidhide(embedUrl, referer) {
+  try {
+    const match = embedUrl.match(/\/(?:v|e|f)\/([a-zA-Z0-9]+)/);
+    if (!match) return { ok: false, error: 'ID no encontrado en URL vidhide', embedUrl };
+    const videoId = match[1];
+    const host = new URL(embedUrl).origin;
+    const res = await axios.post(
+      `${host}/api/source/${videoId}`,
+      `r=${encodeURIComponent(referer || '')}&d=${new URL(embedUrl).hostname}`,
+      {
+        headers: {
+          ...EMBED_HEADERS,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Referer': embedUrl,
+          'Origin': host,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        timeout: 15000,
+      }
+    );
+    const data = res.data;
+    if (data && data.success && Array.isArray(data.data)) {
+      const hls = data.data.find(s => s.type === 'hls' || (s.file || '').includes('.m3u8'))
+                || data.data.find(s => s.file);
+      if (hls && hls.file) {
+        const isM = hls.file.includes('.m3u8');
+        return {
+          ok: true,
+          m3u8: hls.file,
+          m3u8_proxied: isM ? `/servpeli-stream?url=${encodeURIComponent(hls.file)}` : null,
+          embedUrl
+        };
+      }
+    }
+    // Fallback HTML
+    const htmlRes = await axios.get(embedUrl, {
+      headers: { ...EMBED_HEADERS, Referer: referer || TARGET + '/' },
+      timeout: 15000,
+    });
+    const m3u8 = findM3u8InText(htmlRes.data) || findM3u8InText(unpackEvalJs(htmlRes.data));
+    if (m3u8) return { ok: true, m3u8, m3u8_proxied: `/servpeli-stream?url=${encodeURIComponent(m3u8)}`, embedUrl };
+    return { ok: false, error: 'API vidhide no retornó m3u8', embedUrl };
+  } catch (err) {
+    return { ok: false, error: `Vidhide: ${err.message}`, embedUrl };
+  }
+}
+
+async function extractFilelions(embedUrl, referer) {
+  try {
+    const match = embedUrl.match(/\/(?:v|e|f)\/([a-zA-Z0-9]+)/);
+    if (!match) return { ok: false, error: 'ID no encontrado en URL filelions', embedUrl };
+    const videoId = match[1];
+    const host = new URL(embedUrl).origin;
+    const res = await axios.post(
+      `${host}/api/source/${videoId}`,
+      `r=${encodeURIComponent(referer || '')}&d=${new URL(embedUrl).hostname}`,
+      {
+        headers: {
+          ...EMBED_HEADERS,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Referer': embedUrl,
+          'Origin': host,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        timeout: 15000,
+      }
+    );
+    const data = res.data;
+    if (data && data.success && Array.isArray(data.data)) {
+      const hls = data.data.find(s => s.type === 'hls' || (s.file || '').includes('.m3u8'))
+                || data.data.find(s => s.file);
+      if (hls && hls.file) {
+        const isM = hls.file.includes('.m3u8');
+        return {
+          ok: true,
+          m3u8: hls.file,
+          m3u8_proxied: isM ? `/servpeli-stream?url=${encodeURIComponent(hls.file)}` : null,
+          embedUrl
+        };
+      }
+    }
+    // Fallback HTML
+    const htmlRes = await axios.get(embedUrl, {
+      headers: { ...EMBED_HEADERS, Referer: referer || TARGET + '/' },
+      timeout: 15000,
+    });
+    const m3u8 = findM3u8InText(htmlRes.data) || findM3u8InText(unpackEvalJs(htmlRes.data));
+    if (m3u8) return { ok: true, m3u8, m3u8_proxied: `/servpeli-stream?url=${encodeURIComponent(m3u8)}`, embedUrl };
+    return { ok: false, error: 'API filelions no retornó m3u8', embedUrl };
+  } catch (err) {
+    return { ok: false, error: `Filelions: ${err.message}`, embedUrl };
   }
 }
 
@@ -616,9 +789,12 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
 
     for (const [nombre, url] of Object.entries(servidores)) {
       if (typeof url !== 'string') continue;
+      if (nombre.endsWith('__tipo')) continue;
       if (nombre === 'proxy') continue;
-      const isM3u8 = /\.m3u8(\?|$)/i.test(url);
-      const entry = { nombre, url, tipo: isM3u8 ? 'm3u8_directo' : 'embed' };
+      const isM3u8 = containsM3u8(url);
+      const tipoHint = servidores[`${nombre}__tipo`] || null;
+      const tipo = isM3u8 ? 'm3u8_directo' : (tipoHint || 'embed');
+      const entry = { nombre, url, tipo };
       if (isM3u8) {
         entry.m3u8_proxied = `/servpeli-stream?url=${encodeURIComponent(url)}`;
       }
@@ -645,11 +821,9 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
     }
   }
 
-  // Resolver m3u8 solo para servidores rápidos (HTTP scraping, sin browser)
-  // Filemoon y similares se omiten aquí — usa /m3u8-all para extracción completa
+  // Resolver m3u8 para todos los servidores (filemoon, vidhide, filelions incluidos)
   const resolveServer = async (servidor) => {
     if (servidor.tipo === 'm3u8_directo') return servidor;
-    if (needsBrowser(servidor.url)) return servidor; // saltar filemoon en endpoint rápido
     try {
       const extracted = await extractM3u8FromEmbed(servidor.url, `${TARGET}/`);
       if (extracted.ok) {
@@ -749,9 +923,12 @@ async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = fa
 
     for (const [nombre, url] of Object.entries(servidores)) {
       if (typeof url !== 'string') continue;
+      if (nombre.endsWith('__tipo')) continue;
       if (nombre === 'proxy') continue;
-      const isM3u8 = /\.m3u8(\?|$)/i.test(url);
-      const entry = { nombre, url, tipo: isM3u8 ? 'm3u8_directo' : 'embed' };
+      const isM3u8 = containsM3u8(url);
+      const tipoHint = servidores[`${nombre}__tipo`] || null;
+      const tipo = isM3u8 ? 'm3u8_directo' : (tipoHint || 'embed');
+      const entry = { nombre, url, tipo };
       if (isM3u8) {
         entry.m3u8_proxied = `/servpeli-stream?url=${encodeURIComponent(url)}`;
       }
@@ -774,10 +951,9 @@ async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = fa
     }
   }
 
-  // Resolver m3u8 para servidores rápidos (sin browser)
+  // Resolver m3u8 para todos los servidores (filemoon, vidhide, filelions incluidos)
   const resolveServer = async (servidor) => {
     if (servidor.tipo === 'm3u8_directo') return servidor;
-    if (needsBrowser(servidor.url)) return servidor;
     try {
       const extracted = await extractM3u8FromEmbed(servidor.url, `${TARGET}/`);
       if (extracted.ok) {
@@ -898,14 +1074,36 @@ async function extractM3u8FromEmbed(embedUrl, referer) {
   const cached = embedM3u8Cache.get(cacheKey);
   if (cached && (Date.now() - cached.ts) < EMBED_TTL) return cached.data;
 
-  // Dominios que requieren navegador real
-  if (needsBrowser(embedUrl)) {
-    console.log(`[embed/m3u8] Usando browser para: ${embedUrl}`);
-    const result = await extractM3u8WithBrowser(embedUrl, referer);
+  let result;
+
+  // Routers específicos por dominio
+  if (isFilemoon(embedUrl)) {
+    console.log(`[embed/m3u8] Filemoon HTTP: ${embedUrl}`);
+    result = await extractFilemoon(embedUrl, referer);
+    // Si falla HTTP, intentar browser como último recurso
+    if (!result.ok) {
+      console.log(`[embed/m3u8] Filemoon HTTP falló, intentando browser: ${embedUrl}`);
+      result = await extractM3u8WithBrowser(embedUrl, referer);
+    }
     embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
     return result;
   }
 
+  if (isVidhide(embedUrl)) {
+    console.log(`[embed/m3u8] Vidhide: ${embedUrl}`);
+    result = await extractVidhide(embedUrl, referer);
+    embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
+    return result;
+  }
+
+  if (isFilelions(embedUrl)) {
+    console.log(`[embed/m3u8] Filelions: ${embedUrl}`);
+    result = await extractFilelions(embedUrl, referer);
+    embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
+    return result;
+  }
+
+  // Extracción HTTP general
   let html;
   try {
     const res = await axios.get(embedUrl, {
@@ -915,7 +1113,7 @@ async function extractM3u8FromEmbed(embedUrl, referer) {
     });
     html = res.data;
   } catch (err) {
-    const result = { ok: false, error: `HTTP ${err.response?.status || err.message}`, embedUrl };
+    result = { ok: false, error: `HTTP ${err.response?.status || err.message}`, embedUrl };
     embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
     return result;
   }
@@ -947,7 +1145,7 @@ async function extractM3u8FromEmbed(embedUrl, referer) {
     if (fileMatch) m3u8 = fileMatch[1];
   }
 
-  const result = m3u8
+  result = m3u8
     ? { ok: true, m3u8, m3u8_proxied: `/servpeli-stream?url=${encodeURIComponent(m3u8)}`, embedUrl }
     : { ok: false, error: 'No se encontró m3u8 en la página', embedUrl };
 
