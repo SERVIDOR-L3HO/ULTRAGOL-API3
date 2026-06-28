@@ -540,7 +540,34 @@ function containsM3u8(url) {
 }
 
 const unlimplayCache = new Map();
-const UNLIMPLAY_TTL = 8 * 60 * 1000; // 8 minutos (tokens m3u8 expiran en ~12 min)
+const UNLIMPLAY_TTL = 2 * 60 * 60 * 1000; // 2 horas — tokens m3u8 duran ~12h
+
+// Registro de IDs solicitados para auto-refresh del cron
+const unlimplayRegistry = new Map(); // cacheKey → { type, args }
+
+function _register(cacheKey, type, args) {
+  unlimplayRegistry.set(cacheKey, { type, args });
+}
+
+async function refreshUnlimplayCache() {
+  if (unlimplayRegistry.size === 0) return;
+  console.log(`🔄 [unlimplay] Auto-refresh de ${unlimplayRegistry.size} entradas en caché...`);
+  let ok = 0, fail = 0;
+  for (const [cacheKey, meta] of unlimplayRegistry.entries()) {
+    try {
+      if (meta.type === 'movie') {
+        await scrapUnlimplayM3u8(meta.args[0], true);
+      } else if (meta.type === 'tv') {
+        await scrapUnlimplayM3u8Tv(...meta.args, true);
+      }
+      ok++;
+    } catch (e) {
+      fail++;
+      console.warn(`⚠️ [unlimplay] No se pudo refrescar ${cacheKey}: ${e.message}`);
+    }
+  }
+  console.log(`✅ [unlimplay] Refresh completado: ${ok} ok, ${fail} fallidos`);
+}
 
 const UNLIMPLAY_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -805,6 +832,7 @@ async function extractStreamwish(embedUrl, referer) {
 
 async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
   const cacheKey = `unlimplay_${movieId}`;
+  _register(cacheKey, 'movie', [movieId]);
   if (!forceRefresh) {
     const cached = unlimplayCache.get(cacheKey);
     if (cached && (Date.now() - cached.ts) < UNLIMPLAY_TTL) return cached.data;
@@ -935,6 +963,7 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
 
 async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = false) {
   const cacheKey = `unlimplay_tv_${seriesId}_${season}_${episode}`;
+  _register(cacheKey, 'tv', [seriesId, season, episode]);
   if (!forceRefresh) {
     const cached = unlimplayCache.get(cacheKey);
     if (cached && (Date.now() - cached.ts) < UNLIMPLAY_TTL) return cached.data;
@@ -1250,4 +1279,4 @@ async function extractM3u8FromEmbed(embedUrl, referer) {
   return result;
 }
 
-module.exports = { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, extractM3u8FromEmbed };
+module.exports = { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache };

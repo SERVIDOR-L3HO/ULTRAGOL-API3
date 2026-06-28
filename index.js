@@ -113,7 +113,7 @@ const {
 
 const path = require("path");
 const { securityHeaders, apiLimiter } = require("./src/middleware/auth");
-const { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, extractM3u8FromEmbed } = require("./src/scrapers/servpeli");
+const { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache } = require("./src/scrapers/servpeli");
 const app = express();
 
 app.set('trust proxy', 1);
@@ -5460,6 +5460,16 @@ cron.schedule("0 */6 * * *", () => {
   clearPhotoCache();
   const stats = getPhotoStats();
   console.log(`📊 Métricas de fotos: ${stats.totalRequests} solicitudes, ${stats.cacheHitRate} cache hit rate`);
+});
+
+// Refresh automático de m3u8 de Unlimplay cada 2 horas para que los tokens no expiren
+cron.schedule("0 */2 * * *", async () => {
+  console.log("🎬 [unlimplay] Iniciando refresh automático de caché (cada 2h)...");
+  try {
+    await refreshUnlimplayCache();
+  } catch (e) {
+    console.error("❌ [unlimplay] Error en refresh automático:", e.message);
+  }
 });
 
 const PORT = process.env.PORT || 5000;
