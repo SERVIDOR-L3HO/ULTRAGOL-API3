@@ -5237,17 +5237,13 @@ async function resolveVoeServers(idiomas, cookies, base) {
   return idiomas;
 }
 
-// Helper: formatea servidores para la respuesta final
+// Helper: formatea servidores para la respuesta final (URLs directas sin proxy)
 function formatServidores(idiomas, base) {
-  const makeAbsolute = (u) => u && u.startsWith('/') ? base + u : u;
   const out = JSON.parse(JSON.stringify(idiomas || {}));
   for (const info of Object.values(out)) {
     info.servidores = (info.servidores || []).map(s => {
       if (s.tipo === 'm3u8_directo') {
-        const url = s.m3u8_proxied
-          ? makeAbsolute(s.m3u8_proxied)
-          : s.url ? `${base}/servpeli-stream?url=${encodeURIComponent(s.url)}` : null;
-        return { nombre: s.nombre, tipo: 'direct', url, m3u8: s.m3u8 || s.url || null };
+        return { nombre: s.nombre, tipo: 'direct', url: s.m3u8 || s.url || null };
       }
       return { nombre: s.nombre, tipo: 'embed', url: s.url || null };
     });
