@@ -1416,7 +1416,7 @@ const EMBED_HEADERS = {
   'Accept-Language': 'es-MX,es;q=0.9,en;q=0.8',
 };
 
-async function extractM3u8FromEmbed(embedUrl, referer) {
+async function extractM3u8FromEmbed(embedUrl, referer, cookies) {
   const cacheKey = `embed_${embedUrl}`;
   const cached = embedM3u8Cache.get(cacheKey);
   if (cached && (Date.now() - cached.ts) < EMBED_TTL) return cached.data;
@@ -1425,9 +1425,10 @@ async function extractM3u8FromEmbed(embedUrl, referer) {
 
   // Routers específicos por dominio
   if (isVoe(embedUrl)) {
-    console.log(`[embed/m3u8] VOE.sx browser: ${embedUrl}`);
-    result = await extractVoe(embedUrl, referer);
-    embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
+    console.log(`[embed/m3u8] VOE.sx: ${embedUrl}${cookies ? ' (con cookies)' : ' (sin cookies)'}`);
+    result = await extractVoe(embedUrl, referer, cookies || null);
+    // Solo cachear si tuvo éxito; sin cookies el resultado es siempre falla y no vale cachearlo
+    if (result.ok) embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
     return result;
   }
 

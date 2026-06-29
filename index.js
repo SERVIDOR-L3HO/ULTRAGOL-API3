@@ -5215,34 +5215,62 @@ app.get("/ligas-disponibles", (req, res) => {
   });
 });
 
+// Helper: post-procesa servidores VOE sin resolver usando cookies del usuario
+// Los demás servidores (filemoon, vidhide, etc.) ya vienen resueltos del cache
+async function resolveVoeServers(idiomas, cookies, base) {
+  if (!cookies) return idiomas;
+  const makeAbsolute = (u) => u && u.startsWith('/') ? base + u : u;
+  for (const info of Object.values(idiomas || {})) {
+    const pending = (info.servidores || []).filter(s => s.tipo !== 'm3u8_directo' && isVoe(s.url || ''));
+    if (!pending.length) continue;
+    await Promise.all(pending.map(async (s) => {
+      try {
+        const r = await extractVoe(s.url, `${base}/`, cookies);
+        if (r.ok) {
+          s.tipo = 'm3u8_directo';
+          s.m3u8 = r.m3u8;
+          s.m3u8_proxied = makeAbsolute(r.m3u8_proxied);
+        }
+      } catch {}
+    }));
+  }
+  return idiomas;
+}
+
+// Helper: formatea servidores para la respuesta final
+function formatServidores(idiomas, base) {
+  const makeAbsolute = (u) => u && u.startsWith('/') ? base + u : u;
+  const out = JSON.parse(JSON.stringify(idiomas || {}));
+  for (const info of Object.values(out)) {
+    info.servidores = (info.servidores || []).map(s => {
+      if (s.tipo === 'm3u8_directo') {
+        const url = s.m3u8_proxied
+          ? makeAbsolute(s.m3u8_proxied)
+          : s.url ? `${base}/servpeli-stream?url=${encodeURIComponent(s.url)}` : null;
+        return { nombre: s.nombre, tipo: 'direct', url, m3u8: s.m3u8 || s.url || null };
+      }
+      return { nombre: s.nombre, tipo: 'embed', url: s.url || null };
+    });
+    delete info.m3u8; delete info.m3u8_proxied; delete info.proxy_stream;
+    delete info.embed_url; delete info.player_url;
+  }
+  return out;
+}
+
 // Endpoint: extraer m3u8 directo de unlimplay por TMDB movie ID
+// Acepta ?cookies=ddg_cid=...;ddgu=1 para resolver servidores VOE.sx automáticamente
 app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
   try {
     const { movieId } = req.params;
     const force = req.query.force === '1' || req.query.force === 'true';
-    const data = await scrapUnlimplayM3u8(movieId, force);
+    const cookies = req.query.cookies || null;
     const base = `${req.protocol}://${req.get('host')}`;
 
-    const makeAbsolute = (u) => u && u.startsWith('/') ? base + u : u;
-    const processData = JSON.parse(JSON.stringify(data));
-    for (const info of Object.values(processData.idiomas || {})) {
-      info.servidores = (info.servidores || []).map(s => {
-        if (s.tipo === 'm3u8_directo') {
-          const url = s.m3u8_proxied
-            ? makeAbsolute(s.m3u8_proxied)
-            : s.url ? `${base}/servpeli-stream?url=${encodeURIComponent(s.url)}` : null;
-          const m3u8 = s.m3u8 || s.url || null;
-          return { nombre: s.nombre, tipo: 'direct', url, m3u8 };
-        }
-        return { nombre: s.nombre, tipo: 'embed', url: s.url || null };
-      });
-      delete info.m3u8;
-      delete info.m3u8_proxied;
-      delete info.proxy_stream;
-      delete info.embed_url;
-      delete info.player_url;
-    }
+    const data = await scrapUnlimplayM3u8(movieId, force);
+    await resolveVoeServers(data.idiomas, cookies, base);
 
+    const processData = JSON.parse(JSON.stringify(data));
+    processData.idiomas = formatServidores(data.idiomas, base);
     res.json(processData);
   } catch (err) {
     console.error('[unlimplay/m3u8] Error:', err.message);
@@ -5419,33 +5447,19 @@ app.get('/api/voe/m3u8', async (req, res) => {
 });
 
 // Endpoint: m3u8 de un episodio de serie desde Unlimplay
+// Acepta ?cookies=ddg_cid=...;ddgu=1 para resolver servidores VOE.sx automáticamente
 app.get('/api/unlimplay/m3u8/tv/:seriesId/:season/:episode', async (req, res) => {
   try {
     const { seriesId, season, episode } = req.params;
     const force = req.query.force === '1' || req.query.force === 'true';
-    const data = await scrapUnlimplayM3u8Tv(seriesId, season, episode, force);
+    const cookies = req.query.cookies || null;
     const base = `${req.protocol}://${req.get('host')}`;
 
-    const makeAbsolute = (u) => u && u.startsWith('/') ? base + u : u;
-    const processData = JSON.parse(JSON.stringify(data));
-    for (const info of Object.values(processData.idiomas || {})) {
-      info.servidores = (info.servidores || []).map(s => {
-        if (s.tipo === 'm3u8_directo') {
-          const url = s.m3u8_proxied
-            ? makeAbsolute(s.m3u8_proxied)
-            : s.url ? `${base}/servpeli-stream?url=${encodeURIComponent(s.url)}` : null;
-          const m3u8 = s.m3u8 || s.url || null;
-          return { nombre: s.nombre, tipo: 'direct', url, m3u8 };
-        }
-        return { nombre: s.nombre, tipo: 'embed', url: s.url || null };
-      });
-      delete info.m3u8;
-      delete info.m3u8_proxied;
-      delete info.proxy_stream;
-      delete info.embed_url;
-      delete info.player_url;
-    }
+    const data = await scrapUnlimplayM3u8Tv(seriesId, season, episode, force);
+    await resolveVoeServers(data.idiomas, cookies, base);
 
+    const processData = JSON.parse(JSON.stringify(data));
+    processData.idiomas = formatServidores(data.idiomas, base);
     res.json(processData);
   } catch (err) {
     console.error('[unlimplay/m3u8/tv] Error:', err.message);
@@ -5454,37 +5468,23 @@ app.get('/api/unlimplay/m3u8/tv/:seriesId/:season/:episode', async (req, res) =>
 });
 
 // Endpoint: m3u8 de todos los servidores de un episodio en paralelo
+// Acepta ?cookies=ddg_cid=...;ddgu=1 para resolver servidores VOE.sx automáticamente
 app.get('/api/unlimplay/m3u8-all/tv/:seriesId/:season/:episode', async (req, res) => {
   try {
     const { seriesId, season, episode } = req.params;
     const force = req.query.force === '1' || req.query.force === 'true';
+    const cookies = req.query.cookies || null;
     const base = `${req.protocol}://${req.get('host')}`;
-    const makeAbsolute = (u) => u && u.startsWith('/') ? base + u : u;
 
-    // scrapUnlimplayM3u8Tv ya resuelve todos los servidores internamente
     const data = await scrapUnlimplayM3u8Tv(seriesId, season, episode, force);
-
-    const idiomasResueltos = {};
-    for (const [idioma, info] of Object.entries(data.idiomas || {})) {
-      idiomasResueltos[idioma] = {
-        servidores: (info.servidores || []).map(s => {
-          if (s.tipo === 'm3u8_directo') {
-            const url = s.m3u8_proxied
-              ? makeAbsolute(s.m3u8_proxied)
-              : s.url ? `${base}/servpeli-stream?url=${encodeURIComponent(s.url)}` : null;
-            return { nombre: s.nombre, tipo: 'direct', url, m3u8: s.m3u8 || s.url || null };
-          }
-          return { nombre: s.nombre, tipo: 'embed', url: s.url || null };
-        })
-      };
-    }
+    await resolveVoeServers(data.idiomas, cookies, base);
 
     res.json({
       series_id: data.series_id,
       season: data.season,
       episode: data.episode,
       tipo: data.tipo,
-      idiomas: idiomasResueltos
+      idiomas: formatServidores(data.idiomas, base),
     });
   } catch (err) {
     console.error('[unlimplay/m3u8-all/tv] Error:', err.message);
@@ -5493,32 +5493,18 @@ app.get('/api/unlimplay/m3u8-all/tv/:seriesId/:season/:episode', async (req, res
 });
 
 // Endpoint: extraer m3u8 de todos los servidores de una película en paralelo
+// Acepta ?cookies=ddg_cid=...;ddgu=1 para resolver servidores VOE.sx automáticamente
 app.get('/api/unlimplay/m3u8-all/:movieId', async (req, res) => {
   try {
     const { movieId } = req.params;
     const force = req.query.force === '1' || req.query.force === 'true';
+    const cookies = req.query.cookies || null;
     const base = `${req.protocol}://${req.get('host')}`;
-    const makeAbsolute = (u) => u && u.startsWith('/') ? base + u : u;
 
-    // scrapUnlimplayM3u8 ya resuelve todos los servidores internamente
     const data = await scrapUnlimplayM3u8(movieId, force);
+    await resolveVoeServers(data.idiomas, cookies, base);
 
-    const idiomasResueltos = {};
-    for (const [idioma, info] of Object.entries(data.idiomas || {})) {
-      idiomasResueltos[idioma] = {
-        servidores: (info.servidores || []).map(s => {
-          if (s.tipo === 'm3u8_directo') {
-            const url = s.m3u8_proxied
-              ? makeAbsolute(s.m3u8_proxied)
-              : s.url ? `${base}/servpeli-stream?url=${encodeURIComponent(s.url)}` : null;
-            return { nombre: s.nombre, tipo: 'direct', url, m3u8: s.m3u8 || s.url || null };
-          }
-          return { nombre: s.nombre, tipo: 'embed', url: s.url || null };
-        })
-      };
-    }
-
-    res.json({ movie_id: data.movie_id, fuente: data.fuente, idiomas: idiomasResueltos });
+    res.json({ movie_id: data.movie_id, fuente: data.fuente, idiomas: formatServidores(data.idiomas, base) });
   } catch (err) {
     console.error('[unlimplay/m3u8-all] Error:', err.message);
     res.status(502).json({ error: 'No se pudo obtener el m3u8', detalle: err.message });
