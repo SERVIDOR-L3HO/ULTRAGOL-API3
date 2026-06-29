@@ -617,6 +617,234 @@ function extractEmbedsFromHtml(html) {
 
 // ─── Extractores específicos por servidor ─────────────────────────────────────
 
+// ── VOE.sx extractor ──────────────────────────────────────────────────────────
+function isVoe(url) {
+  return /voe\.sx|voe\d*\.net|voe\d*\.me|voe\d*\.io/i.test(url);
+}
+
+async function extractVoe(embedUrl, referer, cookieHeader) {
+  // ── Intento 1: HTTP directo con cookies (si el usuario las provee) ────────────
+  if (cookieHeader) {
+    try {
+      const res = await axios.get(embedUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9,es;q=0.8',
+          'Referer': referer || 'https://voe.sx/',
+          'Cookie': cookieHeader,
+        },
+        timeout: 20000,
+        maxRedirects: 5,
+      });
+      const html = res.data;
+      const m3u8 = _parseVoeHtml(html);
+      if (m3u8) {
+        console.log(`[voe] m3u8 via cookies HTTP: ${m3u8}`);
+        return { ok: true, m3u8, m3u8_proxied: `/servpeli-stream?url=${encodeURIComponent(m3u8)}`, embedUrl, method: 'cookies' };
+      }
+    } catch (e) {
+      console.warn(`[voe] HTTP con cookies falló: ${e.message}`);
+    }
+  }
+
+  // ── Intento 2: Puppeteer con stealth patches para bypassar hCaptcha ───────────
+  const puppeteer = require('puppeteer-core');
+  const chromePath = getChromiumPath();
+  if (!chromePath) return { ok: false, error: 'Chromium no disponible para VOE', embedUrl };
+
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      executablePath: chromePath,
+      headless: true,
+      args: [
+        '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+        '--disable-gpu', '--no-first-run', '--mute-audio',
+        '--disable-blink-features=AutomationControlled',
+        '--disable-features=IsolateOrigins,site-per-process',
+        '--window-size=1280,720',
+      ],
+      timeout: 45000,
+    });
+
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+
+    // Stealth: parchear propiedades que delatan headless/bot antes de cargar cualquier página
+    await page.evaluateOnNewDocument(() => {
+      // Eliminar webdriver flag
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+
+      // Simular plugins reales
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => {
+          const arr = [
+            { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+            { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+            { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
+          ];
+          arr.__proto__ = PluginArray.prototype;
+          return arr;
+        }
+      });
+
+      // Simular idiomas
+      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en', 'es'] });
+
+      // Simular hardwareConcurrency y deviceMemory
+      Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
+      Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
+
+      // chrome object (necesario para hCaptcha)
+      window.chrome = {
+        app: { isInstalled: false },
+        runtime: {},
+        loadTimes: () => {},
+        csi: () => {},
+      };
+
+      // Permissions API — hCaptcha la chequea
+      const originalQuery = window.navigator.permissions && window.navigator.permissions.query;
+      if (originalQuery) {
+        window.navigator.permissions.query = (params) =>
+          params.name === 'notifications'
+            ? Promise.resolve({ state: Notification.permission })
+            : originalQuery(params);
+      }
+
+      // Ocultar que es headless en toString
+      const nativeToStringFn = Function.prototype.toString;
+      Function.prototype.toString = function () {
+        if (this === window.navigator.permissions.query) return 'function query() { [native code] }';
+        return nativeToStringFn.call(this);
+      };
+    });
+
+    let m3u8Found = null;
+    let resolveM3u8;
+    const m3u8Promise = new Promise(r => { resolveM3u8 = r; });
+
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+      const u = req.url();
+      const rt = req.resourceType();
+      // Bloquear sólo imágenes (NO bloquear scripts/fetch/xhr que hCaptcha necesita)
+      if (rt === 'image' && !u.includes('hcaptcha') && !u.includes('voe')) {
+        req.abort();
+        return;
+      }
+      req.continue();
+    });
+
+    page.on('response', (resp) => {
+      const u = resp.url();
+      if (u.includes('.m3u8') && !u.includes('seg-') && !u.includes('index-') && !u.includes('ad')) {
+        m3u8Found = u;
+        if (resolveM3u8) resolveM3u8(u);
+      }
+    });
+
+    if (referer) await page.setExtraHTTPHeaders({ Referer: referer });
+
+    console.log(`[voe] Navegando con stealth: ${embedUrl}`);
+    try {
+      await page.goto(embedUrl, { waitUntil: 'networkidle2', timeout: 40000 });
+    } catch (e) {
+      // networkidle2 puede timeout si hay scripts cargando permanentemente; continuar igual
+      console.log(`[voe] Nav note: ${e.message}`);
+    }
+
+    // Esperar hasta 20s para que DDoS-Guard + hCaptcha resuelvan y el video aparezca
+    await Promise.race([m3u8Promise, new Promise(r => setTimeout(r, 20000))]);
+
+    // Si no capturamos m3u8 vía red, parsear HTML de la página resultante
+    if (!m3u8Found) {
+      const content = await page.content();
+      m3u8Found = _parseVoeHtml(content);
+
+      // Si la página sigue mostrando DDoS/captcha, intentar esperar un poco más
+      if (!m3u8Found && (content.includes('ddos-guard') || content.includes('hcaptcha'))) {
+        console.log('[voe] Todavía en captcha/ddos, esperando 10s adicionales...');
+        await new Promise(r => setTimeout(r, 10000));
+        await Promise.race([m3u8Promise, new Promise(r => setTimeout(r, 8000))]);
+        if (!m3u8Found) {
+          const content2 = await page.content();
+          m3u8Found = _parseVoeHtml(content2);
+        }
+      }
+
+      // Intentar extraer vía JS en contexto de página
+      if (!m3u8Found) {
+        try {
+          m3u8Found = await page.evaluate(() => {
+            try { if (typeof wc8p !== 'undefined') return atob(wc8p); } catch(e) {}
+            for (const k of Object.keys(window)) {
+              try {
+                const v = window[k];
+                if (typeof v === 'string' && v.includes('.m3u8') && v.startsWith('http')) return v;
+              } catch(e) {}
+            }
+            return null;
+          });
+        } catch(e) {}
+      }
+    }
+
+    if (m3u8Found) {
+      console.log(`[voe] m3u8 encontrado: ${m3u8Found}`);
+      // Capturar cookies de sesión para devolver al cliente (puede reusar)
+      const cookies = await page.cookies();
+      const cookieStr = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+      return {
+        ok: true,
+        m3u8: m3u8Found,
+        m3u8_proxied: `/servpeli-stream?url=${encodeURIComponent(m3u8Found)}`,
+        embedUrl,
+        method: 'browser',
+        session_cookies: cookieStr || undefined,
+      };
+    }
+
+    return { ok: false, error: 'VOE: hCaptcha requiere intervención manual. Usa ?cookies= con tus cookies de voe.sx para bypassarlo.', embedUrl };
+  } catch (err) {
+    return { ok: false, error: `VOE browser error: ${err.message}`, embedUrl };
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+  }
+}
+
+// Parsear HTML de VOE para extraer m3u8 por varios patrones conocidos
+function _parseVoeHtml(html) {
+  if (!html) return null;
+
+  // Patrón 1: wc8p = "BASE64" (VOE codifica la URL HLS en base64)
+  const wc8pMatch = html.match(/wc8p\s*=\s*["']([A-Za-z0-9+/=]{20,})["']/);
+  if (wc8pMatch) {
+    try {
+      const decoded = Buffer.from(wc8pMatch[1], 'base64').toString('utf-8');
+      if (decoded.includes('.m3u8') || decoded.startsWith('http')) return decoded.trim();
+    } catch {}
+  }
+
+  // Patrón 2: atob("BASE64") genérico
+  for (const m of html.matchAll(/atob\s*\(\s*["']([A-Za-z0-9+/=]{20,})["']\s*\)/g)) {
+    try {
+      const decoded = Buffer.from(m[1], 'base64').toString('utf-8');
+      if (decoded.includes('.m3u8') || (decoded.startsWith('http') && decoded.includes('voe'))) return decoded.trim();
+    } catch {}
+  }
+
+  // Patrón 3: hls / m3u8 directo en strings JS
+  const hlsMatch = html.match(/["']hls["']\s*:\s*["'](https?[^"']+\.m3u8[^"']*)["']/i)
+                || html.match(/hls\s*:\s*["'](https?[^"']+\.m3u8[^"']*)["']/i)
+                || html.match(/["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/);
+  if (hlsMatch) return hlsMatch[1];
+
+  return null;
+}
+
 async function extractFilemoon(embedUrl, referer) {
   try {
     const res = await axios.get(embedUrl, {
@@ -1196,6 +1424,13 @@ async function extractM3u8FromEmbed(embedUrl, referer) {
   let result;
 
   // Routers específicos por dominio
+  if (isVoe(embedUrl)) {
+    console.log(`[embed/m3u8] VOE.sx browser: ${embedUrl}`);
+    result = await extractVoe(embedUrl, referer);
+    embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
+    return result;
+  }
+
   if (isFilemoon(embedUrl)) {
     console.log(`[embed/m3u8] Filemoon HTTP: ${embedUrl}`);
     result = await extractFilemoon(embedUrl, referer);
@@ -1279,4 +1514,4 @@ async function extractM3u8FromEmbed(embedUrl, referer) {
   return result;
 }
 
-module.exports = { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache };
+module.exports = { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache, extractVoe, isVoe };

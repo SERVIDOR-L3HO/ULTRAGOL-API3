@@ -113,7 +113,7 @@ const {
 
 const path = require("path");
 const { securityHeaders, apiLimiter } = require("./src/middleware/auth");
-const { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache } = require("./src/scrapers/servpeli");
+const { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache, extractVoe, isVoe } = require("./src/scrapers/servpeli");
 const app = express();
 
 app.set('trust proxy', 1);
@@ -5360,14 +5360,21 @@ loadHls(proxiedSrc, false);
 });
 
 // Endpoint: extraer m3u8 directo de cualquier URL embed (vidhide, filemoon, etc.)
-// GET /api/embed/m3u8?url=https://vidhidepro.com/v/xxx&referer=https://unlimplay.com/
+// GET /api/embed/m3u8?url=https://vidhidepro.com/v/xxx&referer=https://unlimplay.com/[&cookies=...]
+// Para URLs de VOE.sx, pasa &cookies= con tus cookies del browser para saltarte el hCaptcha
 app.get('/api/embed/m3u8', async (req, res) => {
-  const { url, referer, nombre } = req.query;
+  const { url, referer, nombre, cookies } = req.query;
   if (!url) return res.status(400).json({ error: 'Parámetro ?url= requerido' });
   try {
     const base = `${req.protocol}://${req.get('host')}`;
     const makeAbsolute = (u) => u && u.startsWith('/') ? base + u : u;
-    const result = await extractM3u8FromEmbed(url, referer || 'https://unlimplay.com/');
+    // Si es VOE y hay cookies, pasarlas directamente
+    let result;
+    if (isVoe(url) && cookies) {
+      result = await extractVoe(url, referer || null, cookies);
+    } else {
+      result = await extractM3u8FromEmbed(url, referer || 'https://unlimplay.com/');
+    }
     if (result.ok) {
       return res.json({ nombre: nombre || 'embed', tipo: 'direct', url: makeAbsolute(result.m3u8_proxied) });
     }
@@ -5375,6 +5382,39 @@ app.get('/api/embed/m3u8', async (req, res) => {
   } catch (err) {
     console.error('[embed/m3u8] Error:', err.message);
     res.status(502).json({ error: 'Error al extraer m3u8', detalle: err.message });
+  }
+});
+
+// GET /api/voe/m3u8?url=https://voe.sx/e/xxx[&cookies=ddg_cid=...;ddgu=1]
+// Extrae el m3u8 directo de VOE.sx sin anuncios.
+// Usa Puppeteer con stealth patches para bypassar DDoS-Guard + hCaptcha.
+// Para máxima velocidad, pasa ?cookies= con tus cookies de voe.sx (del browser) para saltar el captcha.
+app.get('/api/voe/m3u8', async (req, res) => {
+  const { url, referer, cookies } = req.query;
+  if (!url) return res.status(400).json({
+    error: 'Parámetro ?url= requerido',
+    ejemplo: '/api/voe/m3u8?url=https://voe.sx/e/3u1p4xvmybn1',
+    tip: 'Agrega &cookies=ddg_cid=xxx;ddgu=1 para saltar el captcha usando tus cookies de browser'
+  });
+  if (!isVoe(url)) return res.status(400).json({ error: 'La URL no parece ser de VOE.sx', url });
+  try {
+    console.log(`[voe/m3u8] Extrayendo: ${url}${cookies ? ' (con cookies)' : ''}`);
+    const base = `${req.protocol}://${req.get('host')}`;
+    const result = await extractVoe(url, referer || null, cookies || null);
+    if (result.ok) {
+      return res.json({
+        ok: true,
+        m3u8: result.m3u8,
+        m3u8_proxied: base + result.m3u8_proxied,
+        method: result.method,
+        embedUrl: result.embedUrl,
+        ...(result.session_cookies ? { session_cookies: result.session_cookies } : {}),
+      });
+    }
+    return res.status(422).json({ ok: false, error: result.error, embedUrl: result.embedUrl });
+  } catch (err) {
+    console.error('[voe/m3u8] Error:', err.message);
+    res.status(502).json({ ok: false, error: 'Error al extraer VOE.sx', detalle: err.message });
   }
 });
 
