@@ -515,6 +515,20 @@ const STREAMWISH_DOMAINS = [
   'playerwish.com', 'swdyu.com', 'hlsplay.pro'
 ];
 
+// Dominios doodstream
+const DOODSTREAM_DOMAINS = [
+  'doodstream.com', 'dood.watch', 'dood.to', 'dood.so', 'dood.cx',
+  'dood.la', 'dood.ws', 'dood.sh', 'dood.pm', 'ds2play.com',
+  'doods.pro', 'doodtube.com', 'd0o0d.com', 'd000d.com', 'dooood.com'
+];
+
+// Dominios streamtape
+const STREAMTAPE_DOMAINS = [
+  'streamtape.com', 'streamtape.net', 'streamtape.to', 'streamtape.xyz',
+  'streamtape.site', 'streamtape.live', 'streamta.pe', 'strcloud.in',
+  'tapecontent.net', 'streamadblockplus.com'
+];
+
 function isFilemoon(url) {
   try { return FILEMOON_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch { return false; }
 }
@@ -526,6 +540,12 @@ function isFilelions(url) {
 }
 function isStreamwish(url) {
   try { return STREAMWISH_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch { return false; }
+}
+function isDoodstream(url) {
+  try { return DOODSTREAM_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch { return false; }
+}
+function isStreamtape(url) {
+  try { return STREAMTAPE_DOMAINS.some(d => new URL(url).hostname.endsWith(d)); } catch { return false; }
 }
 
 function needsBrowser(url) {
@@ -1058,6 +1078,98 @@ async function extractStreamwish(embedUrl, referer) {
   }
 }
 
+async function extractDoodstream(embedUrl, referer) {
+  try {
+    const origin = new URL(embedUrl).origin;
+    const res = await axios.get(embedUrl, {
+      headers: { ...EMBED_HEADERS, Referer: referer || origin + '/' },
+      timeout: 15000,
+      maxRedirects: 5,
+    });
+    const html = res.data;
+
+    // Buscar token pass1: $.get('/pass1/TOKEN?expiry=...')  o  '/pass1/TOKEN'
+    const passMatch = html.match(/['"]\/pass1\/([^?'"&\s]+)/);
+    if (!passMatch) return { ok: false, error: 'Doodstream: token pass1 no encontrado', embedUrl };
+
+    const token = passMatch[1];
+    const ts = Date.now();
+    const passUrl = `${origin}/pass1/${token}?${ts}`;
+
+    const passRes = await axios.get(passUrl, {
+      headers: {
+        ...EMBED_HEADERS,
+        Referer: embedUrl,
+        'Origin': origin,
+      },
+      timeout: 12000,
+      maxRedirects: 5,
+    });
+
+    // La respuesta contiene el URL del video: buscar mp4 o m3u8
+    const body = typeof passRes.data === 'string' ? passRes.data : JSON.stringify(passRes.data);
+    const videoMatch = body.match(/(https?:\/\/[^\s"'<>]+\.(?:m3u8|mp4)[^\s"'<>]*)/i);
+    if (videoMatch) {
+      const videoUrl = videoMatch[1];
+      return { ok: true, m3u8: videoUrl, embedUrl };
+    }
+
+    // Algunos mirrors devuelven el URL directamente como texto plano
+    const trimmed = body.trim();
+    if (trimmed.startsWith('http') && (trimmed.includes('.mp4') || trimmed.includes('.m3u8'))) {
+      return { ok: true, m3u8: trimmed, embedUrl };
+    }
+
+    return { ok: false, error: 'Doodstream: no se encontró URL de video en pass1', embedUrl };
+  } catch (err) {
+    return { ok: false, error: `Doodstream: ${err.message}`, embedUrl };
+  }
+}
+
+async function extractStreamtape(embedUrl, referer) {
+  try {
+    const origin = new URL(embedUrl).origin;
+    const res = await axios.get(embedUrl, {
+      headers: { ...EMBED_HEADERS, Referer: referer || origin + '/' },
+      timeout: 15000,
+      maxRedirects: 5,
+    });
+    const html = res.data;
+
+    // Método 1: patrón moderno con dos partes concatenadas en el HTML
+    // innerHTML de un elemento + string literal adyacente
+    const part1Match = html.match(/getElementById\(['"'][^'"']+['"']\)\.innerHTML\s*=\s*["']([^"']+)["']/);
+    const part2Match = html.match(/\+\s*["']([^"']{20,})["']/);
+    if (part1Match && part2Match) {
+      const combined = (part1Match[1] + part2Match[1]).replace(/\s/g, '');
+      // El resultado suele ser algo como //streamtape.com/get_video?id=...&expires=...&ip=...&token=...
+      const videoUrl = combined.startsWith('//') ? `https:${combined}` : combined;
+      if (videoUrl.startsWith('http')) {
+        return { ok: true, m3u8: videoUrl, embedUrl };
+      }
+    }
+
+    // Método 2: buscar el token en patrones alternativos
+    const tokenMatch = html.match(/token=([a-zA-Z0-9_-]+).*?expires=(\d+)/);
+    const idMatch = html.match(/\/get_video\?id=([a-zA-Z0-9]+)/);
+    if (tokenMatch && idMatch) {
+      const videoUrl = `${origin}/get_video?id=${idMatch[1]}&expires=${tokenMatch[2]}&token=${tokenMatch[1]}&stream=1`;
+      return { ok: true, m3u8: videoUrl, embedUrl };
+    }
+
+    // Método 3: buscar directamente un /get_video URL en el HTML
+    const directMatch = html.match(/(\/get_video\?[^"'\s<>]+)/);
+    if (directMatch) {
+      const videoUrl = origin + directMatch[1];
+      return { ok: true, m3u8: videoUrl, embedUrl };
+    }
+
+    return { ok: false, error: 'Streamtape: no se encontró URL de video', embedUrl };
+  } catch (err) {
+    return { ok: false, error: `Streamtape: ${err.message}`, embedUrl };
+  }
+}
+
 async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
   const cacheKey = `unlimplay_${movieId}`;
   _register(cacheKey, 'movie', [movieId]);
@@ -1454,6 +1566,10 @@ async function extractM3u8FromEmbed(embedUrl, referer, cookies) {
   if (isFilelions(embedUrl)) {
     console.log(`[embed/m3u8] Filelions: ${embedUrl}`);
     result = await extractFilelions(embedUrl, referer);
+    if (!result.ok) {
+      console.log(`[embed/m3u8] Filelions HTTP falló, intentando browser: ${embedUrl}`);
+      result = await extractM3u8WithBrowser(embedUrl, referer);
+    }
     embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
     return result;
   }
@@ -1461,6 +1577,24 @@ async function extractM3u8FromEmbed(embedUrl, referer, cookies) {
   if (isStreamwish(embedUrl)) {
     console.log(`[embed/m3u8] Streamwish: ${embedUrl}`);
     result = await extractStreamwish(embedUrl, referer);
+    if (!result.ok) {
+      console.log(`[embed/m3u8] Streamwish HTTP falló, intentando browser: ${embedUrl}`);
+      result = await extractM3u8WithBrowser(embedUrl, referer);
+    }
+    embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
+    return result;
+  }
+
+  if (isDoodstream(embedUrl)) {
+    console.log(`[embed/m3u8] Doodstream: ${embedUrl}`);
+    result = await extractDoodstream(embedUrl, referer);
+    embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
+    return result;
+  }
+
+  if (isStreamtape(embedUrl)) {
+    console.log(`[embed/m3u8] Streamtape: ${embedUrl}`);
+    result = await extractStreamtape(embedUrl, referer);
     embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
     return result;
   }
