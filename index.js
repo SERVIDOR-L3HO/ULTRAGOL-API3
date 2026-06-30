@@ -5215,6 +5215,25 @@ app.get("/ligas-disponibles", (req, res) => {
   });
 });
 
+// Helper: produce mensaje de error claro según el tipo de fallo externo
+function unlimplayError(err) {
+  const msg = err.message || '';
+  const status = err.response?.status || (msg.match(/\b(\d{3})\b/)?.[1]);
+  if (status == 522 || status == 521 || status == 523) {
+    return { codigo: status, error: 'unlimplay.com no está disponible (Cloudflare 522 — servidor caído o bloqueado temporalmente)', detalle: msg };
+  }
+  if (status == 503 || status == 502 || status == 504) {
+    return { codigo: status, error: 'unlimplay.com retornó un error temporal de servidor', detalle: msg };
+  }
+  if (status == 403 || status == 401) {
+    return { codigo: status, error: 'unlimplay.com bloqueó la solicitud (acceso denegado)', detalle: msg };
+  }
+  if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('ECONNRESET')) {
+    return { codigo: 'timeout', error: 'unlimplay.com no respondió a tiempo', detalle: msg };
+  }
+  return { codigo: status || 'error', error: 'No se pudo obtener datos de unlimplay.com', detalle: msg };
+}
+
 // Helper: post-procesa servidores VOE sin resolver usando cookies del usuario
 // Los demás servidores (filemoon, vidhide, etc.) ya vienen resueltos del cache
 async function resolveVoeServers(idiomas, cookies, base) {
@@ -5270,7 +5289,7 @@ app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
     res.json(processData);
   } catch (err) {
     console.error('[unlimplay/m3u8] Error:', err.message);
-    res.status(502).json({ error: 'No se pudo obtener el m3u8', detalle: err.message });
+    res.status(502).json(unlimplayError(err));
   }
 });
 
@@ -5459,7 +5478,7 @@ app.get('/api/unlimplay/m3u8/tv/:seriesId/:season/:episode', async (req, res) =>
     res.json(processData);
   } catch (err) {
     console.error('[unlimplay/m3u8/tv] Error:', err.message);
-    res.status(502).json({ error: 'No se pudo obtener el m3u8 del episodio', detalle: err.message });
+    res.status(502).json(unlimplayError(err));
   }
 });
 
@@ -5484,7 +5503,7 @@ app.get('/api/unlimplay/m3u8-all/tv/:seriesId/:season/:episode', async (req, res
     });
   } catch (err) {
     console.error('[unlimplay/m3u8-all/tv] Error:', err.message);
-    res.status(502).json({ error: 'No se pudo obtener el m3u8 del episodio', detalle: err.message });
+    res.status(502).json(unlimplayError(err));
   }
 });
 
@@ -5503,7 +5522,7 @@ app.get('/api/unlimplay/m3u8-all/:movieId', async (req, res) => {
     res.json({ movie_id: data.movie_id, fuente: data.fuente, idiomas: formatServidores(data.idiomas, base) });
   } catch (err) {
     console.error('[unlimplay/m3u8-all] Error:', err.message);
-    res.status(502).json({ error: 'No se pudo obtener el m3u8', detalle: err.message });
+    res.status(502).json(unlimplayError(err));
   }
 });
 
