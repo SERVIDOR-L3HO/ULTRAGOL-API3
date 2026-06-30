@@ -5460,6 +5460,264 @@ app.get('/api/voe/m3u8', async (req, res) => {
   }
 });
 
+// ─── ADBLOCKER PROXY ──────────────────────────────────────────────────────────
+// Dominos de redes publicitarias conocidas usadas por Filemoon, Vidhide, etc.
+const AD_DOMAINS = [
+  'exoclick.com','exoads.net','exo-click.com',
+  'juicyads.com','juicyadmedia.com',
+  'popads.net','popcash.net','popunder.ru',
+  'adcash.com','adcash.net',
+  'propellerads.com','propellerclick.com',
+  'adsterra.com','adsterraserv.com',
+  'hilltopads.net','hilltopads.com',
+  'trafficjunky.com','trafficstars.com','trafficfactory.biz',
+  'mgid.com','mgid.net',
+  'adspyglass.com','adspyglass.net',
+  'bidgear.com','bidgear.net',
+  'ero-advertising.com','plugrush.com',
+  'revcontent.com','pushground.com',
+  'adnxs.com','googlesyndication.com','doubleclick.net',
+  'amazon-adsystem.com','criteo.com','criteo.net',
+  'outbrain.com','taboola.com',
+  'adskeeper.co.uk','adskeeper.com',
+  'smartadserver.com','spotxchange.com',
+  'teads.tv','teads.com',
+  'rubiconproject.com','openx.net','openx.com',
+  'contextweb.com','casalemedia.com',
+  'cdn77.org', // a veces usada para popunders
+  'go.ad2up.com','ads.ad2up.com',
+  'cdn.adnxs.com','ib.adnxs.com',
+  'adf.ly','adfoc.us','sh.st','ouo.io',
+  'mctensei.com','cloudfrontads.com',
+  'promo-box.net','clickadu.com','clickadilla.com',
+  'kadam.net','evadav.com','rollerads.com',
+  'galaksion.com','rtmark.net','pushpush.net',
+  'adhive.tv','admixer.net','adform.net',
+  'betweendigital.com','getintent.com',
+  'syndication.twitter.com',
+  'pagead2.googlesyndication.com',
+];
+
+// Script que se inyecta en el player para bloquear anuncios en runtime
+const ADBLOCKER_INJECT = `
+<script>
+(function(){
+  // 1. Bloquear window.open (popups y popunders)
+  window.open = function(){ return { focus:function(){}, blur:function(){}, close:function(){} }; };
+  // 2. Bloquear redirecciones de location
+  try {
+    var _loc = window.location;
+    Object.defineProperty(window,'location',{
+      get:function(){ return _loc; },
+      set:function(v){ console.warn('[adblocker] Redirect bloqueado:',v); }
+    });
+  } catch(e){}
+  // 3. Bloquear document.write (método favorito de popunders)
+  document.write = function(){};
+  document.writeln = function(){};
+  // 4. Interceptar XMLHttpRequest hacia dominios de ads
+  var _xhrOpen = XMLHttpRequest.prototype.open;
+  var AD_HOSTS = ${JSON.stringify(AD_DOMAINS)};
+  function isAd(url){ try{ var h=new URL(url).hostname; return AD_HOSTS.some(d=>h===d||h.endsWith('.'+d)); }catch(e){ return false; } }
+  XMLHttpRequest.prototype.open = function(m,u){
+    if(isAd(String(u))){ this._blocked=true; return; }
+    return _xhrOpen.apply(this,arguments);
+  };
+  // 5. Interceptar fetch hacia dominios de ads
+  var _fetch = window.fetch;
+  window.fetch = function(url,opts){
+    if(isAd(String(url||''))){ return Promise.resolve(new Response('',{status:200})); }
+    return _fetch.apply(this,arguments);
+  };
+  // 6. Bloquear createElement para scripts de ads dinámicos
+  var _create = document.createElement.bind(document);
+  document.createElement = function(tag){
+    var el = _create(tag);
+    if(tag.toLowerCase()==='script'){
+      var _setSrc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype,'src');
+      Object.defineProperty(el,'src',{
+        set:function(v){ if(isAd(String(v))){ console.warn('[adblocker] Script ad bloqueado:',v); return; } if(_setSrc && _setSrc.set) _setSrc.set.call(this,v); },
+        get:function(){ if(_setSrc && _setSrc.get) return _setSrc.get.call(this); return ''; }
+      });
+    }
+    return el;
+  };
+  // 7. Eliminar event listeners de click que disparan popunders
+  var _addEventListener = EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener = function(type, fn, opts){
+    if(type==='click'||type==='mousedown'||type==='touchstart'){
+      var fnStr = fn ? fn.toString() : '';
+      if(fnStr.includes('window.open')||fnStr.includes('location=')||fnStr.includes('popunder')){
+        console.warn('[adblocker] Click ad listener bloqueado');
+        return;
+      }
+    }
+    return _addEventListener.call(this,type,fn,opts);
+  };
+  // 8. Observer para eliminar iframes/divs de ads que se inyectan dinámicamente
+  var observer = new MutationObserver(function(mutations){
+    mutations.forEach(function(m){
+      m.addedNodes.forEach(function(node){
+        if(!node || !node.tagName) return;
+        var tag = node.tagName.toLowerCase();
+        if(tag==='iframe'||tag==='script'){
+          var src = node.src||node.getAttribute('src')||'';
+          if(isAd(src)){ node.remove(); return; }
+        }
+        // Eliminar divs con z-index alto que cubren el player (overlay ads)
+        if(tag==='div'||tag==='a'){
+          try{
+            var style = node.style||{};
+            var zi = parseInt(style.zIndex||'0');
+            if(zi>9999 && style.position==='fixed'){ node.remove(); }
+          }catch(e){}
+        }
+      });
+    });
+  });
+  observer.observe(document.documentElement,{childList:true,subtree:true});
+  console.log('[adblocker] Iniciado correctamente');
+})();
+</script>`;
+
+// Limpia el HTML del player de anuncios server-side
+function cleanEmbedHtml(html, embedUrl) {
+  const $ = cheerio.load(html);
+  let origin = '';
+  try { origin = new URL(embedUrl).origin; } catch(e){}
+
+  // Agregar base tag para que las URLs relativas funcionen
+  if (!$('base').length) {
+    $('head').prepend(`<base href="${origin}/">`);
+  }
+
+  // Eliminar scripts de dominios de anuncios
+  $('script[src]').each(function() {
+    const src = $(this).attr('src') || '';
+    try {
+      const host = src.startsWith('//') ? new URL('https:' + src).hostname : new URL(src).hostname;
+      if (AD_DOMAINS.some(d => host === d || host.endsWith('.' + d))) {
+        $(this).remove();
+      }
+    } catch(e) {}
+  });
+
+  // Eliminar iframes de dominios de anuncios
+  $('iframe[src]').each(function() {
+    const src = $(this).attr('src') || '';
+    try {
+      const host = src.startsWith('//') ? new URL('https:' + src).hostname : new URL(src).hostname;
+      if (AD_DOMAINS.some(d => host === d || host.endsWith('.' + d))) {
+        $(this).remove();
+      }
+    } catch(e) {}
+  });
+
+  // Eliminar scripts inline con patrones de anuncios conocidos
+  $('script:not([src])').each(function() {
+    const code = $(this).html() || '';
+    const adPatterns = [
+      'window.open(','popunder','pop_under','PopUp','popUpAd',
+      'adspyglass','exoclick','juicyads','propellerads','adsterra',
+      'clickadu','evadav','trafficjunky','trafficstars',
+      'googlesyndication','doubleclick','adnxs',
+    ];
+    if (adPatterns.some(p => code.includes(p))) {
+      $(this).remove();
+    }
+  });
+
+  // Inyectar script adblocker justo al inicio del <head>
+  $('head').prepend(ADBLOCKER_INJECT);
+
+  // Headers de seguridad inline para el HTML servido
+  return $.html();
+}
+
+// GET /api/embed/adblocker?url=https://bysedikamoum.com/e/xxx[&referer=...]
+// Devuelve el player de video limpio: sin anuncios, popups ni redireccionamientos.
+// Úsalo como src de un <iframe> en lugar del embed original.
+app.get('/api/embed/adblocker', async (req, res) => {
+  const { url, referer } = req.query;
+  if (!url) return res.status(400).send('Parámetro ?url= requerido. Ejemplo: /api/embed/adblocker?url=https://bysedikamoum.com/e/s0l3qejqvopj');
+
+  let embedUrl;
+  try { embedUrl = new URL(url); } catch(e) {
+    return res.status(400).send('URL inválida');
+  }
+
+  try {
+    console.log(`[adblocker] Limpiando: ${url}`);
+    const ref = referer || 'https://unlimplay.com/';
+
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Referer': ref,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'es-MX,es;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'iframe',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'cross-site',
+      },
+      timeout: 20000,
+      maxRedirects: 5,
+      responseType: 'text',
+    });
+
+    const cleanedHtml = cleanEmbedHtml(response.data, url);
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('X-Frame-Options', 'ALLOWALL');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+    // CSP que bloquea dominios de ads a nivel navegador como segunda capa
+    const blockedDomains = AD_DOMAINS.slice(0,20).map(d => `https://${d}`).join(' ');
+    res.setHeader('Content-Security-Policy',
+      `default-src * data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; frame-ancestors *`
+    );
+    res.send(cleanedHtml);
+    console.log(`[adblocker] OK: ${url} (${cleanedHtml.length} bytes)`);
+  } catch (err) {
+    console.error(`[adblocker] Error: ${err.message}`);
+    if (err.response?.status) {
+      res.status(502).send(`Error ${err.response.status} al cargar el player: ${err.message}`);
+    } else {
+      res.status(502).send(`No se pudo cargar el player: ${err.message}`);
+    }
+  }
+});
+
+// GET /api/embed/adblocker-asset?url=...&referer=...
+// Proxy para sub-recursos del player (JS, CSS) que limpia scripts de ads en archivos JS.
+app.get('/api/embed/adblocker-asset', async (req, res) => {
+  const { url, referer } = req.query;
+  if (!url) return res.status(400).send('?url= requerido');
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': referer || new URL(url).origin + '/',
+        'Accept': '*/*',
+      },
+      timeout: 15000,
+      maxRedirects: 5,
+      responseType: 'arraybuffer',
+    });
+    const ct = response.headers['content-type'] || 'application/octet-stream';
+    res.setHeader('Content-Type', ct);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('X-Frame-Options', 'ALLOWALL');
+    res.send(response.data);
+  } catch (err) {
+    res.status(502).send('Error al cargar asset: ' + err.message);
+  }
+});
+// ─── FIN ADBLOCKER PROXY ──────────────────────────────────────────────────────
+
 // Endpoint: m3u8 de un episodio de serie desde Unlimplay
 // Acepta ?cookies=ddg_cid=...;ddgu=1 para resolver servidores VOE.sx automáticamente
 app.get('/api/unlimplay/m3u8/tv/:seriesId/:season/:episode', async (req, res) => {
