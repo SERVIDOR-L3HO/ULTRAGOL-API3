@@ -5256,15 +5256,14 @@ async function resolveVoeServers(idiomas, cookies, base) {
   return idiomas;
 }
 
-// Helper: formatea servidores para la respuesta final (URLs directas sin proxy)
+// Helper: formatea servidores para la respuesta final
+// Siempre devuelve el embed URL original (no el CDN m3u8 que expira)
 function formatServidores(idiomas, base) {
   const out = JSON.parse(JSON.stringify(idiomas || {}));
   for (const info of Object.values(out)) {
     info.servidores = (info.servidores || []).map(s => {
-      if (s.tipo === 'm3u8_directo') {
-        return { nombre: s.nombre, tipo: 'direct', url: s.m3u8 || s.url || null };
-      }
-      return { nombre: s.nombre, tipo: 'embed', url: s.url || null };
+      const tipo = s.tipo === 'm3u8_directo' ? 'direct' : 'embed';
+      return { nombre: s.nombre, tipo, url: s.url || null };
     });
     delete info.m3u8; delete info.m3u8_proxied; delete info.proxy_stream;
     delete info.embed_url; delete info.player_url;
