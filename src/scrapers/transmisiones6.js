@@ -51,8 +51,9 @@ async function scrapTransmisiones6() {
     const response = await axios.get("https://streamed.pk/api/matches/all", {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Accept": "application/json",
-        "Referer": "https://cmrroto01.blogspot.com/p/agenda-streamed.html?m=1"
+        "Accept": "application/json, */*",
+        "Origin": "https://streamed.pk",
+        "Referer": "https://streamed.pk/"
       },
       timeout: 15000
     });
