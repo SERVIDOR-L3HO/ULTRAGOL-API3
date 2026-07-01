@@ -45,11 +45,11 @@ async function resolveM3u8(streamName) {
 
   try {
     const res = await axios.get(
-      `https://la18hd.com/vivo/canales.php?stream=${streamName}`,
+      `https://tvhd2.com/tv/canales.php?stream=${streamName}`,
       {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Referer": "https://tvtvhd.com/"
+          "Referer": "https://tvhd2.com/"
         },
         timeout: 10000
       }
