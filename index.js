@@ -5634,87 +5634,169 @@ function cleanEmbedHtml(html, embedUrl) {
   return $.html();
 }
 
-// GET /api/embed/adblocker?url=https://bysedikamoum.com/e/xxx[&referer=...]
-// Devuelve el player de video limpio: sin anuncios, popups ni redireccionamientos.
-// Úsalo como src de un <iframe> en lugar del embed original.
+// GET /api/embed/adblocker?url=https://bysedikamoum.com/e/xxx[&referer=&titulo=]
+// Extrae el m3u8 server-side y sirve nuestro propio player HLS limpio.
+// Sin cargar el player de Filemoon/Vidhide → cero anuncios, cero popups.
 app.get('/api/embed/adblocker', async (req, res) => {
-  const { url, referer } = req.query;
-  if (!url) return res.status(400).send('Parámetro ?url= requerido. Ejemplo: /api/embed/adblocker?url=https://bysedikamoum.com/e/s0l3qejqvopj');
+  const { url, referer, titulo, cookies } = req.query;
+  if (!url) return res.status(400).send('Parámetro ?url= requerido');
 
-  let embedUrl;
-  try { embedUrl = new URL(url); } catch(e) {
-    return res.status(400).send('URL inválida');
-  }
+  try { new URL(url); } catch(e) { return res.status(400).send('URL inválida'); }
 
-  try {
-    console.log(`[adblocker] Limpiando: ${url}`);
-    const ref = referer || 'https://unlimplay.com/';
+  const base = `${req.protocol}://${req.get('host')}`;
+  const ref  = referer || 'https://unlimplay.com/';
+  const title = titulo ? titulo.replace(/</g,'&lt;').replace(/>/g,'&gt;') : 'Video';
 
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Referer': ref,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'es-MX,es;q=0.9,en;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'iframe',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'cross-site',
-      },
-      timeout: 20000,
-      maxRedirects: 5,
-      responseType: 'text',
-    });
+  console.log(`[adblocker] Extrayendo m3u8 de: ${url}`);
 
-    const cleanedHtml = cleanEmbedHtml(response.data, url);
+  // Página de "extrayendo" que hace polling hasta tener el m3u8
+  // y mientras tanto muestra un spinner — para no hacer esperar al navegador 60s
+  const loadingPage = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0a;color:#fff;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh}
+.spinner{width:52px;height:52px;border:4px solid #333;border-top-color:#00d4ff;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:20px}
+@keyframes spin{to{transform:rotate(360deg)}}
+p{color:#aaa;font-size:14px;text-align:center;margin-bottom:8px}
+small{color:#555;font-size:12px}
+#status{color:#00d4ff;font-size:13px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="spinner"></div>
+<p>Preparando video sin anuncios...</p>
+<small>${url.substring(0,60)}...</small>
+<div id="status">Extrayendo enlace...</div>
+<script>
+(function poll(){
+  fetch('/api/embed/adblocker-resolve?url=' + encodeURIComponent(${JSON.stringify(url)}) + '&referer=' + encodeURIComponent(${JSON.stringify(ref)}) + ${cookies ? `'&cookies=' + encodeURIComponent(${JSON.stringify(cookies)})` : "''"})
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.ok && d.m3u8){
+        document.getElementById('status').textContent = '✅ Listo, cargando player...';
+        window.location.replace('/api/embed/adblocker-play?m3u8=' + encodeURIComponent(d.m3u8) + '&referer=' + encodeURIComponent(${JSON.stringify(url)}) + '&titulo=' + encodeURIComponent(${JSON.stringify(title)}));
+      } else if(d.pending){
+        document.getElementById('status').textContent = '⏳ ' + (d.msg || 'Procesando...');
+        setTimeout(poll, 2000);
+      } else {
+        document.getElementById('status').textContent = '❌ ' + (d.error || 'No se pudo extraer');
+        document.getElementById('status').style.color = '#ff4444';
+      }
+    })
+    .catch(()=>{ document.getElementById('status').textContent = '❌ Error de red'; setTimeout(poll,3000); });
+})();
+</script>
+</body>
+</html>`;
 
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('X-Frame-Options', 'ALLOWALL');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', '*');
-    // CSP que bloquea dominios de ads a nivel navegador como segunda capa
-    const blockedDomains = AD_DOMAINS.slice(0,20).map(d => `https://${d}`).join(' ');
-    res.setHeader('Content-Security-Policy',
-      `default-src * data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; frame-ancestors *`
-    );
-    res.send(cleanedHtml);
-    console.log(`[adblocker] OK: ${url} (${cleanedHtml.length} bytes)`);
-  } catch (err) {
-    console.error(`[adblocker] Error: ${err.message}`);
-    if (err.response?.status) {
-      res.status(502).send(`Error ${err.response.status} al cargar el player: ${err.message}`);
-    } else {
-      res.status(502).send(`No se pudo cargar el player: ${err.message}`);
-    }
-  }
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('X-Frame-Options', 'ALLOWALL');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.send(loadingPage);
 });
 
-// GET /api/embed/adblocker-asset?url=...&referer=...
-// Proxy para sub-recursos del player (JS, CSS) que limpia scripts de ads en archivos JS.
-app.get('/api/embed/adblocker-asset', async (req, res) => {
-  const { url, referer } = req.query;
-  if (!url) return res.status(400).send('?url= requerido');
-  try {
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': referer || new URL(url).origin + '/',
-        'Accept': '*/*',
-      },
-      timeout: 15000,
-      maxRedirects: 5,
-      responseType: 'arraybuffer',
-    });
-    const ct = response.headers['content-type'] || 'application/octet-stream';
-    res.setHeader('Content-Type', ct);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('X-Frame-Options', 'ALLOWALL');
-    res.send(response.data);
-  } catch (err) {
-    res.status(502).send('Error al cargar asset: ' + err.message);
+// Cache temporal de resoluciones para el polling
+const abResolveCache = new Map();
+
+// GET /api/embed/adblocker-resolve?url=...&referer=... (llamado por el polling JS)
+app.get('/api/embed/adblocker-resolve', async (req, res) => {
+  const { url, referer, cookies } = req.query;
+  if (!url) return res.json({ ok: false, error: '?url= requerido' });
+
+  const cacheKey = `ab_${url}`;
+
+  // Si ya está en caché devolver inmediatamente
+  const cached = abResolveCache.get(cacheKey);
+  if (cached) {
+    if (cached.ok) return res.json(cached);
+    if (cached.error) return res.json(cached);
+    // pending → en proceso
+    return res.json({ pending: true, msg: 'Extrayendo, espera...' });
   }
+
+  // Marcar como pending y lanzar extracción en background
+  abResolveCache.set(cacheKey, { pending: true });
+  setTimeout(() => abResolveCache.delete(cacheKey), 10 * 60 * 1000); // limpiar en 10 min
+
+  const ref = referer || 'https://unlimplay.com/';
+
+  // Extraer m3u8 en background
+  (async () => {
+    try {
+      let result;
+      if (isVoe(url) && cookies) {
+        result = await extractVoe(url, ref, cookies);
+      } else {
+        result = await extractM3u8FromEmbed(url, ref, cookies || null);
+      }
+      if (result.ok && result.m3u8) {
+        abResolveCache.set(cacheKey, { ok: true, m3u8: result.m3u8 });
+        console.log(`[adblocker] m3u8 extraído: ${result.m3u8.substring(0,80)}`);
+      } else {
+        abResolveCache.set(cacheKey, { ok: false, error: result.error || 'No se encontró m3u8' });
+        console.warn(`[adblocker] Fallo: ${result.error}`);
+      }
+    } catch(err) {
+      abResolveCache.set(cacheKey, { ok: false, error: err.message });
+    }
+  })();
+
+  return res.json({ pending: true, msg: 'Iniciando extracción...' });
+});
+
+// GET /api/embed/adblocker-play?m3u8=...&referer=...&titulo=...
+// Player HLS limpio que reproduce el m3u8 via proxy (sin ads, sin el player original)
+app.get('/api/embed/adblocker-play', async (req, res) => {
+  const { m3u8, referer, titulo } = req.query;
+  if (!m3u8) return res.status(400).send('?m3u8= requerido');
+
+  const base = `${req.protocol}://${req.get('host')}`;
+  const ref = referer || 'https://unlimplay.com/';
+  const title = titulo ? titulo.replace(/</g,'&lt;').replace(/>/g,'&gt;') : 'Video';
+  // Pasar el m3u8 por nuestro proxy de stream (añade Referer correcto al CDN)
+  const proxiedM3u8 = `${base}/servpeli-stream?url=${encodeURIComponent(m3u8)}&referer=${encodeURIComponent(ref)}`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('X-Frame-Options', 'ALLOWALL');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh}
+video{width:100%;height:100vh;background:#000;display:block}
+</style>
+</head>
+<body>
+<video id="v" controls autoplay playsinline></video>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+<script>
+var video = document.getElementById('v');
+var src   = ${JSON.stringify(proxiedM3u8)};
+if (Hls.isSupported()) {
+  var hls = new Hls({ maxBufferLength:30, enableWorker:true });
+  hls.loadSource(src);
+  hls.attachMedia(video);
+  hls.on(Hls.Events.MANIFEST_PARSED, function(){ video.play().catch(function(){}); });
+  hls.on(Hls.Events.ERROR, function(e,d){
+    if(d.fatal){ console.error('HLS fatal:', d.type, d.details); }
+  });
+} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+  video.src = src;
+  video.addEventListener('loadedmetadata', function(){ video.play().catch(function(){}); });
+}
+</script>
+</body>
+</html>`);
 });
 // ─── FIN ADBLOCKER PROXY ──────────────────────────────────────────────────────
 
