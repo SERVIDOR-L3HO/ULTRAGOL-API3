@@ -5267,7 +5267,13 @@ function formatServidores(idiomas, base) {
       const url = embedUrl
         ? `${base}/api/embed/adblocker?url=${encodeURIComponent(embedUrl)}&referer=${encodeURIComponent('https://unlimplay.com/')}`
         : null;
-      return { nombre: s.nombre, tipo, url };
+      const entry = { nombre: s.nombre, tipo, url };
+      // Si el m3u8 ya está resuelto, incluirlo para uso directo en APK/reproductores externos
+      if (s.m3u8) {
+        entry.m3u8 = s.m3u8;
+        entry.referer = embedUrl; // necesario como header Referer al reproducir
+      }
+      return entry;
     });
     delete info.m3u8; delete info.m3u8_proxied; delete info.proxy_stream;
     delete info.embed_url; delete info.player_url;
