@@ -5275,6 +5275,22 @@ function formatServidores(idiomas, base) {
   return out;
 }
 
+// Helper: pre-carga el caché del adblocker con m3u8 ya resueltos por el scraper
+// Así cuando se abre el link, el player carga instantáneamente sin extracción extra
+function prewarmAdblockerCache(idiomas) {
+  for (const info of Object.values(idiomas || {})) {
+    for (const s of (info.servidores || [])) {
+      if (s.m3u8 && s.url) {
+        const key = `ab_${s.url}`;
+        if (!abResolveCache.has(key)) {
+          abResolveCache.set(key, { ok: true, m3u8: s.m3u8 });
+          setTimeout(() => abResolveCache.delete(key), 10 * 60 * 1000);
+        }
+      }
+    }
+  }
+}
+
 // Endpoint: extraer m3u8 directo de unlimplay por TMDB movie ID
 // Acepta ?cookies=ddg_cid=...;ddgu=1 para resolver servidores VOE.sx automáticamente
 app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
@@ -5286,6 +5302,7 @@ app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
 
     const data = await scrapUnlimplayM3u8(movieId, force);
     await resolveVoeServers(data.idiomas, cookies, base);
+    prewarmAdblockerCache(data.idiomas);
 
     const processData = JSON.parse(JSON.stringify(data));
     processData.idiomas = formatServidores(data.idiomas, base);
@@ -5640,7 +5657,7 @@ function cleanEmbedHtml(html, embedUrl) {
 
 // GET /api/embed/adblocker?url=https://bysedikamoum.com/e/xxx[&referer=&titulo=]
 // Extrae el m3u8 server-side y sirve nuestro propio player HLS limpio.
-// Sin cargar el player de Filemoon/Vidhide → cero anuncios, cero popups.
+// Si el m3u8 ya está en caché (pre-calentado por la API), redirige al player instantáneamente.
 app.get('/api/embed/adblocker', async (req, res) => {
   const { url, referer, titulo, cookies } = req.query;
   if (!url) return res.status(400).send('Parámetro ?url= requerido');
@@ -5650,11 +5667,44 @@ app.get('/api/embed/adblocker', async (req, res) => {
   const base = `${req.protocol}://${req.get('host')}`;
   const ref  = referer || 'https://unlimplay.com/';
   const title = titulo ? titulo.replace(/</g,'&lt;').replace(/>/g,'&gt;') : 'Video';
+  const cacheKey = `ab_${url}`;
+
+  // — Ruta rápida: m3u8 ya en caché → redirigir al player sin spinner —
+  const hot = abResolveCache.get(cacheKey);
+  if (hot && hot.ok && hot.m3u8) {
+    console.log(`[adblocker] caché caliente, player instantáneo: ${url}`);
+    return res.redirect(`/api/embed/adblocker-play?m3u8=${encodeURIComponent(hot.m3u8)}&referer=${encodeURIComponent(url)}&titulo=${encodeURIComponent(title)}`);
+  }
+
+  // — Ruta normal: iniciar extracción inmediatamente y mostrar spinner —
+  // (La extracción empieza aquí, no al primer poll, ganando 1-2 segundos)
+  if (!abResolveCache.has(cacheKey)) {
+    abResolveCache.set(cacheKey, { pending: true });
+    setTimeout(() => abResolveCache.delete(cacheKey), 10 * 60 * 1000);
+    const refVal = ref;
+    const cookiesVal = cookies || null;
+    (async () => {
+      try {
+        let result;
+        if (isVoe(url) && cookiesVal) {
+          result = await extractVoe(url, refVal, cookiesVal);
+        } else {
+          result = await extractM3u8FromEmbed(url, refVal, cookiesVal);
+        }
+        if (result.ok && result.m3u8) {
+          abResolveCache.set(cacheKey, { ok: true, m3u8: result.m3u8 });
+          console.log(`[adblocker] m3u8 extraído: ${result.m3u8.substring(0,80)}`);
+        } else {
+          abResolveCache.set(cacheKey, { ok: false, error: result.error || 'No se encontró m3u8' });
+        }
+      } catch(err) {
+        abResolveCache.set(cacheKey, { ok: false, error: err.message });
+      }
+    })();
+  }
 
   console.log(`[adblocker] Extrayendo m3u8 de: ${url}`);
 
-  // Página de "extrayendo" que hace polling hasta tener el m3u8
-  // y mientras tanto muestra un spinner — para no hacer esperar al navegador 60s
   const loadingPage = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -5663,36 +5713,37 @@ app.get('/api/embed/adblocker', async (req, res) => {
 <title>${title}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0a0a;color:#fff;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh}
-.spinner{width:52px;height:52px;border:4px solid #333;border-top-color:#00d4ff;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:20px}
+body{background:#0a0a0a;color:#fff;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:0}
+.ring{width:56px;height:56px;border:3px solid #1a1a2e;border-top-color:#00d4ff;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:22px}
 @keyframes spin{to{transform:rotate(360deg)}}
-p{color:#aaa;font-size:14px;text-align:center;margin-bottom:8px}
-small{color:#555;font-size:12px}
-#status{color:#00d4ff;font-size:13px;margin-top:8px}
+h3{font-size:15px;font-weight:600;margin-bottom:6px;letter-spacing:.3px}
+small{color:#444;font-size:11px;max-width:280px;text-align:center;word-break:break-all}
+#status{color:#00d4ff;font-size:12px;margin-top:14px;min-height:18px}
 </style>
 </head>
 <body>
-<div class="spinner"></div>
-<p>Preparando video sin anuncios...</p>
-<small>${url.substring(0,60)}...</small>
-<div id="status">Extrayendo enlace...</div>
+<div class="ring"></div>
+<h3>Preparando reproductor...</h3>
+<small>${url.substring(0,70)}</small>
+<div id="status">Conectando...</div>
 <script>
+var _url=${JSON.stringify(url)},_ref=${JSON.stringify(ref)},_title=${JSON.stringify(title)},_ck=${JSON.stringify(cookies||'')};
 (function poll(){
-  fetch('/api/embed/adblocker-resolve?url=' + encodeURIComponent(${JSON.stringify(url)}) + '&referer=' + encodeURIComponent(${JSON.stringify(ref)}) + ${cookies ? `'&cookies=' + encodeURIComponent(${JSON.stringify(cookies)})` : "''"})
-    .then(r=>r.json())
-    .then(d=>{
+  fetch('/api/embed/adblocker-resolve?url='+encodeURIComponent(_url)+'&referer='+encodeURIComponent(_ref)+(_ck?'&cookies='+encodeURIComponent(_ck):''))
+    .then(function(r){return r.json();})
+    .then(function(d){
       if(d.ok && d.m3u8){
-        document.getElementById('status').textContent = '✅ Listo, cargando player...';
-        window.location.replace('/api/embed/adblocker-play?m3u8=' + encodeURIComponent(d.m3u8) + '&referer=' + encodeURIComponent(${JSON.stringify(url)}) + '&titulo=' + encodeURIComponent(${JSON.stringify(title)}));
+        document.getElementById('status').textContent='✅ Cargando...';
+        window.location.replace('/api/embed/adblocker-play?m3u8='+encodeURIComponent(d.m3u8)+'&referer='+encodeURIComponent(_url)+'&titulo='+encodeURIComponent(_title));
       } else if(d.pending){
-        document.getElementById('status').textContent = '⏳ ' + (d.msg || 'Procesando...');
-        setTimeout(poll, 2000);
+        document.getElementById('status').textContent='⏳ '+(d.msg||'Extrayendo enlace...');
+        setTimeout(poll,500);
       } else {
-        document.getElementById('status').textContent = '❌ ' + (d.error || 'No se pudo extraer');
-        document.getElementById('status').style.color = '#ff4444';
+        document.getElementById('status').textContent='❌ '+(d.error||'No se pudo extraer');
+        document.getElementById('status').style.color='#ff4444';
       }
     })
-    .catch(()=>{ document.getElementById('status').textContent = '❌ Error de red'; setTimeout(poll,3000); });
+    .catch(function(){document.getElementById('status').textContent='⚠️ Reintentando...';setTimeout(poll,1000);});
 })();
 </script>
 </body>
@@ -5815,6 +5866,7 @@ app.get('/api/unlimplay/m3u8/tv/:seriesId/:season/:episode', async (req, res) =>
 
     const data = await scrapUnlimplayM3u8Tv(seriesId, season, episode, force);
     await resolveVoeServers(data.idiomas, cookies, base);
+    prewarmAdblockerCache(data.idiomas);
 
     const processData = JSON.parse(JSON.stringify(data));
     processData.idiomas = formatServidores(data.idiomas, base);
@@ -5836,6 +5888,7 @@ app.get('/api/unlimplay/m3u8-all/tv/:seriesId/:season/:episode', async (req, res
 
     const data = await scrapUnlimplayM3u8Tv(seriesId, season, episode, force);
     await resolveVoeServers(data.idiomas, cookies, base);
+    prewarmAdblockerCache(data.idiomas);
 
     res.json({
       series_id: data.series_id,
@@ -5861,6 +5914,7 @@ app.get('/api/unlimplay/m3u8-all/:movieId', async (req, res) => {
 
     const data = await scrapUnlimplayM3u8(movieId, force);
     await resolveVoeServers(data.idiomas, cookies, base);
+    prewarmAdblockerCache(data.idiomas);
 
     res.json({ movie_id: data.movie_id, fuente: data.fuente, idiomas: formatServidores(data.idiomas, base) });
   } catch (err) {
