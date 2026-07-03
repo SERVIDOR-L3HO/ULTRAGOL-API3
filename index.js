@@ -5264,16 +5264,10 @@ function formatServidores(idiomas, base) {
     info.servidores = (info.servidores || []).map(s => {
       const tipo = s.tipo === 'm3u8_directo' ? 'direct' : 'embed';
       const embedUrl = s.url || null;
-      const url = embedUrl
-        ? `${base}/api/embed/adblocker?url=${encodeURIComponent(embedUrl)}&referer=${encodeURIComponent('https://unlimplay.com/')}`
-        : null;
-      const entry = { nombre: s.nombre, tipo, url };
-      // Si el m3u8 ya está resuelto, incluirlo para uso directo en APK/reproductores externos
-      if (s.m3u8) {
-        entry.m3u8 = s.m3u8;
-        entry.referer = embedUrl; // necesario como header Referer al reproducir
-      }
-      return entry;
+      // url = m3u8 directo si está resuelto, null si no
+      const url = s.m3u8 || null;
+      const referer = url ? embedUrl : null;
+      return { nombre: s.nombre, tipo, url, referer };
     });
     delete info.m3u8; delete info.m3u8_proxied; delete info.proxy_stream;
     delete info.embed_url; delete info.player_url;
