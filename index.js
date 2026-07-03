@@ -5257,17 +5257,17 @@ async function resolveVoeServers(idiomas, cookies, base) {
 }
 
 // Helper: formatea servidores para la respuesta final
-// Siempre devuelve el embed URL original + adblocker_url listo para usar
+// Devuelve url como el proxy adblocker listo para usar
 function formatServidores(idiomas, base) {
   const out = JSON.parse(JSON.stringify(idiomas || {}));
   for (const info of Object.values(out)) {
     info.servidores = (info.servidores || []).map(s => {
       const tipo = s.tipo === 'm3u8_directo' ? 'direct' : 'embed';
       const embedUrl = s.url || null;
-      const adblocker_url = embedUrl
+      const url = embedUrl
         ? `${base}/api/embed/adblocker?url=${encodeURIComponent(embedUrl)}&referer=${encodeURIComponent('https://unlimplay.com/')}`
         : null;
-      return { nombre: s.nombre, tipo, url: embedUrl, adblocker_url };
+      return { nombre: s.nombre, tipo, url };
     });
     delete info.m3u8; delete info.m3u8_proxied; delete info.proxy_stream;
     delete info.embed_url; delete info.player_url;
