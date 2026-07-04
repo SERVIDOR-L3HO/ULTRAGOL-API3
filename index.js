@@ -3306,29 +3306,59 @@ app.get("/hls-canal", async (req, res) => {
     }
   }
 
-  // Para URLs de tvhd2.com canales.php: resolvemos la URL fresca de fubo18 y hacemos
-  // un redirect 302 al cliente. El phone tiene acceso directo a fubo18 (el CDN es público),
-  // pero los servidores de Replit no lo alcanzan por restricciones de red/DNS.
+  // Para URLs de tvhd2.com canales.php: lanzamos múltiples peticiones paralelas
+  // para obtener distintos subdomains del CDN fubo18 y usamos el primero que responda.
+  // Los subdomains de fubo18 cambian cada petición (CDN dinámico), y algunos nodos
+  // son alcanzables desde Replit y otros no. El racing maximiza la probabilidad de éxito.
   if (decodedUrl.includes("tvhd2.com/tv/canales.php")) {
-    try {
-      const pageRes = await axios.get(decodedUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Referer": "https://tvhd2.com/"
-        },
-        timeout: 10000
-      });
+    const tvhd2Headers = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Referer": "https://tvhd2.com/"
+    };
+    const fuboHeaders = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Origin": "https://la18hd.com",
+      "Referer": "https://la18hd.com/"
+    };
+
+    // Función: resolver URL fresca de fubo18 y verificar que es alcanzable
+    const tryFuboNode = async () => {
+      const pageRes = await axios.get(decodedUrl, { headers: tvhd2Headers, timeout: 8000 });
       const m = pageRes.data.toString().match(/var\s+playbackURL\s*=\s*["']([^"']+\.m3u8[^"']*)["']/);
-      if (!m) return res.status(502).send("Stream no disponible en este momento");
-      const freshUrl = m[1];
-      console.log(`[hls-canal] tvhd2 → redirect fubo18: ${freshUrl.substring(0, 80)}`);
-      // Redirect al cliente para que acceda directamente al CDN
-      res.set("Access-Control-Allow-Origin", "*");
-      return res.redirect(302, freshUrl);
-    } catch (e) {
-      console.error("[hls-canal] tvhd2 error:", e.message);
-      return res.status(502).send("Stream no disponible en este momento");
+      if (!m) throw new Error("No playbackURL");
+      const fuboUrl = m[1];
+      // Probar que este nodo del CDN responde
+      const check = await axios.get(fuboUrl, { headers: fuboHeaders, timeout: 6000 });
+      return { fuboUrl, content: check.data, fuboBase: fuboUrl.substring(0, fuboUrl.lastIndexOf("/") + 1) };
+    };
+
+    // Lanzar 4 intentos en paralelo; usar el primero que tenga éxito
+    let winner = null;
+    try {
+      winner = await Promise.any([tryFuboNode(), tryFuboNode(), tryFuboNode(), tryFuboNode()]);
+    } catch (aggErr) {
+      console.error("[hls-canal] tvhd2 racing — todos los nodos fallaron:", aggErr.errors?.map(e=>e.message).join(" | "));
+      return res.status(502).send("Stream no disponible en este momento — todos los nodos CDN fallaron");
     }
+
+    const { fuboUrl, content: fuboContent, fuboBase } = winner;
+    console.log(`[hls-canal] tvhd2 → nodo fubo18 OK: ${fuboUrl.substring(0, 80)}`);
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    let rewritten = fuboContent;
+    rewritten = rewritten.replace(/^((?!#).+\.ts(?:[?&][^\s]*)?)$/gm, (line) => {
+      const abs = line.startsWith("http") ? line : fuboBase + line;
+      return `${baseUrl}/hls-canal-seg?url=${encodeURIComponent(abs)}`;
+    });
+    rewritten = rewritten.replace(/^((?!#)(?!.+\/hls-canal).+\.m3u8[^\s]*)$/gm, (line) => {
+      const abs = line.startsWith("http") ? line : fuboBase + line;
+      return `${baseUrl}/hls-canal?url=${encodeURIComponent(abs)}`;
+    });
+
+    res.set("Content-Type", "application/vnd.apple.mpegurl");
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Cache-Control", "no-cache");
+    return res.send(rewritten);
   }
 
   const isKhala  = decodedUrl.includes("khala.skylivehd.com") || decodedUrl.includes("skylivehd.com") || decodedUrl.includes("zohanayaan.com");
