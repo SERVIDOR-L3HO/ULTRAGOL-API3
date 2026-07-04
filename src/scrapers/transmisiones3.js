@@ -4,9 +4,6 @@ const DIARIES_URL = "https://pltvhd.com/diaries.json";
 const IMG_BASE    = "https://cdn.ftvhd.com";
 const BASE_SITE   = "https://tvtvhd.com";
 
-const m3u8Cache = new Map();
-const CACHE_TTL  = 15 * 60 * 1000;
-
 function tryBase64Decode(str) {
   try {
     const decoded = Buffer.from(str, "base64").toString("utf8");
@@ -37,33 +34,10 @@ function extractStreamName(iframePath) {
   }
 }
 
-async function resolveM3u8(streamName) {
-  if (!streamName) return null;
-
-  const cached = m3u8Cache.get(streamName);
-  if (cached && (Date.now() - cached.ts) < CACHE_TTL) return cached.url;
-
-  try {
-    const res = await axios.get(
-      `https://tvhd2.com/tv/canales.php?stream=${streamName}`,
-      {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Referer": "https://tvhd2.com/"
-        },
-        timeout: 10000
-      }
-    );
-
-    const match = res.data.match(/var\s+playbackURL\s*=\s*["']([^"']+\.m3u8[^"']*)["']/);
-    if (!match) return null;
-
-    const url = match[1];
-    m3u8Cache.set(streamName, { url, ts: Date.now() });
-    return url;
-  } catch {
-    return null;
-  }
+// Devuelve la URL de tvhd2 canales.php para que el proxy siempre la resuelva fresca.
+// No cacheamos la URL de fubo18 porque sus subdominios dinámicos expiran rápido en producción.
+function buildTvhd2Url(streamName) {
+  return `https://tvhd2.com/tv/canales.php?stream=${encodeURIComponent(streamName)}`;
 }
 
 async function resolveWithConcurrency(tasks, limit = 5) {
@@ -115,8 +89,9 @@ async function scrapTransmisiones3() {
         allTasks.push(async () => {
           const streamName = extractStreamName(iframePath);
           if (!streamName) return null;
-          const m3u8 = await resolveM3u8(streamName);
-          if (!m3u8) return null;
+          // Guardamos la URL de tvhd2 en vez de la URL de fubo18.
+          // El proxy /hls-canal la resolverá fresca en cada petición.
+          const m3u8 = buildTvhd2Url(streamName);
           return { titulo, hora, fecha, liga, logoUrl, canal: canalNombre || streamName, m3u8 };
         });
       }

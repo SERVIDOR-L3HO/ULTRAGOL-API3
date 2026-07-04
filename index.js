@@ -3306,6 +3306,31 @@ app.get("/hls-canal", async (req, res) => {
     }
   }
 
+  // Para URLs de tvhd2.com canales.php: resolvemos la URL fresca de fubo18 y hacemos
+  // un redirect 302 al cliente. El phone tiene acceso directo a fubo18 (el CDN es público),
+  // pero los servidores de Replit no lo alcanzan por restricciones de red/DNS.
+  if (decodedUrl.includes("tvhd2.com/tv/canales.php")) {
+    try {
+      const pageRes = await axios.get(decodedUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Referer": "https://tvhd2.com/"
+        },
+        timeout: 10000
+      });
+      const m = pageRes.data.toString().match(/var\s+playbackURL\s*=\s*["']([^"']+\.m3u8[^"']*)["']/);
+      if (!m) return res.status(502).send("Stream no disponible en este momento");
+      const freshUrl = m[1];
+      console.log(`[hls-canal] tvhd2 → redirect fubo18: ${freshUrl.substring(0, 80)}`);
+      // Redirect al cliente para que acceda directamente al CDN
+      res.set("Access-Control-Allow-Origin", "*");
+      return res.redirect(302, freshUrl);
+    } catch (e) {
+      console.error("[hls-canal] tvhd2 error:", e.message);
+      return res.status(502).send("Stream no disponible en este momento");
+    }
+  }
+
   const isKhala  = decodedUrl.includes("khala.skylivehd.com") || decodedUrl.includes("skylivehd.com") || decodedUrl.includes("zohanayaan.com");
   const isFubo   = decodedUrl.includes("fubo18.com");
   // Referer personalizado pasado por el player (ej. unlimplay.com, vimeos.net, etc.)
@@ -3892,7 +3917,8 @@ function initPlayer(src){
     hls=new Hls({
       maxBufferLength:25,maxMaxBufferLength:60,
       liveSyncDurationCount:3,liveMaxLatencyDurationCount:6,
-      manifestLoadingMaxRetry:4,levelLoadingMaxRetry:4,fragLoadingMaxRetry:4,
+      manifestLoadingMaxRetry:1,levelLoadingMaxRetry:1,fragLoadingMaxRetry:2,
+      manifestLoadingTimeOut:12000,levelLoadingTimeOut:12000,fragLoadingTimeOut:20000,
       enableWorker:true,lowLatencyMode:false,
       xhrSetup:function(xhr){xhr.withCredentials=false;}
     });
