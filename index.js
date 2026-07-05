@@ -5766,40 +5766,58 @@ app.get('/api/embed/adblocker', async (req, res) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${title}</title>
+<title>UltraGol</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0a0a;color:#fff;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:0}
-.ring{width:56px;height:56px;border:3px solid #1a1a2e;border-top-color:#00d4ff;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:22px}
+body{background:#000;color:#fff;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:0;overflow:hidden}
+.logo-wrap{margin-bottom:32px;animation:fadeIn .6s ease}
+.logo-wrap img{width:220px;max-width:80vw;filter:drop-shadow(0 0 18px rgba(255,255,255,0.15))}
+.spinner-ring{width:48px;height:48px;border:3px solid rgba(255,255,255,0.1);border-top-color:#fff;border-radius:50%;animation:spin .75s linear infinite;margin-bottom:20px}
 @keyframes spin{to{transform:rotate(360deg)}}
-h3{font-size:15px;font-weight:600;margin-bottom:6px;letter-spacing:.3px}
-small{color:#444;font-size:11px;max-width:280px;text-align:center;word-break:break-all}
-#status{color:#00d4ff;font-size:12px;margin-top:14px;min-height:18px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes progress{0%{width:8%}40%{width:55%}70%{width:78%}90%{width:90%}100%{width:96%}}
+@keyframes progressFull{to{width:100%}}
+h3{font-size:16px;font-weight:600;letter-spacing:.5px;margin-bottom:6px;text-align:center}
+#status{color:rgba(255,255,255,0.5);font-size:12px;margin-top:10px;min-height:18px;text-align:center;max-width:280px}
+.bar-track{width:240px;max-width:75vw;height:3px;background:rgba(255,255,255,0.12);border-radius:2px;margin-top:22px;overflow:hidden}
+.bar-fill{height:100%;background:#fff;border-radius:2px;width:8%;animation:progress 12s ease-out forwards}
+.bar-fill.done{animation:progressFull .3s ease forwards}
 </style>
 </head>
 <body>
-<div class="ring"></div>
-<h3>Preparando reproductor...</h3>
-<small>${url.substring(0,70)}</small>
-<div id="status">Conectando...</div>
+<div class="logo-wrap">
+  <img src="/public/ultragol-logo.png" alt="UltraGol">
+</div>
+<div class="spinner-ring" id="spinner"></div>
+<h3>Cargando en UltraGol...</h3>
+<div class="bar-track"><div class="bar-fill" id="bar"></div></div>
+<div id="status">Conectando con el servidor...</div>
 <script>
 var _url=${JSON.stringify(url)},_ref=${JSON.stringify(ref)},_title=${JSON.stringify(title)},_ck=${JSON.stringify(cookies||'')};
+var st=document.getElementById('status'),bar=document.getElementById('bar'),sp=document.getElementById('spinner');
 (function poll(){
   fetch('/api/embed/adblocker-resolve?url='+encodeURIComponent(_url)+'&referer='+encodeURIComponent(_ref)+(_ck?'&cookies='+encodeURIComponent(_ck):''))
     .then(function(r){return r.json();})
     .then(function(d){
       if(d.ok && d.m3u8){
-        document.getElementById('status').textContent='✅ Cargando...';
-        window.location.replace('/api/embed/adblocker-play?m3u8='+encodeURIComponent(d.m3u8)+'&referer='+encodeURIComponent(_url)+'&titulo='+encodeURIComponent(_title));
+        bar.classList.add('done');
+        sp.style.borderTopColor='#4ade80';
+        st.textContent='Iniciando reproducción...';
+        st.style.color='rgba(74,222,128,0.8)';
+        setTimeout(function(){
+          window.location.replace('/api/embed/adblocker-play?m3u8='+encodeURIComponent(d.m3u8)+'&referer='+encodeURIComponent(_url)+'&titulo='+encodeURIComponent(_title));
+        },200);
       } else if(d.pending){
-        document.getElementById('status').textContent='⏳ '+(d.msg||'Extrayendo enlace...');
+        st.textContent=d.msg||'Extrayendo enlace...';
         setTimeout(poll,500);
       } else {
-        document.getElementById('status').textContent='❌ '+(d.error||'No se pudo extraer');
-        document.getElementById('status').style.color='#ff4444';
+        bar.style.background='#ef4444';bar.classList.add('done');
+        sp.style.borderTopColor='#ef4444';
+        st.textContent=d.error||'No se pudo extraer el enlace';
+        st.style.color='rgba(239,68,68,0.9)';
       }
     })
-    .catch(function(){document.getElementById('status').textContent='⚠️ Reintentando...';setTimeout(poll,1000);});
+    .catch(function(){st.textContent='Reintentando...';setTimeout(poll,1000);});
 })();
 </script>
 </body>
