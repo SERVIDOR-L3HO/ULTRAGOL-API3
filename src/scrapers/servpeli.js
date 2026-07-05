@@ -447,6 +447,15 @@ async function proxyServpeli(req, res) {
   }
 }
 
+// Detecta si una URL pertenece al CDN de VOE (vimeos.net, vodstream, etc.)
+function isVoeCdn(url) {
+  try {
+    const h = new URL(url).hostname;
+    return h.endsWith('vimeos.net') || h.endsWith('voeunblock.com') ||
+           h.endsWith('vodstream.xyz') || h.endsWith('voe.sx');
+  } catch { return false; }
+}
+
 async function proxyServpeliStream(req, res) {
   const rawUrl = req.query.url;
   if (!rawUrl) {
@@ -461,9 +470,24 @@ async function proxyServpeliStream(req, res) {
   }
 
   try {
-    const referer = targetUrl.startsWith('https://unlimplay.com') ? TARGET + '/' : targetUrl;
+    // VOE CDN requiere Referer y Origin de voe.sx, no del sitio origen
+    let referer;
+    if (isVoeCdn(targetUrl)) {
+      referer = 'https://voe.sx/';
+    } else if (targetUrl.startsWith('https://unlimplay.com')) {
+      referer = TARGET + '/';
+    } else {
+      referer = req.query.referer ? decodeURIComponent(req.query.referer) : targetUrl;
+    }
+
+    const baseHeaders = buildRequestHeaders(req, referer);
+    if (isVoeCdn(targetUrl)) {
+      baseHeaders['Origin'] = 'https://voe.sx';
+      baseHeaders['Referer'] = 'https://voe.sx/';
+    }
+
     const response = await axios.get(targetUrl, {
-      headers: buildRequestHeaders(req, referer),
+      headers: baseHeaders,
       responseType: 'arraybuffer',
       timeout: 30000,
       maxRedirects: 5,

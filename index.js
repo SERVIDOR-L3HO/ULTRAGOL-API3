@@ -5732,6 +5732,14 @@ app.get('/api/embed/adblocker', async (req, res) => {
     return res.redirect(`/api/embed/adblocker-play?m3u8=${encodeURIComponent(hot.m3u8)}&referer=${encodeURIComponent(url)}&titulo=${encodeURIComponent(title)}`);
   }
 
+  // — Ruta directa: si la URL ya es un m3u8 (CDN, vimeos.net, etc.) → player sin extracción —
+  if (/\.m3u8(\?|$)/i.test(url)) {
+    console.log(`[adblocker] URL ya es m3u8 directo, saltando extracción: ${url.substring(0,80)}`);
+    return res.redirect(302,
+      `/api/embed/adblocker-play?m3u8=${encodeURIComponent(url)}&referer=${encodeURIComponent(ref)}&titulo=${encodeURIComponent(title)}`
+    );
+  }
+
   // — Ruta normal: iniciar extracción inmediatamente y mostrar spinner —
   // (La extracción empieza aquí, no al primer poll, ganando 1-2 segundos)
   if (!abResolveCache.has(cacheKey)) {
