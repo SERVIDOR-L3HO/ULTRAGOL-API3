@@ -1170,15 +1170,7 @@ async function extractStreamtape(embedUrl, referer) {
   }
 }
 
-async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
-  const cacheKey = `unlimplay_${movieId}`;
-  _register(cacheKey, 'movie', [movieId]);
-  if (!forceRefresh) {
-    const cached = unlimplayCache.get(cacheKey);
-    if (cached && (Date.now() - cached.ts) < UNLIMPLAY_TTL) return cached.data;
-  }
-
-  // Paso 1 + 2 en paralelo: PHP API y HTML embed al mismo tiempo
+async function _fetchUnlimplayMovieData(movieId) {
   const phpUrl = `${TARGET}/play.php/embed/movie/${movieId}?api=1&t=${Date.now()}`;
   const fEmbedUrl = `${TARGET}/f/embed/movie/${movieId}`;
 
@@ -1208,15 +1200,12 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
     console.warn(`[unlimplay] PHP API falló (no crítico): ${phpResult.reason?.message}`);
   }
 
-  if (htmlResult.status === 'rejected') {
-    throw htmlResult.reason;
-  }
+  if (htmlResult.status === 'rejected') throw htmlResult.reason;
 
   const html = htmlResult.value.data;
   const embeds = extractEmbedsFromHtml(html);
 
   if (!embeds) {
-    // Sin EMBEDS pero PHP dio embed_urls — devolver esos
     if (phpData && phpData.data && phpData.data.length > 0) {
       const result = {
         movie_id: movieId,
@@ -1231,13 +1220,11 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
           servidores: [{ nombre: 'embed', url: item.embed_url, tipo: 'embed' }]
         };
       }
-      unlimplayCache.set(cacheKey, { data: result, ts: Date.now() });
       return result;
     }
     throw new Error('No se encontró EMBEDS en la página y PHP API no retornó datos');
   }
 
-  // Construir resultado organizado
   const result = {
     movie_id: movieId,
     fuente: 'unlimplay.com',
@@ -1248,7 +1235,6 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
 
   for (const [idioma, servidores] of Object.entries(embeds)) {
     result.idiomas[idioma] = { servidores: [] };
-
     for (const [nombre, url] of Object.entries(servidores)) {
       if (typeof url !== 'string') continue;
       if (nombre.endsWith('__tipo')) continue;
@@ -1257,65 +1243,54 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
       const tipoHint = servidores[`${nombre}__tipo`] || null;
       const tipo = isM3u8 ? 'm3u8_directo' : (tipoHint || 'embed');
       const entry = { nombre, url, tipo };
-      if (isM3u8) {
-        entry.m3u8_proxied = `/servpeli-stream?url=${encodeURIComponent(url)}`;
-      }
+      if (isM3u8) entry.m3u8_proxied = `/servpeli-stream?url=${encodeURIComponent(url)}`;
       result.idiomas[idioma].servidores.push(entry);
     }
-
     const directEntry = result.idiomas[idioma].servidores.find(s => s.nombre === 'direct');
     if (directEntry) {
       result.idiomas[idioma].m3u8 = directEntry.url;
       result.idiomas[idioma].m3u8_proxied = directEntry.m3u8_proxied;
     }
     const proxyEntry = result.idiomas[idioma].servidores.find(s => s.nombre === 'proxy');
-    if (proxyEntry) {
-      result.idiomas[idioma].proxy_stream = proxyEntry.url;
-    }
+    if (proxyEntry) result.idiomas[idioma].proxy_stream = proxyEntry.url;
   }
 
-  // Agregar embed_urls del PHP API si están disponibles
   if (phpData && phpData.data) {
     for (const item of phpData.data) {
-      if (result.idiomas[item.language]) {
-        result.idiomas[item.language].embed_url = item.embed_url;
-      }
+      if (result.idiomas[item.language]) result.idiomas[item.language].embed_url = item.embed_url;
     }
   }
 
-  // Resolver m3u8 para todos los servidores de todos los idiomas en paralelo
-  const resolveServer = async (servidor) => {
-    if (servidor.tipo === 'm3u8_directo') return servidor;
-    try {
-      const extracted = await extractM3u8FromEmbed(servidor.url, `${TARGET}/`);
-      if (extracted.ok) {
-        return { ...servidor, m3u8: extracted.m3u8, m3u8_proxied: extracted.m3u8_proxied, tipo: 'm3u8_directo' };
-      }
-    } catch {}
-    return servidor;
-  };
+  return result;
+}
 
-  await Promise.all(
-    Object.keys(result.idiomas).map(async (idioma) => {
-      result.idiomas[idioma].servidores = await Promise.all(
-        result.idiomas[idioma].servidores.map(resolveServer)
-      );
-    })
-  );
+async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
+  const cacheKey = `unlimplay_${movieId}`;
+  _register(cacheKey, 'movie', [movieId]);
 
+  const cached = unlimplayCache.get(cacheKey);
+  const isExpired = !cached || (Date.now() - cached.ts) >= UNLIMPLAY_TTL;
+
+  // Stale-while-revalidate: si hay datos en caché, devuélvelos de inmediato
+  // y refresca en segundo plano si están expirados
+  if (cached && !forceRefresh) {
+    if (isExpired) {
+      console.log(`[unlimplay] Caché expirado para ${movieId}, refrescando en background...`);
+      _fetchUnlimplayMovieData(movieId)
+        .then(result => unlimplayCache.set(cacheKey, { data: result, ts: Date.now() }))
+        .catch(e => console.warn(`[unlimplay] Background refresh falló para ${movieId}: ${e.message}`));
+    }
+    return cached.data;
+  }
+
+  // Sin caché: esperar la primera carga
+  console.log(`[unlimplay] Primera carga para movie ${movieId}...`);
+  const result = await _fetchUnlimplayMovieData(movieId);
   unlimplayCache.set(cacheKey, { data: result, ts: Date.now() });
   return result;
 }
 
-async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = false) {
-  const cacheKey = `unlimplay_tv_${seriesId}_${season}_${episode}`;
-  _register(cacheKey, 'tv', [seriesId, season, episode]);
-  if (!forceRefresh) {
-    const cached = unlimplayCache.get(cacheKey);
-    if (cached && (Date.now() - cached.ts) < UNLIMPLAY_TTL) return cached.data;
-  }
-
-  // Paso 1 + 2 en paralelo: PHP API y HTML embed al mismo tiempo
+async function _fetchUnlimplayTvData(seriesId, season, episode) {
   const phpUrl = `${TARGET}/play.php/embed/tv/${seriesId}/${season}/${episode}?api=1&t=${Date.now()}`;
   const fEmbedUrl = `${TARGET}/f/embed/tv/${seriesId}/${season}/${episode}`;
 
@@ -1345,9 +1320,7 @@ async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = fa
     console.warn(`[unlimplay/tv] PHP API falló (no crítico): ${phpResult.reason?.message}`);
   }
 
-  if (htmlResult.status === 'rejected') {
-    throw htmlResult.reason;
-  }
+  if (htmlResult.status === 'rejected') throw htmlResult.reason;
 
   const html = htmlResult.value.data;
   const embeds = extractEmbedsFromHtml(html);
@@ -1370,7 +1343,6 @@ async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = fa
           servidores: [{ nombre: 'embed', url: item.embed_url, tipo: 'embed' }]
         };
       }
-      unlimplayCache.set(cacheKey, { data: result, ts: Date.now() });
       return result;
     }
     throw new Error('No se encontró EMBEDS en la página y PHP API no retornó datos');
@@ -1389,7 +1361,6 @@ async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = fa
 
   for (const [idioma, servidores] of Object.entries(embeds)) {
     result.idiomas[idioma] = { servidores: [] };
-
     for (const [nombre, url] of Object.entries(servidores)) {
       if (typeof url !== 'string') continue;
       if (nombre.endsWith('__tipo')) continue;
@@ -1398,12 +1369,9 @@ async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = fa
       const tipoHint = servidores[`${nombre}__tipo`] || null;
       const tipo = isM3u8 ? 'm3u8_directo' : (tipoHint || 'embed');
       const entry = { nombre, url, tipo };
-      if (isM3u8) {
-        entry.m3u8_proxied = `/servpeli-stream?url=${encodeURIComponent(url)}`;
-      }
+      if (isM3u8) entry.m3u8_proxied = `/servpeli-stream?url=${encodeURIComponent(url)}`;
       result.idiomas[idioma].servidores.push(entry);
     }
-
     const directEntry = result.idiomas[idioma].servidores.find(s => s.nombre === 'direct');
     if (directEntry) {
       result.idiomas[idioma].m3u8 = directEntry.url;
@@ -1411,35 +1379,34 @@ async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = fa
     }
   }
 
-  // Agregar embed_urls del PHP API si están disponibles
   if (phpData && phpData.data) {
     for (const item of phpData.data) {
-      if (result.idiomas[item.language]) {
-        result.idiomas[item.language].embed_url = item.embed_url;
-      }
+      if (result.idiomas[item.language]) result.idiomas[item.language].embed_url = item.embed_url;
     }
   }
 
-  // Resolver m3u8 para todos los servidores de todos los idiomas en paralelo
-  const resolveServer = async (servidor) => {
-    if (servidor.tipo === 'm3u8_directo') return servidor;
-    try {
-      const extracted = await extractM3u8FromEmbed(servidor.url, `${TARGET}/`);
-      if (extracted.ok) {
-        return { ...servidor, m3u8: extracted.m3u8, m3u8_proxied: extracted.m3u8_proxied, tipo: 'm3u8_directo' };
-      }
-    } catch {}
-    return servidor;
-  };
+  return result;
+}
 
-  await Promise.all(
-    Object.keys(result.idiomas).map(async (idioma) => {
-      result.idiomas[idioma].servidores = await Promise.all(
-        result.idiomas[idioma].servidores.map(resolveServer)
-      );
-    })
-  );
+async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = false) {
+  const cacheKey = `unlimplay_tv_${seriesId}_${season}_${episode}`;
+  _register(cacheKey, 'tv', [seriesId, season, episode]);
 
+  const cached = unlimplayCache.get(cacheKey);
+  const isExpired = !cached || (Date.now() - cached.ts) >= UNLIMPLAY_TTL;
+
+  if (cached && !forceRefresh) {
+    if (isExpired) {
+      console.log(`[unlimplay/tv] Caché expirado para ${seriesId}/${season}/${episode}, refrescando en background...`);
+      _fetchUnlimplayTvData(seriesId, season, episode)
+        .then(result => unlimplayCache.set(cacheKey, { data: result, ts: Date.now() }))
+        .catch(e => console.warn(`[unlimplay/tv] Background refresh falló: ${e.message}`));
+    }
+    return cached.data;
+  }
+
+  console.log(`[unlimplay/tv] Primera carga para ${seriesId}/${season}/${episode}...`);
+  const result = await _fetchUnlimplayTvData(seriesId, season, episode);
   unlimplayCache.set(cacheKey, { data: result, ts: Date.now() });
   return result;
 }
