@@ -5887,7 +5887,7 @@ app.get('/api/embed/adblocker-resolve', async (req, res) => {
 });
 
 // GET /api/embed/adblocker-play?m3u8=...&referer=...&titulo=...
-// Player HLS limpio que reproduce el m3u8 via proxy (sin ads, sin el player original)
+// Player HLS cinematográfico con controles custom y branding UltraGol
 app.get('/api/embed/adblocker-play', async (req, res) => {
   const { m3u8, referer, titulo } = req.query;
   if (!m3u8) return res.status(400).send('?m3u8= requerido');
@@ -5895,7 +5895,6 @@ app.get('/api/embed/adblocker-play', async (req, res) => {
   const base = `${req.protocol}://${req.get('host')}`;
   const ref = referer || 'https://unlimplay.com/';
   const title = titulo ? titulo.replace(/</g,'&lt;').replace(/>/g,'&gt;') : 'Video';
-  // Pasar el m3u8 por nuestro proxy de stream (añade Referer correcto al CDN)
   const proxiedM3u8 = `${base}/servpeli-stream?url=${encodeURIComponent(m3u8)}&referer=${encodeURIComponent(ref)}`;
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -5905,32 +5904,410 @@ app.get('/api/embed/adblocker-play', async (req, res) => {
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${title}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>${title} · UltraGol</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh}
-video{width:100%;height:100vh;background:#000;display:block}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{--ctrl-h:56px;--accent:#e50914;--accent2:#ff6b35}
+html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;user-select:none}
+
+/* ── Wrapper ── */
+#wrap{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000}
+#v{width:100%;height:100%;object-fit:contain;display:block;cursor:pointer}
+
+/* ── Gradient overlays ── */
+.overlay-top{position:absolute;top:0;left:0;right:0;height:110px;background:linear-gradient(to bottom,rgba(0,0,0,.85) 0%,transparent 100%);pointer-events:none;opacity:0;transition:opacity .3s}
+.overlay-bot{position:absolute;bottom:0;left:0;right:0;height:150px;background:linear-gradient(to top,rgba(0,0,0,.92) 0%,transparent 100%);pointer-events:none;opacity:0;transition:opacity .3s}
+#wrap.active .overlay-top,#wrap.active .overlay-bot{opacity:1}
+
+/* ── Title bar ── */
+#titlebar{position:absolute;top:0;left:0;right:0;padding:14px 18px 0;display:flex;align-items:center;gap:10px;opacity:0;transition:opacity .3s;z-index:10}
+#wrap.active #titlebar{opacity:1}
+#logo-small{height:22px;filter:brightness(0) invert(1) drop-shadow(0 1px 4px rgba(0,0,0,.8))}
+#titletxt{font-size:14px;font-weight:600;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.9);letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 100px)}
+
+/* ── Controls ── */
+#controls{position:absolute;bottom:0;left:0;right:0;padding:0 16px 14px;opacity:0;transition:opacity .3s;z-index:10}
+#wrap.active #controls{opacity:1}
+
+/* Progress bar */
+#prog-wrap{position:relative;height:18px;display:flex;align-items:center;cursor:pointer;margin-bottom:6px}
+#prog-bg{position:absolute;left:0;right:0;height:3px;background:rgba(255,255,255,.25);border-radius:2px;transition:height .15s}
+#prog-buf{position:absolute;left:0;height:3px;background:rgba(255,255,255,.35);border-radius:2px;width:0;transition:height .15s}
+#prog-fill{position:absolute;left:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;width:0;transition:height .15s}
+#prog-thumb{position:absolute;width:13px;height:13px;background:#fff;border-radius:50%;transform:translateX(-50%) scale(0);transition:transform .15s;box-shadow:0 0 4px rgba(0,0,0,.7);top:50%;margin-top:-6.5px;left:0}
+#prog-wrap:hover #prog-bg,#prog-wrap:hover #prog-buf,#prog-wrap:hover #prog-fill{height:5px}
+#prog-wrap:hover #prog-thumb{transform:translateX(-50%) scale(1)}
+
+/* Buttons row */
+#btnrow{display:flex;align-items:center;gap:4px}
+.btn{background:none;border:none;color:#fff;cursor:pointer;padding:6px 8px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .1s;flex-shrink:0}
+.btn:active{transform:scale(.88)}
+.btn:hover{background:rgba(255,255,255,.12)}
+.btn svg{display:block;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))}
+#spacer{flex:1}
+#time-disp{font-size:12px;color:rgba(255,255,255,.85);letter-spacing:.5px;white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,.9);padding:0 4px}
+
+/* Volume slider */
+#vol-wrap{display:flex;align-items:center;gap:6px}
+#vol-slider{-webkit-appearance:none;appearance:none;width:64px;height:3px;background:rgba(255,255,255,.3);border-radius:2px;outline:none;cursor:pointer;accent-color:#fff}
+#vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 0 3px rgba(0,0,0,.7)}
+
+/* Quality badge */
+#qual-btn{font-size:11px;font-weight:700;letter-spacing:.5px;padding:4px 7px;border:1px solid rgba(255,255,255,.35);border-radius:4px;color:#fff;background:none;cursor:pointer;text-shadow:0 1px 2px rgba(0,0,0,.9)}
+
+/* ── Spinner & Buffering ── */
+#spinner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:52px;height:52px;pointer-events:none;opacity:0;transition:opacity .25s;z-index:5}
+#spinner.show{opacity:1}
+#spinner svg{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Center tap / play-pause feedback ── */
+#tap-fx{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.5);opacity:0;pointer-events:none;z-index:8;transition:none}
+#tap-fx.pop{animation:tapfx .4s ease-out forwards}
+@keyframes tapfx{0%{transform:translate(-50%,-50%) scale(.5);opacity:.9}100%{transform:translate(-50%,-50%) scale(1.3);opacity:0}}
+
+/* ── Error overlay ── */
+#err{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.8);gap:12px;z-index:20}
+#err.show{display:flex}
+#err p{color:#fff;font-size:14px;text-align:center;max-width:280px;line-height:1.5;opacity:.85}
+#err button{background:var(--accent);color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.3px}
+
+/* ── Fullscreen tweaks ── */
+:fullscreen #wrap,:fullscreen video{width:100vw;height:100vh}
+:-webkit-full-screen #wrap,:-webkit-full-screen video{width:100vw;height:100vh}
 </style>
 </head>
 <body>
-<video id="v" controls autoplay playsinline></video>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+<div id="wrap">
+  <video id="v" playsinline webkit-playsinline></video>
+
+  <div class="overlay-top"></div>
+  <div class="overlay-bot"></div>
+
+  <!-- Title -->
+  <div id="titlebar">
+    <img id="logo-small" src="/public/ultragol-logo.png" alt="UltraGol">
+    <span id="titletxt">${title}</span>
+  </div>
+
+  <!-- Spinner -->
+  <div id="spinner">
+    <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+      <circle cx="26" cy="26" r="22" stroke="rgba(255,255,255,.15)" stroke-width="4"/>
+      <path d="M26 4 A22 22 0 0 1 48 26" stroke="white" stroke-width="4" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- Tap FX -->
+  <div id="tap-fx">
+    <svg id="tap-icon" width="64" height="64" viewBox="0 0 64 64" fill="white" opacity=".9"></svg>
+  </div>
+
+  <!-- Controls -->
+  <div id="controls">
+    <!-- Progress -->
+    <div id="prog-wrap">
+      <div id="prog-bg"></div>
+      <div id="prog-buf"></div>
+      <div id="prog-fill"></div>
+      <div id="prog-thumb"></div>
+    </div>
+    <!-- Buttons -->
+    <div id="btnrow">
+      <!-- Play/Pause -->
+      <button class="btn" id="btn-play" title="Play/Pausa">
+        <svg id="ico-play" width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+        <svg id="ico-pause" width="26" height="26" viewBox="0 0 24 24" fill="white" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+      </button>
+      <!-- Skip back 10 -->
+      <button class="btn" id="btn-back" title="-10s">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="14" font-size="6" text-anchor="middle" fill="white" font-weight="bold">10</text></svg>
+      </button>
+      <!-- Skip forward 10 -->
+      <button class="btn" id="btn-fwd" title="+10s">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="12" y="14" font-size="6" text-anchor="middle" fill="white" font-weight="bold">10</text></svg>
+      </button>
+      <!-- Time -->
+      <span id="time-disp">0:00 / 0:00</span>
+      <div id="spacer"></div>
+      <!-- Volume -->
+      <div id="vol-wrap">
+        <button class="btn" id="btn-mute" title="Mute">
+          <svg id="ico-vol" width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+          <svg id="ico-mute" width="22" height="22" viewBox="0 0 24 24" fill="white" style="display:none"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+        </button>
+        <input type="range" id="vol-slider" min="0" max="1" step="0.02" value="1">
+      </div>
+      <!-- Quality -->
+      <button class="btn" id="qual-btn" title="Calidad" style="display:none">AUTO</button>
+      <!-- Fullscreen -->
+      <button class="btn" id="btn-fs" title="Pantalla completa">
+        <svg id="ico-fs" width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+        <svg id="ico-exit" width="22" height="22" viewBox="0 0 24 24" fill="white" style="display:none"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Error overlay -->
+  <div id="err">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="#e50914"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+    <p id="err-msg">Error al cargar el video</p>
+    <button onclick="location.reload()">Reintentar</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
 <script>
-var video = document.getElementById('v');
-var src   = ${JSON.stringify(proxiedM3u8)};
-if (Hls.isSupported()) {
-  var hls = new Hls({ maxBufferLength:30, enableWorker:true });
-  hls.loadSource(src);
-  hls.attachMedia(video);
-  hls.on(Hls.Events.MANIFEST_PARSED, function(){ video.play().catch(function(){}); });
-  hls.on(Hls.Events.ERROR, function(e,d){
-    if(d.fatal){ console.error('HLS fatal:', d.type, d.details); }
-  });
-} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-  video.src = src;
-  video.addEventListener('loadedmetadata', function(){ video.play().catch(function(){}); });
+(function(){
+var SRC   = ${JSON.stringify(proxiedM3u8)};
+var TITLE = ${JSON.stringify(title)};
+
+var wrap    = document.getElementById('wrap');
+var video   = document.getElementById('v');
+var spinner = document.getElementById('spinner');
+var errEl   = document.getElementById('err');
+var errMsg  = document.getElementById('err-msg');
+var tapFx   = document.getElementById('tap-fx');
+var tapIcon = document.getElementById('tap-icon');
+
+var btnPlay  = document.getElementById('btn-play');
+var icoPlay  = document.getElementById('ico-play');
+var icoPause = document.getElementById('ico-pause');
+var btnBack  = document.getElementById('btn-back');
+var btnFwd   = document.getElementById('btn-fwd');
+var timeDsp  = document.getElementById('time-disp');
+var btnMute  = document.getElementById('btn-mute');
+var icoVol   = document.getElementById('ico-vol');
+var icoMute  = document.getElementById('ico-mute');
+var volSlide = document.getElementById('vol-slider');
+var btnFs    = document.getElementById('btn-fs');
+var icoFs    = document.getElementById('ico-fs');
+var icoExit  = document.getElementById('ico-exit');
+var qualBtn  = document.getElementById('qual-btn');
+
+var progWrap  = document.getElementById('prog-wrap');
+var progFill  = document.getElementById('prog-fill');
+var progBuf   = document.getElementById('prog-buf');
+var progThumb = document.getElementById('prog-thumb');
+
+var hideTimer, isScrubbing = false, wasPlaying = false;
+var hls;
+
+// ── HLS init ──────────────────────────────────────────────────────────────────
+function initHls() {
+  spinner.classList.add('show');
+  if (Hls.isSupported()) {
+    hls = new Hls({
+      maxBufferLength: 40,
+      maxMaxBufferLength: 120,
+      enableWorker: true,
+      lowLatencyMode: false,
+      startLevel: -1,
+    });
+    hls.loadSource(SRC);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, function(e, data) {
+      video.play().catch(function(){});
+      if (data.levels && data.levels.length > 1) {
+        qualBtn.style.display = '';
+        updateQualBtn();
+      }
+    });
+    hls.on(Hls.Events.LEVEL_SWITCHED, function(){ updateQualBtn(); });
+    hls.on(Hls.Events.ERROR, function(e, d) {
+      if (d.fatal) {
+        if (d.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          hls.startLoad();
+        } else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          hls.recoverMediaError();
+        } else {
+          showError(d.details || 'Error fatal HLS');
+        }
+      }
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = SRC;
+    video.addEventListener('loadedmetadata', function(){ video.play().catch(function(){}); });
+  } else {
+    showError('Tu navegador no soporta HLS');
+  }
 }
+
+function updateQualBtn() {
+  if (!hls) return;
+  var lvl = hls.currentLevel;
+  if (lvl === -1) { qualBtn.textContent = 'AUTO'; return; }
+  var l = hls.levels[lvl];
+  if (l && l.height) qualBtn.textContent = l.height + 'p';
+  else qualBtn.textContent = 'AUTO';
+}
+
+// Quality cycle
+qualBtn.addEventListener('click', function(e) {
+  e.stopPropagation();
+  if (!hls || !hls.levels) return;
+  var lvls = hls.levels;
+  var cur = hls.currentLevel;
+  if (cur === -1) { hls.currentLevel = 0; }
+  else if (cur >= lvls.length - 1) { hls.currentLevel = -1; }
+  else { hls.currentLevel = cur + 1; }
+  updateQualBtn();
+  showCtrl();
+});
+
+// ── Controls visibility ───────────────────────────────────────────────────────
+function showCtrl() {
+  wrap.classList.add('active');
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(function(){
+    if (!video.paused) wrap.classList.remove('active');
+  }, 3500);
+}
+function toggleCtrl() { wrap.classList.contains('active') ? wrap.classList.remove('active') : showCtrl(); }
+
+// ── Time formatting ───────────────────────────────────────────────────────────
+function fmt(s) {
+  s = Math.floor(s||0);
+  var h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  if (h) return h+':'+pad(m)+':'+pad(sec);
+  return m+':'+pad(sec);
+}
+function pad(n){ return n<10?'0'+n:n; }
+
+// ── Progress & buffer ─────────────────────────────────────────────────────────
+video.addEventListener('timeupdate', function(){
+  if (isScrubbing) return;
+  var pct = video.duration ? video.currentTime/video.duration*100 : 0;
+  progFill.style.width = pct+'%';
+  progThumb.style.left = pct+'%';
+  timeDsp.textContent = fmt(video.currentTime)+' / '+fmt(video.duration);
+});
+video.addEventListener('progress', function(){
+  if (!video.duration) return;
+  var buf = 0;
+  for (var i=0;i<video.buffered.length;i++) {
+    if (video.buffered.start(i) <= video.currentTime) buf = video.buffered.end(i);
+  }
+  progBuf.style.width = (buf/video.duration*100)+'%';
+});
+
+// Scrub
+function scrubAt(clientX) {
+  var r = progWrap.getBoundingClientRect();
+  var pct = Math.max(0,Math.min(1,(clientX-r.left)/r.width));
+  progFill.style.width = (pct*100)+'%';
+  progThumb.style.left = (pct*100)+'%';
+  if (video.duration) video.currentTime = pct * video.duration;
+}
+progWrap.addEventListener('mousedown', function(e){ isScrubbing=true; wasPlaying=!video.paused; video.pause(); scrubAt(e.clientX); });
+document.addEventListener('mousemove', function(e){ if(isScrubbing) scrubAt(e.clientX); });
+document.addEventListener('mouseup', function(){ if(isScrubbing){ isScrubbing=false; if(wasPlaying) video.play(); } });
+progWrap.addEventListener('touchstart', function(e){ isScrubbing=true; wasPlaying=!video.paused; video.pause(); scrubAt(e.touches[0].clientX); },{passive:true});
+document.addEventListener('touchmove', function(e){ if(isScrubbing) scrubAt(e.touches[0].clientX); },{passive:true});
+document.addEventListener('touchend', function(){ if(isScrubbing){ isScrubbing=false; if(wasPlaying) video.play(); } });
+
+// ── Play / Pause ──────────────────────────────────────────────────────────────
+function tapIcon_set(isPlay) {
+  tapIcon.innerHTML = isPlay
+    ? '<path d="M8 5v14l11-7z"/>'
+    : '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+}
+function playPop(isPlay) {
+  tapIcon_set(isPlay);
+  tapFx.classList.remove('pop');
+  void tapFx.offsetWidth;
+  tapFx.classList.add('pop');
+}
+function togglePlay() {
+  if (video.paused) { video.play(); playPop(true); }
+  else { video.pause(); playPop(false); }
+}
+video.addEventListener('play',  function(){ icoPlay.style.display='none'; icoPause.style.display=''; showCtrl(); });
+video.addEventListener('pause', function(){ icoPlay.style.display=''; icoPause.style.display='none'; showCtrl(); });
+btnPlay.addEventListener('click', function(e){ e.stopPropagation(); togglePlay(); });
+
+// ── Buffering spinner ─────────────────────────────────────────────────────────
+video.addEventListener('waiting',  function(){ spinner.classList.add('show'); });
+video.addEventListener('playing',  function(){ spinner.classList.remove('show'); });
+video.addEventListener('canplay',  function(){ spinner.classList.remove('show'); });
+
+// ── Skip ─────────────────────────────────────────────────────────────────────
+btnBack.addEventListener('click', function(e){ e.stopPropagation(); video.currentTime=Math.max(0,video.currentTime-10); showCtrl(); });
+btnFwd.addEventListener('click',  function(e){ e.stopPropagation(); video.currentTime=Math.min(video.duration||Infinity,video.currentTime+10); showCtrl(); });
+
+// ── Mute / Volume ─────────────────────────────────────────────────────────────
+function syncMute() {
+  var m = video.muted || video.volume===0;
+  icoVol.style.display  = m?'none':'';
+  icoMute.style.display = m?'':'none';
+  volSlide.value = m ? 0 : video.volume;
+}
+btnMute.addEventListener('click', function(e){ e.stopPropagation(); video.muted=!video.muted; syncMute(); showCtrl(); });
+volSlide.addEventListener('input', function(e){ e.stopPropagation(); video.volume=+this.value; video.muted=+this.value===0; syncMute(); showCtrl(); });
+
+// ── Fullscreen ────────────────────────────────────────────────────────────────
+function isFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+function toggleFs() {
+  if (isFs()) { (document.exitFullscreen||document.webkitExitFullscreen).call(document); }
+  else { var el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); }
+}
+function onFsChange() {
+  var fs = isFs();
+  icoFs.style.display   = fs?'none':'';
+  icoExit.style.display = fs?'':'none';
+}
+document.addEventListener('fullscreenchange', onFsChange);
+document.addEventListener('webkitfullscreenchange', onFsChange);
+btnFs.addEventListener('click', function(e){ e.stopPropagation(); toggleFs(); showCtrl(); });
+
+// ── Tap to show/hide controls (wrap click) ───────────────────────────────────
+var tapTimeout;
+wrap.addEventListener('click', function(e){
+  if (e.target !== video && e.target !== wrap) return;
+  clearTimeout(tapTimeout);
+  tapTimeout = setTimeout(function(){ togglePlay(); }, 180);
+  showCtrl();
+});
+wrap.addEventListener('dblclick', function(e){
+  clearTimeout(tapTimeout);
+  toggleFs();
+  showCtrl();
+});
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+document.addEventListener('keydown', function(e){
+  if (e.target.tagName === 'INPUT') return;
+  switch(e.key) {
+    case ' ': case 'k': e.preventDefault(); togglePlay(); break;
+    case 'ArrowRight': video.currentTime+=10; showCtrl(); break;
+    case 'ArrowLeft':  video.currentTime-=10; showCtrl(); break;
+    case 'ArrowUp':    video.volume=Math.min(1,video.volume+.1); syncMute(); showCtrl(); break;
+    case 'ArrowDown':  video.volume=Math.max(0,video.volume-.1); syncMute(); showCtrl(); break;
+    case 'f': case 'F': toggleFs(); break;
+    case 'm': case 'M': video.muted=!video.muted; syncMute(); showCtrl(); break;
+  }
+});
+
+// ── Mouse move shows controls ─────────────────────────────────────────────────
+document.addEventListener('mousemove', function(){ showCtrl(); });
+document.addEventListener('touchstart', function(){ showCtrl(); },{passive:true});
+
+// ── Error display ─────────────────────────────────────────────────────────────
+function showError(msg) {
+  spinner.classList.remove('show');
+  errMsg.textContent = msg || 'Error al reproducir';
+  errEl.classList.add('show');
+}
+video.addEventListener('error', function(){
+  var e = video.error;
+  showError(e ? 'Error ' + e.code + ': ' + (e.message||'Error de video') : 'Error desconocido');
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+initHls();
+showCtrl();
+})();
 </script>
 </body>
 </html>`);
