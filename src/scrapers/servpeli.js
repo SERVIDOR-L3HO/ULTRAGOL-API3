@@ -869,7 +869,7 @@ async function extractFilemoon(embedUrl, referer) {
   try {
     const res = await axios.get(embedUrl, {
       headers: { ...EMBED_HEADERS, Referer: referer || TARGET + '/' },
-      timeout: 15000,
+      timeout: 8000,
       maxRedirects: 5,
     });
     const html = res.data;
@@ -922,7 +922,7 @@ async function extractVidhide(embedUrl, referer) {
           'Origin': host,
           'X-Requested-With': 'XMLHttpRequest',
         },
-        timeout: 15000,
+        timeout: 8000,
       }
     );
     const data = res.data;
@@ -942,7 +942,7 @@ async function extractVidhide(embedUrl, referer) {
     // Fallback HTML
     const htmlRes = await axios.get(embedUrl, {
       headers: { ...EMBED_HEADERS, Referer: referer || TARGET + '/' },
-      timeout: 15000,
+      timeout: 8000,
     });
     const m3u8 = findM3u8InText(htmlRes.data) || findM3u8InText(unpackEvalJs(htmlRes.data));
     if (m3u8) return { ok: true, m3u8, m3u8_proxied: `/servpeli-stream?url=${encodeURIComponent(m3u8)}`, embedUrl };
@@ -969,7 +969,7 @@ async function extractFilelions(embedUrl, referer) {
           'Origin': host,
           'X-Requested-With': 'XMLHttpRequest',
         },
-        timeout: 15000,
+        timeout: 8000,
       }
     );
     const data = res.data;
@@ -989,7 +989,7 @@ async function extractFilelions(embedUrl, referer) {
     // Fallback HTML
     const htmlRes = await axios.get(embedUrl, {
       headers: { ...EMBED_HEADERS, Referer: referer || TARGET + '/' },
-      timeout: 15000,
+      timeout: 8000,
     });
     const m3u8 = findM3u8InText(htmlRes.data) || findM3u8InText(unpackEvalJs(htmlRes.data));
     if (m3u8) return { ok: true, m3u8, m3u8_proxied: `/servpeli-stream?url=${encodeURIComponent(m3u8)}`, embedUrl };
@@ -1041,7 +1041,7 @@ async function extractStreamwish(embedUrl, referer) {
     // Fallback: scraping de la página embed
     const res = await axios.get(embedUrl, {
       headers: { ...EMBED_HEADERS, Referer: referer || TARGET + '/' },
-      timeout: 15000,
+      timeout: 8000,
       maxRedirects: 5,
     });
     const html = res.data;
@@ -1083,7 +1083,7 @@ async function extractDoodstream(embedUrl, referer) {
     const origin = new URL(embedUrl).origin;
     const res = await axios.get(embedUrl, {
       headers: { ...EMBED_HEADERS, Referer: referer || origin + '/' },
-      timeout: 15000,
+      timeout: 8000,
       maxRedirects: 5,
     });
     const html = res.data;
@@ -1102,7 +1102,7 @@ async function extractDoodstream(embedUrl, referer) {
         Referer: embedUrl,
         'Origin': origin,
       },
-      timeout: 12000,
+      timeout: 8000,
       maxRedirects: 5,
     });
 
@@ -1131,7 +1131,7 @@ async function extractStreamtape(embedUrl, referer) {
     const origin = new URL(embedUrl).origin;
     const res = await axios.get(embedUrl, {
       headers: { ...EMBED_HEADERS, Referer: referer || origin + '/' },
-      timeout: 15000,
+      timeout: 8000,
       maxRedirects: 5,
     });
     const html = res.data;
@@ -1178,37 +1178,41 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
     if (cached && (Date.now() - cached.ts) < UNLIMPLAY_TTL) return cached.data;
   }
 
-  // Paso 1: Llamar al PHP API para disparar el scraping fresco
-  let phpData = null;
-  try {
-    const phpUrl = `${TARGET}/play.php/embed/movie/${movieId}?api=1&t=${Date.now()}`;
-    const phpRes = await axios.get(phpUrl, {
+  // Paso 1 + 2 en paralelo: PHP API y HTML embed al mismo tiempo
+  const phpUrl = `${TARGET}/play.php/embed/movie/${movieId}?api=1&t=${Date.now()}`;
+  const fEmbedUrl = `${TARGET}/f/embed/movie/${movieId}`;
+
+  const [phpResult, htmlResult] = await Promise.allSettled([
+    axios.get(phpUrl, {
       headers: {
         ...UNLIMPLAY_HEADERS,
         'Accept': 'application/json, text/javascript, */*',
         'X-Requested-With': 'XMLHttpRequest',
         'Referer': `${TARGET}/play/embed/movie/${movieId}`,
       },
-      timeout: 25000,
+      timeout: 10000,
       maxRedirects: 5,
-    });
-    if (phpRes.data && phpRes.data.success) {
-      phpData = phpRes.data;
-      console.log(`[unlimplay] PHP API: ${phpData.total_servers} servidores, fuente: ${phpData.source}`);
-    }
-  } catch (e) {
-    console.warn(`[unlimplay] PHP API falló (no crítico): ${e.message}`);
+    }),
+    axios.get(fEmbedUrl, {
+      headers: { ...UNLIMPLAY_HEADERS, 'Accept': 'text/html,application/xhtml+xml' },
+      timeout: 12000,
+      maxRedirects: 5,
+    }),
+  ]);
+
+  let phpData = null;
+  if (phpResult.status === 'fulfilled' && phpResult.value.data?.success) {
+    phpData = phpResult.value.data;
+    console.log(`[unlimplay] PHP API: ${phpData.total_servers} servidores, fuente: ${phpData.source}`);
+  } else if (phpResult.status === 'rejected') {
+    console.warn(`[unlimplay] PHP API falló (no crítico): ${phpResult.reason?.message}`);
   }
 
-  // Paso 2: Obtener página /f/embed/ que tiene el m3u8 directo embebido
-  const fEmbedUrl = `${TARGET}/f/embed/movie/${movieId}`;
-  const htmlRes = await axios.get(fEmbedUrl, {
-    headers: { ...UNLIMPLAY_HEADERS, 'Accept': 'text/html,application/xhtml+xml' },
-    timeout: 20000,
-    maxRedirects: 5,
-  });
+  if (htmlResult.status === 'rejected') {
+    throw htmlResult.reason;
+  }
 
-  const html = htmlRes.data;
+  const html = htmlResult.value.data;
   const embeds = extractEmbedsFromHtml(html);
 
   if (!embeds) {
@@ -1279,7 +1283,7 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
     }
   }
 
-  // Resolver m3u8 para todos los servidores (filemoon, vidhide, filelions incluidos)
+  // Resolver m3u8 para todos los servidores de todos los idiomas en paralelo
   const resolveServer = async (servidor) => {
     if (servidor.tipo === 'm3u8_directo') return servidor;
     try {
@@ -1291,11 +1295,13 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
     return servidor;
   };
 
-  for (const idioma of Object.keys(result.idiomas)) {
-    result.idiomas[idioma].servidores = await Promise.all(
-      result.idiomas[idioma].servidores.map(resolveServer)
-    );
-  }
+  await Promise.all(
+    Object.keys(result.idiomas).map(async (idioma) => {
+      result.idiomas[idioma].servidores = await Promise.all(
+        result.idiomas[idioma].servidores.map(resolveServer)
+      );
+    })
+  );
 
   unlimplayCache.set(cacheKey, { data: result, ts: Date.now() });
   return result;
@@ -1309,37 +1315,41 @@ async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = fa
     if (cached && (Date.now() - cached.ts) < UNLIMPLAY_TTL) return cached.data;
   }
 
-  // Paso 1: PHP API para disparar scraping fresco
-  let phpData = null;
-  try {
-    const phpUrl = `${TARGET}/play.php/embed/tv/${seriesId}/${season}/${episode}?api=1&t=${Date.now()}`;
-    const phpRes = await axios.get(phpUrl, {
+  // Paso 1 + 2 en paralelo: PHP API y HTML embed al mismo tiempo
+  const phpUrl = `${TARGET}/play.php/embed/tv/${seriesId}/${season}/${episode}?api=1&t=${Date.now()}`;
+  const fEmbedUrl = `${TARGET}/f/embed/tv/${seriesId}/${season}/${episode}`;
+
+  const [phpResult, htmlResult] = await Promise.allSettled([
+    axios.get(phpUrl, {
       headers: {
         ...UNLIMPLAY_HEADERS,
         'Accept': 'application/json, text/javascript, */*',
         'X-Requested-With': 'XMLHttpRequest',
         'Referer': `${TARGET}/play/embed/tv/${seriesId}/${season}/${episode}`,
       },
-      timeout: 25000,
+      timeout: 10000,
       maxRedirects: 5,
-    });
-    if (phpRes.data && phpRes.data.success) {
-      phpData = phpRes.data;
-      console.log(`[unlimplay/tv] PHP API: ${phpData.total_servers} servidores, fuente: ${phpData.source}`);
-    }
-  } catch (e) {
-    console.warn(`[unlimplay/tv] PHP API falló (no crítico): ${e.message}`);
+    }),
+    axios.get(fEmbedUrl, {
+      headers: { ...UNLIMPLAY_HEADERS, 'Accept': 'text/html,application/xhtml+xml' },
+      timeout: 12000,
+      maxRedirects: 5,
+    }),
+  ]);
+
+  let phpData = null;
+  if (phpResult.status === 'fulfilled' && phpResult.value.data?.success) {
+    phpData = phpResult.value.data;
+    console.log(`[unlimplay/tv] PHP API: ${phpData.total_servers} servidores, fuente: ${phpData.source}`);
+  } else if (phpResult.status === 'rejected') {
+    console.warn(`[unlimplay/tv] PHP API falló (no crítico): ${phpResult.reason?.message}`);
   }
 
-  // Paso 2: Página /f/embed/tv/ con EMBEDS embebido
-  const fEmbedUrl = `${TARGET}/f/embed/tv/${seriesId}/${season}/${episode}`;
-  const htmlRes = await axios.get(fEmbedUrl, {
-    headers: { ...UNLIMPLAY_HEADERS, 'Accept': 'text/html,application/xhtml+xml' },
-    timeout: 20000,
-    maxRedirects: 5,
-  });
+  if (htmlResult.status === 'rejected') {
+    throw htmlResult.reason;
+  }
 
-  const html = htmlRes.data;
+  const html = htmlResult.value.data;
   const embeds = extractEmbedsFromHtml(html);
 
   if (!embeds) {
@@ -1410,7 +1420,7 @@ async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = fa
     }
   }
 
-  // Resolver m3u8 para todos los servidores (filemoon, vidhide, filelions incluidos)
+  // Resolver m3u8 para todos los servidores de todos los idiomas en paralelo
   const resolveServer = async (servidor) => {
     if (servidor.tipo === 'm3u8_directo') return servidor;
     try {
@@ -1422,11 +1432,13 @@ async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = fa
     return servidor;
   };
 
-  for (const idioma of Object.keys(result.idiomas)) {
-    result.idiomas[idioma].servidores = await Promise.all(
-      result.idiomas[idioma].servidores.map(resolveServer)
-    );
-  }
+  await Promise.all(
+    Object.keys(result.idiomas).map(async (idioma) => {
+      result.idiomas[idioma].servidores = await Promise.all(
+        result.idiomas[idioma].servidores.map(resolveServer)
+      );
+    })
+  );
 
   unlimplayCache.set(cacheKey, { data: result, ts: Date.now() });
   return result;
