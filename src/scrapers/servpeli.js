@@ -480,14 +480,27 @@ async function proxyServpeliStream(req, res) {
       referer = req.query.referer ? decodeURIComponent(req.query.referer) : targetUrl;
     }
 
-    const baseHeaders = buildRequestHeaders(req, referer);
+    let requestHeaders;
     if (isVoeCdn(targetUrl)) {
-      baseHeaders['Origin'] = 'https://voe.sx';
-      baseHeaders['Referer'] = 'https://voe.sx/';
+      // VOE CDN requiere headers mínimos específicos — no pasar cookies del cliente
+      requestHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'identity',
+        'Origin': 'https://voe.sx',
+        'Referer': 'https://voe.sx/',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'cross-site',
+      };
+      if (req.headers['range']) requestHeaders['Range'] = req.headers['range'];
+    } else {
+      requestHeaders = buildRequestHeaders(req, referer);
     }
 
     const response = await axios.get(targetUrl, {
-      headers: baseHeaders,
+      headers: requestHeaders,
       responseType: 'arraybuffer',
       timeout: 30000,
       maxRedirects: 5,
