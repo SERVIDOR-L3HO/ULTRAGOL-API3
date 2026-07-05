@@ -5909,6 +5909,43 @@ if (Hls.isSupported()) {
 </body>
 </html>`);
 });
+// GET /api/embed/stream-direct?url=...&referer=...
+// Resuelve un embed URL → redirige al m3u8 proxiado listo para reproductores externos (VLC, Infuse, etc.)
+// Si el url= ya es un m3u8 directo, redirige inmediatamente sin extracción.
+// Si ?format=json → devuelve { ok, m3u8_proxied, m3u8 } en lugar de redirigir.
+app.get('/api/embed/stream-direct', async (req, res) => {
+  const { url, referer, format } = req.query;
+  if (!url) return res.status(400).json({ ok: false, error: '?url= requerido' });
+
+  const base = `${req.protocol}://${req.get('host')}`;
+  const ref = referer || 'https://unlimplay.com/';
+  const wantsJson = format === 'json';
+
+  const sendResult = (m3u8) => {
+    const proxied = `${base}/servpeli-stream?url=${encodeURIComponent(m3u8)}&referer=${encodeURIComponent(ref)}`;
+    if (wantsJson) return res.json({ ok: true, m3u8, m3u8_proxied: proxied });
+    return res.redirect(302, proxied);
+  };
+
+  // Si la URL ya es un m3u8 directo, redirigir sin extracción
+  const decodedUrl = decodeURIComponent(url);
+  if (decodedUrl.includes('.m3u8')) {
+    return sendResult(decodedUrl);
+  }
+
+  // Intentar extracción de m3u8 desde el embed
+  try {
+    const { extractM3u8FromEmbed } = require('./src/scrapers/servpeli');
+    const result = await extractM3u8FromEmbed(decodedUrl, ref, req.query.cookies || null);
+    if (result.ok && result.m3u8) return sendResult(result.m3u8);
+    const err = result.error || 'No se pudo extraer m3u8';
+    if (wantsJson) return res.json({ ok: false, error: err });
+    return res.status(502).send(`Error: ${err}`);
+  } catch (e) {
+    if (wantsJson) return res.json({ ok: false, error: e.message });
+    return res.status(500).send(`Error: ${e.message}`);
+  }
+});
 // ─── FIN ADBLOCKER PROXY ──────────────────────────────────────────────────────
 
 // Endpoint: m3u8 de un episodio de serie desde Unlimplay
