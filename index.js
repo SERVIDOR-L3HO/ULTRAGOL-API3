@@ -6184,12 +6184,14 @@ bpip.addEventListener('click',function(e){
   showCtrl();
 });
 
-// ── Download ──────────────────────────────────────────────────────────────────
+// ── Download (HLS→MP4 real vía ffmpeg) ────────────────────────────────────────
 bdl.addEventListener('click',function(e){
   e.stopPropagation();
+  var base=window.location.origin;
+  var dlUrl=base+'/api/embed/download-mp4?m3u8='+encodeURIComponent(RAW)+'&titulo='+encodeURIComponent(DL.replace('_UltraGol.mp4',''));
   var a=document.createElement('a');
-  a.href=RAW;
-  a.download=DL;
+  a.href=dlUrl;
+  a.download=DL.replace('.m3u8','.mp4');
   a.target='_blank';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   showCtrl();
@@ -6233,6 +6235,52 @@ initHls();showCtrl();
 </script>
 </body>
 </html>`);
+});
+
+// GET /api/embed/download-mp4?m3u8=...&referer=...&titulo=...
+// Convierte HLS→MP4 con ffmpeg y hace streaming directo al cliente (sin guardar en disco)
+app.get('/api/embed/download-mp4', async (req, res) => {
+  const { m3u8, referer, titulo } = req.query;
+  if (!m3u8) return res.status(400).json({ ok: false, error: '?m3u8= requerido' });
+
+  const base = `${req.protocol}://${req.get('host')}`;
+  const ref  = referer || 'https://unlimplay.com/';
+  const proxiedM3u8 = `${base}/servpeli-stream?url=${encodeURIComponent(m3u8)}&referer=${encodeURIComponent(ref)}`;
+  const safeTitle   = (titulo || 'video').replace(/[^a-zA-Z0-9 ._-]/g, '_');
+  const filename    = safeTitle + '_UltraGol.mp4';
+
+  res.setHeader('Content-Type', 'video/mp4');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Transfer-Encoding', 'chunked');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  const { spawn } = require('child_process');
+  const ff = spawn('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error',
+    '-i', proxiedM3u8,
+    '-c', 'copy',
+    '-movflags', 'frag_keyframe+empty_moov+faststart',
+    '-f', 'mp4',
+    'pipe:1'
+  ]);
+
+  req.on('close', () => { ff.kill('SIGKILL'); });
+
+  ff.stdout.pipe(res);
+
+  ff.stderr.on('data', (d) => {
+    console.error('[download-mp4 ffmpeg]', d.toString().trim());
+  });
+
+  ff.on('error', (err) => {
+    console.error('[download-mp4] spawn error:', err.message);
+    if (!res.headersSent) res.status(500).end('Error iniciando ffmpeg');
+  });
+
+  ff.on('close', (code) => {
+    console.log(`[download-mp4] ffmpeg terminó con código ${code}`);
+    res.end();
+  });
 });
 
 // GET /api/embed/stream-direct?url=...&referer=...
