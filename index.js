@@ -5349,6 +5349,7 @@ function prewarmAdblockerCache(idiomas) {
 
 // Endpoint: extraer m3u8 directo de unlimplay por TMDB movie ID
 // Acepta ?cookies=ddg_cid=...;ddgu=1 para resolver servidores VOE.sx automáticamente
+// Devuelve los enlaces crudos tal como los entrega el scraper (sin proxy ni adblocker)
 app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
   try {
     const { movieId } = req.params;
@@ -5358,11 +5359,8 @@ app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
 
     const data = await scrapUnlimplayM3u8(movieId, force);
     await resolveVoeServers(data.idiomas, cookies, base);
-    prewarmAdblockerCache(data.idiomas);
 
-    const processData = JSON.parse(JSON.stringify(data));
-    processData.idiomas = formatServidores(data.idiomas, base);
-    res.json(processData);
+    res.json(data);
   } catch (err) {
     console.error('[unlimplay/m3u8] Error:', err.message);
     res.status(502).json(unlimplayError(err));
