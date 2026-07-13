@@ -1,0 +1,1 @@
+- [Unlimplay embed scraping](unlimplay-embed-scraping.md) — real server links come from an inline `finalizePlayer({...})` script call, not the `const EMBEDS` variable near the top of the page.

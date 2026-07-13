@@ -632,14 +632,8 @@ const UNLIMPLAY_HEADERS = {
   'Referer': `${TARGET}/`,
 };
 
-function extractEmbedsFromHtml(html) {
-  // Buscar const EMBEDS = {...}; con match balanceado de llaves
-  const start = html.indexOf('const EMBEDS = ');
-  if (start === -1) return null;
-
-  const jsonStart = html.indexOf('{', start);
-  if (jsonStart === -1) return null;
-
+// Extrae un objeto JSON balanceado en llaves a partir de la posición del primer '{'
+function _extractBalancedJson(html, jsonStart) {
   let depth = 0;
   let jsonEnd = -1;
   for (let i = jsonStart; i < html.length; i++) {
@@ -650,26 +644,60 @@ function extractEmbedsFromHtml(html) {
     }
   }
   if (jsonEnd === -1) return null;
-
   try {
-    const raw = JSON.parse(html.slice(jsonStart, jsonEnd + 1));
-    // Normalizar: los valores pueden ser strings o {url, tipo}
-    const normalized = {};
-    for (const [lang, servers] of Object.entries(raw)) {
-      normalized[lang] = {};
-      for (const [name, val] of Object.entries(servers)) {
-        if (typeof val === 'string') {
-          normalized[lang][name] = val;
-        } else if (val && typeof val === 'object' && val.url) {
-          normalized[lang][name] = val.url;
-          if (val.tipo) normalized[lang][`${name}__tipo`] = val.tipo;
-        }
-      }
-    }
-    return normalized;
+    return JSON.parse(html.slice(jsonStart, jsonEnd + 1));
   } catch {
     return null;
   }
+}
+
+// unlimplay.com ahora entrega los servidores reales vía finalizePlayer({...}) en un
+// <script> inyectado más abajo en el HTML; el `const EMBEDS = ...` de más arriba suele
+// quedar como placeholder vacío (`[]`) o incompleto. Tomamos la ÚLTIMA llamada a
+// finalizePlayer con datos, porque a veces aparece más de una.
+function extractFinalizePlayerData(html) {
+  const re = /finalizePlayer\s*\(\s*\{/g;
+  let match;
+  let last = null;
+  while ((match = re.exec(html)) !== null) {
+    const jsonStart = match.index + match[0].length - 1; // posición del '{'
+    const raw = _extractBalancedJson(html, jsonStart);
+    if (raw && typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length) {
+      last = raw;
+    }
+  }
+  return last;
+}
+
+// Fallback legado: `const EMBEDS = {...};` (algunas páginas todavía lo usan como única fuente)
+function extractLegacyEmbedsVar(html) {
+  const start = html.indexOf('const EMBEDS = ');
+  if (start === -1) return null;
+  const jsonStart = html.indexOf('{', start);
+  if (jsonStart === -1) return null;
+  return _extractBalancedJson(html, jsonStart);
+}
+
+function extractEmbedsFromHtml(html) {
+  const raw = extractFinalizePlayerData(html) || extractLegacyEmbedsVar(html);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Object.keys(raw).length) return null;
+
+  // Normalizar: los valores pueden ser strings o {url, tipo}
+  const normalized = {};
+  for (const [lang, servers] of Object.entries(raw)) {
+    if (!servers || typeof servers !== 'object') continue;
+    normalized[lang] = {};
+    for (const [name, val] of Object.entries(servers)) {
+      if (typeof val === 'string') {
+        normalized[lang][name] = val;
+      } else if (val && typeof val === 'object' && val.url) {
+        normalized[lang][name] = val.url;
+        if (val.tipo) normalized[lang][`${name}__tipo`] = val.tipo;
+      }
+    }
+  }
+  if (!Object.keys(normalized).length) return null;
+  return normalized;
 }
 
 // ─── Extractores específicos por servidor ─────────────────────────────────────

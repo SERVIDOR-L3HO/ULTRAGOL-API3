@@ -31,6 +31,7 @@ The project is built on Node.js 20 with Express 4.21, emphasizing high performan
 *   **Full Article Content Extraction:** News endpoints extract and return complete article text from various sources, with intelligent parsing.
 *   **Latin American Coverage:** Integration with ESPN API provides comprehensive data for 13 Latin American leagues and tournaments, including matches, standings, and team info, featuring intelligent caching and parallel requests.
 *   **Embeddable L3HO Links:** The L3HO Links page is designed to be embeddable as an iframe/widget on external websites with proper CORS and X-Frame-Options configuration.
+*   **Unlimplay Movie/TV Scraper (`/api/unlimplay/m3u8/...`):** Extracts streaming server links from unlimplay.com embed pages. The real server list is delivered via an inline `finalizePlayer({...})` script call further down the page — the `const EMBEDS = ...` variable near the top is often left as an empty placeholder and should not be trusted as the primary source.
 
 **Feature Specifications:**
 *   **League Data:** Comprehensive standings, top scorers, and news.
