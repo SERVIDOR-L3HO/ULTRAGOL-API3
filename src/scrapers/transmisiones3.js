@@ -2,7 +2,10 @@ const axios = require("axios");
 
 const DIARIES_URL = "https://pltvhd.com/diaries.json";
 const IMG_BASE    = "https://cdn.ftvhd.com";
-const BASE_SITE   = "https://tvtvhd.com";
+const CACHE_TTL   = 10 * 60 * 1000;
+
+let _cache   = null;
+let _cacheTs = 0;
 
 function tryBase64Decode(str) {
   try {
@@ -12,54 +15,57 @@ function tryBase64Decode(str) {
   return null;
 }
 
-function extractStreamName(iframePath) {
+// Decodifica el embed_iframe y devuelve la URL real
+// Formato: /embed/eventos.html?r=<BASE64>  →  https://fltvhd.com/...
+function decodeEmbedUrl(iframePath) {
+  if (!iframePath) return null;
   try {
-    let url = iframePath;
+    // Capa 1: el iframe completo podría ser base64
     const layer1 = tryBase64Decode(iframePath);
-    if (layer1) url = layer1;
+    let url = layer1 || iframePath;
 
+    // Capa 2: buscar parámetro r=
     const rMatch = url.match(/[?&]r=([^&]+)/);
     if (rMatch) {
       const layer2 = tryBase64Decode(rMatch[1]);
-      if (layer2) url = layer2;
-      else url = decodeURIComponent(rMatch[1]);
+      if (layer2) return layer2;
+      const plain = decodeURIComponent(rMatch[1]);
+      if (plain.startsWith("http")) return plain;
     }
 
-    if (!url.startsWith("http")) url = BASE_SITE + url;
+    // Si ya era una URL directa
+    if (url.startsWith("http")) return url;
+  } catch {}
+  return null;
+}
 
-    const streamMatch = url.match(/[?&]stream=([^&]+)/);
-    return streamMatch ? streamMatch[1] : null;
+function toStatusCode(hora, fecha) {
+  try {
+    const now = new Date();
+    const [h, m] = (hora || "00:00").split(":").map(Number);
+    const eventDate = new Date(`${fecha}T${String(h).padStart(2,"0")}:${String(m||0).padStart(2,"0")}:00`);
+    const diffMin = (now - eventDate) / 60000;
+    if (diffMin > 150)  return "FINALIZADO";
+    if (diffMin >= -5)  return "EN VIVO";
+    return "PROXIMO";
   } catch {
-    return null;
+    return "PROXIMO";
   }
-}
-
-// Devuelve la URL de tvhd2 canales.php para que el proxy siempre la resuelva fresca.
-// No cacheamos la URL de fubo18 porque sus subdominios dinámicos expiran rápido en producción.
-function buildTvhd2Url(streamName) {
-  return `https://tvhd2.com/tv/canales.php?stream=${encodeURIComponent(streamName)}`;
-}
-
-async function resolveWithConcurrency(tasks, limit = 5) {
-  const results = new Array(tasks.length).fill(null);
-  let idx = 0;
-  async function worker() {
-    while (idx < tasks.length) {
-      const i = idx++;
-      results[i] = await tasks[i]();
-    }
-  }
-  await Promise.all(Array.from({ length: limit }, worker));
-  return results;
 }
 
 async function scrapTransmisiones3() {
+  const now = Date.now();
+  if (_cache && (now - _cacheTs) < CACHE_TTL) {
+    console.log("gol-3 (pltvhd): usando cache");
+    return _cache;
+  }
+
   try {
-    console.log("📺 Obteniendo transmisiones desde tvtvhd.com...");
+    console.log("📺 Obteniendo transmisiones desde pltvhd.com/diaries.json...");
 
     const response = await axios.get(DIARIES_URL, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         "Referer": "https://tvtvhd.com/",
         "Accept": "application/json, */*"
       },
@@ -67,51 +73,83 @@ async function scrapTransmisiones3() {
     });
 
     const items = response.data?.data || [];
+    const ligas = {};
+    const transmisiones = [];
 
-    // Aplanar todos los embeds de todos los eventos en tareas paralelas
-    const allTasks = [];
     for (const item of items) {
-      const attr    = item.attributes || {};
-      const embeds  = (attr.embeds?.data) || [];
-      const titulo  = (attr.diary_description || "Evento desconocido").replace(/\n/g, " ").trim();
-      const hora    = attr.diary_hour ? attr.diary_hour.substring(0, 5) : "00:00";
-      const fecha   = attr.date_diary || new Date().toISOString().split("T")[0];
-      const liga    = attr.country?.data?.attributes?.name || "Deportes";
+      const attr     = item.attributes || {};
+      const titulo   = (attr.diary_description || "Evento desconocido").replace(/\n/g, " ").trim();
+      const hora     = attr.diary_hour ? attr.diary_hour.substring(0, 5) : "00:00";
+      const fecha    = attr.date_diary || new Date().toISOString().split("T")[0];
+      const liga     = attr.country?.data?.attributes?.name || "Deportes";
       const flagPath = attr.country?.data?.attributes?.image?.data?.attributes?.url;
       const logoUrl  = flagPath ? `${IMG_BASE}${flagPath}` : null;
+      const embeds   = attr.embeds?.data || [];
 
-      for (const e of embeds) {
-        const ea = e?.attributes || {};
-        const canalNombre = (ea.embed_name || "").trim();
-        const iframePath  = ea.embed_iframe || "";
-        if (!iframePath) continue;
+      const canales = embeds
+        .map(e => {
+          const ea         = e?.attributes || {};
+          const nombre     = (ea.embed_name || "").trim();
+          const iframePath = ea.embed_iframe || "";
+          const link       = decodeEmbedUrl(iframePath);
+          if (!link) return null;
+          return { nombre: nombre || "Canal", link };
+        })
+        .filter(Boolean);
 
-        allTasks.push(async () => {
-          const streamName = extractStreamName(iframePath);
-          if (!streamName) return null;
-          // Guardamos la URL de tvhd2 en vez de la URL de fubo18.
-          // El proxy /hls-canal la resolverá fresca en cada petición.
-          const m3u8 = buildTvhd2Url(streamName);
-          return { titulo, hora, fecha, liga, logoUrl, canal: canalNombre || streamName, m3u8 };
-        });
-      }
+      if (canales.length === 0) continue;
+
+      ligas[liga] = (ligas[liga] || 0) + 1;
+
+      const partes  = titulo.split(/:\s*/);
+      const partido = partes.length > 1 ? partes.slice(1).join(": ") : titulo;
+      const equipos = partido.split(/\s+vs\.?\s+/i);
+
+      transmisiones.push({
+        titulo,
+        liga:    partes.length > 1 ? partes[0] : liga,
+        hora,
+        fecha,
+        estado:  toStatusCode(hora, fecha),
+        equipo1: equipos[0]?.trim() || partido,
+        equipo2: equipos[1]?.trim() || "",
+        logoUrl,
+        canales
+      });
     }
 
-    const results = await resolveWithConcurrency(allTasks, 8);
-    const transmisiones = results.filter(Boolean);
+    transmisiones.sort((a, b) => {
+      const order = { "EN VIVO": 0, "PROXIMO": 1, "FINALIZADO": 2 };
+      const diff  = (order[a.estado] ?? 1) - (order[b.estado] ?? 1);
+      return diff !== 0 ? diff : a.hora.localeCompare(b.hora);
+    });
 
-    console.log(`✅ gol-3 (tvtvhd): ${transmisiones.length}/${allTasks.length} canales resueltos de ${items.length} eventos`);
+    console.log(`✅ gol-3 (pltvhd): ${transmisiones.length} eventos obtenidos`);
 
-    return {
+    const result = {
       total:       transmisiones.length,
       actualizado: new Date().toISOString(),
-      fuente:      "tvtvhd.com",
+      fuente:      "pltvhd.com",
+      ligas,
+      ligasDisponibles: Object.keys(ligas),
       transmisiones
     };
 
+    _cache   = result;
+    _cacheTs = now;
+    return result;
+
   } catch (error) {
-    console.error("❌ Error en scrapTransmisiones3:", error.message);
-    throw new Error(`No se pudieron obtener las transmisiones de tvtvhd.com: ${error.message}`);
+    console.error("❌ Error en scrapTransmisiones3 (pltvhd):", error.message);
+    return {
+      total: 0,
+      actualizado: new Date().toISOString(),
+      fuente: "pltvhd.com",
+      error: `Error obteniendo transmisiones: ${error.message}`,
+      ligas: {},
+      ligasDisponibles: [],
+      transmisiones: []
+    };
   }
 }
 
