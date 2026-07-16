@@ -1,16 +1,5 @@
 const axios = require("axios");
 
-const BASE_DOMAIN =
-  process.env.BASE_URL ||
-  (process.env.REPLIT_DEV_DOMAIN && `https://${process.env.REPLIT_DEV_DOMAIN}`) ||
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`) ||
-  (process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`) ||
-  (process.env.RAILWAY_STATIC_URL && `https://${process.env.RAILWAY_STATIC_URL}`) ||
-  process.env.RENDER_EXTERNAL_URL ||
-  (process.env.HEROKU_APP_NAME && `https://${process.env.HEROKU_APP_NAME}.herokuapp.com`) ||
-  `http://localhost:${process.env.PORT || 5000}`;
-
-const PROXY = `${BASE_DOMAIN}/ultragol-l3ho?get=`;
 
 const categoriaMap = {
   'football': 'Fútbol',
@@ -109,7 +98,7 @@ async function scrapTransmisiones6() {
           fuentes: (event.sources || []).map(s => ({
             fuente: s.source,
             id: s.id,
-            url: `${PROXY}https://embedsports.top/embed/${s.source}/${s.id}/1&useplayer&m=1`
+            url: `https://embedsports.top/embed/${s.source}/${s.id}/1&useplayer&m=1`
           })),
           fuente: "streamed.pk"
         };

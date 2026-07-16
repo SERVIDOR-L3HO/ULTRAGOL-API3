@@ -1568,21 +1568,7 @@ app.get("/gol-2", async (req, res) => {
       }
     }
 
-    const base = `${req.protocol}://${req.get("host")}`;
-    const proxied = {
-      ...data,
-      transmisiones: (data.transmisiones || []).map(ev => ({
-        ...ev,
-        canales: (ev.canales || []).map(c => {
-          const proxiedLink = c.link ? `${base}/hls-canal?url=${encodeURIComponent(c.link)}` : null;
-          const playerUrl = proxiedLink
-            ? `${base}/canal-player?url=${encodeURIComponent(proxiedLink)}&nombre=${encodeURIComponent(ev.titulo + (c.nombre ? " - " + c.nombre : ""))}`
-            : null;
-          return { ...c, link: proxiedLink, url: playerUrl };
-        })
-      }))
-    };
-    res.json(proxied);
+    res.json(data);
   } catch (error) {
     console.error("Error en /gol-2:", error.message);
     res.status(500).json({
@@ -1613,19 +1599,7 @@ app.get("/gol-3", async (req, res) => {
       }
     }
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const response = {
-      ...data,
-      transmisiones: (data.transmisiones || []).map(t => {
-        const proxiedM3u8 = t.m3u8 ? `${baseUrl}/hls-canal?url=${encodeURIComponent(t.m3u8)}` : null;
-        const url = proxiedM3u8
-          ? `${baseUrl}/canal-player?url=${encodeURIComponent(proxiedM3u8)}&nombre=${encodeURIComponent(t.titulo || t.canal || "En vivo")}`
-          : null;
-        const { m3u8: _removed, ...rest } = t;
-        return { ...rest, url };
-      })
-    };
-    res.json(response);
+    res.json(data);
   } catch (error) {
     console.error("Error en /gol-3:", error.message);
     res.status(500).json({
@@ -1672,18 +1646,7 @@ app.get("/gol-4", async (req, res) => {
       }
     }
     
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const enriched = {
-      ...data,
-      transmisiones: (data.transmisiones || []).map(t => ({
-        ...t,
-        canales: (t.canales || []).map(c => ({
-          ...c,
-          url: c.url ? `${baseUrl}/ultragol-l3ho?get=${encodeURIComponent(c.url)}` : c.url
-        }))
-      }))
-    };
-    res.json(enriched);
+    res.json(data);
   } catch (error) {
     console.error("Error en /transmisiones4:", error.message);
     res.status(500).json({ 
@@ -1804,18 +1767,7 @@ app.get("/gol-6", async (req, res) => {
       }
     }
     
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const enriched = {
-      ...data,
-      transmisiones: (data.transmisiones || []).map(t => ({
-        ...t,
-        fuentes: (t.fuentes || []).map(f => {
-          const streamUrl = `${baseUrl}/streamed-stream?source=${encodeURIComponent(f.fuente)}&id=${encodeURIComponent(f.id)}`;
-          return { ...f, url: streamUrl };
-        })
-      }))
-    };
-    res.json(enriched);
+    res.json(data);
   } catch (error) {
     console.error("Error en /transmisiones6:", error.message);
     res.status(500).json({ 
