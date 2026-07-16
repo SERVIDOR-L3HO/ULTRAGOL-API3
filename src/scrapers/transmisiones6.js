@@ -84,6 +84,12 @@ async function scrapTransmisiones6() {
 
       if (!link) continue;
 
+      // Extraer token v= y construir embed directo de vdocity
+      const vMatch = link.match(/[?&]v=([^&]+)/);
+      const embed  = vMatch
+        ? `https://www.vdocity.com/${vMatch[1]}?cc=0&subtitles=0&captions=0&cc_load_policy=0`
+        : null;
+
       const fecha  = parseHoraUtc(horaStr);
       const estado = calcEstado(fecha);
       const deporte = categoriaMap[categoria] || categoria;
@@ -107,7 +113,8 @@ async function scrapTransmisiones6() {
         estado,
         equipo1,
         equipo2,
-        link
+        link,
+        embed
       });
     }
 
