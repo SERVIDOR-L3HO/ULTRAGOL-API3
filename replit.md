@@ -1,68 +1,65 @@
-# Multi-League Football API
+# L3HO Interactive — Football Data Hub API
 
-## Overview
-This project delivers a real-time scraping API for comprehensive football data across multiple leagues including Liga MX, Premier League, La Liga, Serie A, Bundesliga, and Ligue 1. It provides up-to-date information on league standings, top scorers, news, team details, logos, and video highlights. The API serves as a robust backend for sports applications, data analysis, and news platforms, with future ambitions for broader league coverage and advanced real-time features. It also integrates a unified streaming links aggregator and expanded Latin American league coverage via ESPN API, and features a professional session-based authentication system. The API is compatible with Termux for deployment on Android devices.
+Multi-league football REST API with real-time scraping from ESPN, Mediotiempo, and other sources.
 
-## User Preferences
-I prefer clear and concise information. When making changes, prioritize modularity and scalability. I value detailed explanations for complex architectural decisions. Do not make changes to the `replit.nix` file.
+## Stack
+- **Runtime:** Node.js 20
+- **Framework:** Express 4
+- **Scraping:** Axios + Cheerio (primary), Puppeteer-core (optional, for JS-heavy pages)
+- **Caching:** In-memory cache (`src/cache/dataCache.js`)
+- **Auth:** API key system stored in `data/apikeys.json` (local file store)
+- **Optional:** Firebase Admin (API key management via Firestore)
 
-## System Architecture
-The project is built on Node.js 20 with Express 4.21, emphasizing high performance and scalability.
+## Running the app
 
-**UI/UX Decisions:**
-*   Professional dark-themed dashboard with L3HO Interactive branding and gradient design.
-*   Login page features cyan-to-purple gradient, security badges, and password visibility toggle.
-*   Responsive design for desktop and mobile.
-*   Floating particle animations and grid overlay for visual polish.
-*   User information display in header with logout button.
+```bash
+npm start
+```
 
-**Technical Implementations:**
-*   **Multi-Source Scraping System:** Revolutionary failover architecture queries 3 independent data sources per league (ESPN, Soccerway, FlashScore) with intelligent fallback for maximum uptime and data freshness.
-*   **Lineup System with Multi-Source Photos:** Professional lineup endpoint system for all 6 leagues, aggregating data from ESPN API and enriching player photos using TheSportsDB, with smart caching.
-*   **Dynamic Caching System:** In-memory cache with flexible TTL reduces external requests and improves response times (e.g., 30-minute for general data, 15-minute for lineups).
-*   **Automated Updates:** `node-cron` schedules data refreshes every 20 minutes for general data and 15 minutes for lineup cache invalidation.
-*   **Anti-detection Mechanisms:** Employs User-Agent rotation, realistic HTTP headers, random delays, exponential backoff, and rate limit handling to prevent blocking.
-*   **Modular Scraper Architecture:** Scrapers are organized by league and data type, with source adapters coordinated through a multi-source scraper utility.
-*   **Endpoint Design:** Offers 50+ operational endpoints across 6 leagues, including detailed calendar endpoints with live countdowns, unified endpoints for all leagues, and comprehensive real-time statistics endpoints.
-*   **Statistics System:** Real-time match statistics from ESPN API including team-level stats (possession, shots, passes, cards, fouls, corners) and player-level stats, with support for live matches, finished matches, and historical data via date parameter.
-*   **Video Integration:** Dedicated endpoints scrape YouTube for Liga MX highlight videos and "Mejores Momentos" for all 5 European leagues, categorizing and caching content.
-*   **Transmisiones System with Team Logos:** Comprehensive sports streaming system aggregating live broadcasts from five independent sources, featuring automatic team logo extraction, country flags, base64 link decoding, proxy URL generation, and multi-channel support. The latest iteration uses a WordPress API for structured event data with replay and platform compatibility. Includes sources like l1l1.link.
-*   **Secure Authentication System:** Session-based authentication using Express.js with bcrypt password hashing, rate limiting, CSRF protection, and HTTP-only secure cookies. Includes an admin panel with automatic timeout and security headers.
-*   **Full Article Content Extraction:** News endpoints extract and return complete article text from various sources, with intelligent parsing.
-*   **Latin American Coverage:** Integration with ESPN API provides comprehensive data for 13 Latin American leagues and tournaments, including matches, standings, and team info, featuring intelligent caching and parallel requests.
-*   **Embeddable L3HO Links:** The L3HO Links page is designed to be embeddable as an iframe/widget on external websites with proper CORS and X-Frame-Options configuration.
-*   **Unlimplay Movie/TV Scraper (`/api/unlimplay/m3u8/...`):** Extracts streaming server links from unlimplay.com embed pages. The real server list is delivered via an inline `finalizePlayer({...})` script call further down the page — the `const EMBEDS = ...` variable near the top is often left as an empty placeholder and should not be trusted as the primary source.
+The server starts on port 5000. The workflow `Start application` handles this automatically.
 
-**Feature Specifications:**
-*   **League Data:** Comprehensive standings, top scorers, and news.
-*   **Liga MX Specifics:** Includes team lists, logos (4 sizes), and YouTube video highlights.
-*   **Calendar with Matchdays:** Detailed fixture lists with matchday numbers, teams, dates, times, and live countdowns.
-*   **Unified Calendar Endpoint:** Aggregated view of all fixtures across all 6 leagues.
-*   **Match Lineups:** Complete lineup information with player data, photos, tactical formations, and availability detection.
-*   **Real-Time Match Statistics:** Comprehensive live statistics for all matches including possession, shots (total, on target, blocked), passes (total, completed, accuracy), cards (yellow/red with player and minute), goals (scorer, assist, type), corners, fouls, offsides, substitutions, and individual player stats.
-*   **Sports Transmissions:** Aggregated live sports broadcasts from multiple international sources.
-*   **L3HO Links Aggregator:** Collects, de-duplicates, and displays streaming links from 5 sources alphabetically with search and quick access buttons.
+## Leagues covered
+- Liga MX
+- Premier League
+- La Liga
+- Serie A
+- Bundesliga
+- Ligue 1
 
-**Security Features:**
-*   **Password Security:** bcryptjs hashing with 12 salt rounds.
-*   **Session Management:** Express-session with 24-hour max age and HTTP-only cookies.
-*   **Rate Limiting:** Login endpoint limited to 5 attempts per 15 minutes.
-*   **CSRF Protection:** Token-based protection on all POST requests.
-*   **Security Headers:** Helmet.js with Content Security Policy.
-*   **Access Logging:** All requests logged with IP and user agent.
-*   **Session Timeout:** Automatic logout after 30 minutes of inactivity.
-*   **Password Delay:** 1-second delay on failed login attempts.
+## Key endpoints
+- `GET /` — API docs UI
+- `GET /tabla` — Liga MX standings
+- `GET /noticias` — Liga MX news
+- `GET /goleadores` — Top scorers
+- `GET /equipos` — Teams
+- `GET /marcadores` — Live scores (all leagues)
+- `GET /peliculas/:id` — Movie scraping
+- `GET /series/:id` — Series scraping
+- `GET /canales` — Live TV channels
 
-## External Dependencies
-*   **Node.js 20:** JavaScript runtime environment.
-*   **Express 4.21:** Web application framework.
-*   **Axios 1.12:** HTTP client.
-*   **Cheerio 1.1:** HTML parsing (server-side jQuery).
-*   **node-cron 4.2:** Task scheduler.
-*   **googleapis:** Google APIs client (used for YouTube, though scraping is preferred).
-*   **bcryptjs 2.4:** Password hashing.
-*   **express-session 1.17:** Session middleware.
-*   **express-rate-limit:** Rate limiting middleware.
-*   **helmet:** Security middleware.
-*   **crypto-js:** Cryptographic utility library.
-*   **ESPN, Mediotiempo, BBC Sport, FlashScore, TheSportsDB, Soccerway, rereyano.ru, dp.mycraft.click, l1l1.link, ftvhd.com, donromans.com:** Primary data and streaming sources.
+Most endpoints require an `X-Api-Key` header (generate keys via the admin panel).
+
+## Environment variables / secrets
+- `SESSION_SECRET` — (set) Express session secret
+- `FIREBASE_SERVICE_ACCOUNT_JSON` — (optional) Firebase Admin credentials JSON; without it, API key auth falls back to local file store
+- `FIREBASE_PROJECT_ID` — (optional) Firebase project ID (default: `apik-9510b`)
+- `FIREBASE_WEB_API_KEY` — (optional) Firebase Web API key for Firestore REST access
+- `PUPPETEER_EXECUTABLE_PATH` — (optional) Path to Chromium binary for Puppeteer scraping
+
+## Project structure
+```
+index.js                  # Main server (6000+ lines, all routes)
+src/
+  cache/dataCache.js      # In-memory cache layer
+  firebase/admin.js       # Firebase Admin SDK init (optional)
+  middleware/
+    apiKeyAuth.js         # API key authentication middleware
+    auth.js               # Rate limiting + security headers
+  scrapers/               # One file per league/feature
+  storage/
+    keyStore.js           # Local file-based API key store
+    firestoreKeyStore.js  # Firestore-based API key store
+data/apikeys.json         # Local API key storage (auto-created)
+```
+
+## User preferences
