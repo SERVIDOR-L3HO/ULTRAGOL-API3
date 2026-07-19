@@ -34,7 +34,6 @@ function mapVideo(v) {
     duracionSegundos: v.duration,
     thumbnail:        v.thumbnail_url,
     embed:            v.embed_url,
-    url:              `https://www.dailymotion.com/video/${v.id}`,
     vistas:           v.views_total,
     idioma:           v.language || "desconocido",
     canal:            v["owner.screenname"] || v.channel || "desconocido",
