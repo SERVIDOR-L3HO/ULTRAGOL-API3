@@ -16,6 +16,7 @@ const { scrapEquipos } = require("./src/scrapers/equipos");
 const { scrapLogos } = require("./src/scrapers/logos");
 const { scrapVideos } = require("./src/scrapers/videos");
 const { scrapCalendario } = require("./src/scrapers/calendario");
+const { getDramaShorts, clearDramaCache } = require("./src/scrapers/dramaShorts");
 
 const { scrapTablaPremier } = require("./src/scrapers/premier/tabla");
 const { scrapNoticiasPremier } = require("./src/scrapers/premier/noticias");
@@ -859,6 +860,24 @@ app.get("/videos", async (req, res) => {
     res.status(500).json({ 
       error: "No se pudieron obtener los videos",
       detalles: error.message 
+    });
+  }
+});
+
+app.get("/drama-shorts", async (req, res) => {
+  try {
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const lang  = req.query.lang  || null;   // ej: es, en, fr, pt
+    const q     = req.query.q     || null;   // búsqueda libre
+
+    const data = await getDramaShorts({ page, limit, lang, q });
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /drama-shorts:", error.message);
+    res.status(500).json({
+      error: "No se pudieron obtener los drama shorts de Dailymotion",
+      detalles: error.message
     });
   }
 });
