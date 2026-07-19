@@ -16,7 +16,7 @@ const { scrapEquipos } = require("./src/scrapers/equipos");
 const { scrapLogos } = require("./src/scrapers/logos");
 const { scrapVideos } = require("./src/scrapers/videos");
 const { scrapCalendario } = require("./src/scrapers/calendario");
-const { getDramaShorts, clearDramaCache } = require("./src/scrapers/dramaShorts");
+const { getDramaShorts, buscarDrama, getVideoById, getVideosByCanal, getDramaPopulares, getDramaTendencias, clearDramaCache } = require("./src/scrapers/dramaShorts");
 
 const { scrapTablaPremier } = require("./src/scrapers/premier/tabla");
 const { scrapNoticiasPremier } = require("./src/scrapers/premier/noticias");
@@ -864,23 +864,87 @@ app.get("/videos", async (req, res) => {
   }
 });
 
+// ── DRAMA SHORTS ─────────────────────────────────────────────────────────────
+
+// 1. Recientes
 app.get("/drama-shorts", async (req, res) => {
   try {
     const page  = Math.max(1, parseInt(req.query.page)  || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-    const lang  = req.query.lang  || null;   // ej: es, en, fr, pt
-    const q     = req.query.q     || null;   // búsqueda libre
-
-    const data = await getDramaShorts({ page, limit, lang, q });
-    res.json(data);
+    const lang  = req.query.lang || null;
+    const q     = req.query.q    || null;
+    res.json(await getDramaShorts({ page, limit, lang, q }));
   } catch (error) {
     console.error("Error en /drama-shorts:", error.message);
-    res.status(500).json({
-      error: "No se pudieron obtener los drama shorts de Dailymotion",
-      detalles: error.message
-    });
+    res.status(500).json({ error: "No se pudieron obtener los drama shorts", detalles: error.message });
   }
 });
+
+// 2. Buscar por título
+app.get("/drama-shorts/buscar", async (req, res) => {
+  try {
+    const titulo = req.query.titulo || req.query.q || null;
+    if (!titulo) return res.status(400).json({ error: "Parámetro 'titulo' requerido. Ej: ?titulo=Multimillonarios+Ocultos" });
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const lang  = req.query.lang || null;
+    res.json(await buscarDrama({ titulo, page, limit, lang }));
+  } catch (error) {
+    console.error("Error en /drama-shorts/buscar:", error.message);
+    res.status(500).json({ error: "Error al buscar drama", detalles: error.message });
+  }
+});
+
+// 3. Video por ID
+app.get("/drama-shorts/video/:id", async (req, res) => {
+  try {
+    res.json(await getVideoById(req.params.id));
+  } catch (error) {
+    console.error("Error en /drama-shorts/video/:id:", error.message);
+    res.status(500).json({ error: "No se pudo obtener el video", detalles: error.message });
+  }
+});
+
+// 4. Videos de un canal/usuario de Dailymotion
+app.get("/drama-shorts/canal/:username", async (req, res) => {
+  try {
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const lang  = req.query.lang || null;
+    res.json(await getVideosByCanal({ username: req.params.username, page, limit, lang }));
+  } catch (error) {
+    console.error("Error en /drama-shorts/canal:", error.message);
+    res.status(500).json({ error: "No se pudo obtener el canal", detalles: error.message });
+  }
+});
+
+// 5. Populares (más vistas)
+app.get("/drama-shorts/populares", async (req, res) => {
+  try {
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const lang  = req.query.lang || null;
+    res.json(await getDramaPopulares({ page, limit, lang }));
+  } catch (error) {
+    console.error("Error en /drama-shorts/populares:", error.message);
+    res.status(500).json({ error: "No se pudieron obtener los populares", detalles: error.message });
+  }
+});
+
+// 6. Tendencias
+app.get("/drama-shorts/tendencias", async (req, res) => {
+  try {
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const lang  = req.query.lang || null;
+    res.json(await getDramaTendencias({ page, limit, lang }));
+  } catch (error) {
+    console.error("Error en /drama-shorts/tendencias:", error.message);
+    res.status(500).json({ error: "No se pudieron obtener las tendencias", detalles: error.message });
+  }
+});
+
+// ── FIN DRAMA SHORTS ──────────────────────────────────────────────────────────
 
 app.get("/calendario", async (req, res) => {
   try {
