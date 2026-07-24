@@ -115,6 +115,7 @@ const {
 const path = require("path");
 const { securityHeaders, apiLimiter } = require("./src/middleware/auth");
 const { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache, extractVoe, isVoe } = require("./src/scrapers/servpeli");
+const a7xtv = require("./src/scrapers/a7xtv");
 const app = express();
 
 app.set('trust proxy', 1);
@@ -6422,6 +6423,106 @@ app.get('/api/unlimplay/m3u8-all/:movieId', async (req, res) => {
     res.status(502).json(unlimplayError(err));
   }
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// A7X TV — Endpoints de streaming
+// Los IDs son los internos de A7X TV (ej. "provider_xxx:31247097:mp4" o número)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/a7xtv/stream/:id?type=vod&extension=mp4&force=0
+// Equivalente a /api/unlimplay/m3u8/:movieId pero para A7X TV.
+// type: vod (películas, default) | series (episodios) | live
+// extension: mp4 (default para vod) | mkv | m3u8
+app.get('/api/a7xtv/stream/:id', async (req, res) => {
+  try {
+    const id        = req.params.id;
+    const type      = req.query.type || 'vod';
+    const extension = req.query.extension || null;
+    const force     = req.query.force === '1' || req.query.force === 'true';
+
+    const data = await a7xtv.getStreamUrl(id, type, extension, force);
+    res.json(data);
+  } catch (err) {
+    console.error('[a7xtv/stream] Error:', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// GET /api/a7xtv/details/:id?type=vod&title=
+// Metadatos del stream (título, miniatura, extensión, tipo)
+app.get('/api/a7xtv/details/:id', async (req, res) => {
+  try {
+    const { id }  = req.params;
+    const type    = req.query.type  || 'vod';
+    const title   = req.query.title || '';
+    const data    = await a7xtv.getStreamDetails(id, type, title);
+    res.json(data);
+  } catch (err) {
+    console.error('[a7xtv/details] Error:', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// GET /api/a7xtv/series/:seriesId
+// Info de la serie: temporadas y episodios con sus IDs de stream
+app.get('/api/a7xtv/series/:seriesId', async (req, res) => {
+  try {
+    const { seriesId } = req.params;
+    const force        = req.query.force === '1' || req.query.force === 'true';
+    const data         = await a7xtv.getSeriesInfo(seriesId, force);
+    res.json(data);
+  } catch (err) {
+    console.error('[a7xtv/series] Error:', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// GET /api/a7xtv/catalog?force=0
+// Catálogo principal agrupado por género (trending, action, comedy, etc.)
+app.get('/api/a7xtv/catalog', async (req, res) => {
+  try {
+    const force = req.query.force === '1' || req.query.force === 'true';
+    const data  = await a7xtv.getCatalog(force);
+    res.json(data);
+  } catch (err) {
+    console.error('[a7xtv/catalog] Error:', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// GET /api/a7xtv/categories?type=vod
+// Lista de categorías. type: vod | series | live
+app.get('/api/a7xtv/categories', async (req, res) => {
+  try {
+    const type  = req.query.type  || 'vod';
+    const force = req.query.force === '1' || req.query.force === 'true';
+    const data  = await a7xtv.getCategories(type, force);
+    res.json(data);
+  } catch (err) {
+    console.error('[a7xtv/categories] Error:', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// GET /api/a7xtv/streams?type=vod&category_id=provider_xxx:1153&force=0
+// Streams de una categoría específica
+app.get('/api/a7xtv/streams', async (req, res) => {
+  try {
+    const type       = req.query.type        || 'vod';
+    const categoryId = req.query.category_id || req.query.categoryId;
+    const force      = req.query.force === '1' || req.query.force === 'true';
+
+    if (!categoryId) return res.status(400).json({ error: 'Parámetro category_id requerido' });
+
+    const data = await a7xtv.getStreams(type, categoryId, force);
+    res.json(data);
+  } catch (err) {
+    console.error('[a7xtv/streams] Error:', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 app.get('/servpeli', (req, res) => {
   req.params = { 0: '' };
