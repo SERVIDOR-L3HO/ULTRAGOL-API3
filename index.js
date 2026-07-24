@@ -5383,62 +5383,6 @@ function prewarmAdblockerCache(idiomas) {
   }
 }
 
-// ─── Helper: obtiene URL de A7X TV e inyecta en los idiomas de unlimplay ──────
-async function injectA7xtvMovie(idiomas, movieId, force) {
-  try {
-    const a7 = await a7xtv.getStreamUrl(String(movieId), 'vod', 'mp4', force);
-    if (!a7 || !a7.url) return;
-    const server = { nombre: 'a7xtv', url: a7.url, tipo: 'm3u8_directo', fuente: 'a7xtv' };
-    // Agregar a cada idioma existente
-    for (const idioma of Object.values(idiomas)) {
-      if (!Array.isArray(idioma.servidores)) idioma.servidores = [];
-      idioma.servidores.unshift(server);
-    }
-    // Si no hay idiomas, crear uno genérico
-    if (Object.keys(idiomas).length === 0) {
-      idiomas['directo'] = { servidores: [server] };
-    }
-  } catch (e) {
-    console.warn('[a7xtv] No se pudo obtener stream para movie', movieId, ':', e.message);
-  }
-}
-
-async function injectA7xtvEpisode(idiomas, seriesId, season, episode, force) {
-  try {
-    const info = await a7xtv.getSeriesInfo(String(seriesId), force);
-    const seasons = info.seasons || info.episodes || [];
-    // Buscar el episodio correcto
-    let episodeId = null;
-    for (const s of seasons) {
-      const eps = s.episodes || [];
-      for (const ep of eps) {
-        const epNum = ep.episode_num || ep.episode_number || ep.episode;
-        const seNum = ep.season    || ep.season_number  || s.season_number || s.season;
-        if (String(seNum) === String(season) && String(epNum) === String(episode)) {
-          episodeId = ep.id || ep.stream_id || ep.series_id;
-          break;
-        }
-      }
-      if (episodeId) break;
-    }
-    if (!episodeId) return;
-
-    const a7 = await a7xtv.getStreamUrl(String(episodeId), 'series', 'mkv', force);
-    if (!a7 || !a7.url) return;
-    const server = { nombre: 'a7xtv', url: a7.url, tipo: 'm3u8_directo', fuente: 'a7xtv' };
-    for (const idioma of Object.values(idiomas)) {
-      if (!Array.isArray(idioma.servidores)) idioma.servidores = [];
-      idioma.servidores.unshift(server);
-    }
-    if (Object.keys(idiomas).length === 0) {
-      idiomas['directo'] = { servidores: [server] };
-    }
-  } catch (e) {
-    console.warn('[a7xtv] No se pudo obtener episodio', seriesId, season, episode, ':', e.message);
-  }
-}
-// ─────────────────────────────────────────────────────────────────────────────
-
 // Endpoint: extraer m3u8 directo de unlimplay por TMDB movie ID
 // Acepta ?cookies=ddg_cid=...;ddgu=1 para resolver servidores VOE.sx automáticamente
 // Devuelve los enlaces crudos tal como los entrega el scraper (sin proxy ni adblocker)
@@ -5449,13 +5393,8 @@ app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
     const cookies = req.query.cookies || null;
     const base = `${req.protocol}://${req.get('host')}`;
 
-    const [data] = await Promise.all([
-      scrapUnlimplayM3u8(movieId, force),
-    ]);
-    await Promise.all([
-      resolveVoeServers(data.idiomas, cookies, base),
-      injectA7xtvMovie(data.idiomas, movieId, force),
-    ]);
+    const data = await scrapUnlimplayM3u8(movieId, force);
+    await resolveVoeServers(data.idiomas, cookies, base);
 
     res.json(data);
   } catch (err) {
@@ -6427,10 +6366,7 @@ app.get('/api/unlimplay/m3u8/tv/:seriesId/:season/:episode', async (req, res) =>
     const base = `${req.protocol}://${req.get('host')}`;
 
     const data = await scrapUnlimplayM3u8Tv(seriesId, season, episode, force);
-    await Promise.all([
-      resolveVoeServers(data.idiomas, cookies, base),
-      injectA7xtvEpisode(data.idiomas, seriesId, season, episode, force),
-    ]);
+    await resolveVoeServers(data.idiomas, cookies, base);
     prewarmAdblockerCache(data.idiomas);
 
     const processData = JSON.parse(JSON.stringify(data));
@@ -6452,10 +6388,7 @@ app.get('/api/unlimplay/m3u8-all/tv/:seriesId/:season/:episode', async (req, res
     const base = `${req.protocol}://${req.get('host')}`;
 
     const data = await scrapUnlimplayM3u8Tv(seriesId, season, episode, force);
-    await Promise.all([
-      resolveVoeServers(data.idiomas, cookies, base),
-      injectA7xtvEpisode(data.idiomas, seriesId, season, episode, force),
-    ]);
+    await resolveVoeServers(data.idiomas, cookies, base);
     prewarmAdblockerCache(data.idiomas);
 
     res.json({
@@ -6481,10 +6414,7 @@ app.get('/api/unlimplay/m3u8-all/:movieId', async (req, res) => {
     const base = `${req.protocol}://${req.get('host')}`;
 
     const data = await scrapUnlimplayM3u8(movieId, force);
-    await Promise.all([
-      resolveVoeServers(data.idiomas, cookies, base),
-      injectA7xtvMovie(data.idiomas, movieId, force),
-    ]);
+    await resolveVoeServers(data.idiomas, cookies, base);
     prewarmAdblockerCache(data.idiomas);
 
     res.json({ movie_id: data.movie_id, fuente: data.fuente, idiomas: formatServidores(data.idiomas, base) });
