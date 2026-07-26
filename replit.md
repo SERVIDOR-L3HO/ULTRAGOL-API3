@@ -1,65 +1,57 @@
-# L3HO Interactive — Football Data Hub API
+# Football Data Hub API
 
-Multi-league football REST API with real-time scraping from ESPN, Mediotiempo, and other sources.
+## Overview
+A Node.js/Express REST API that scrapes real-time football data from ESPN, Mediotiempo, and other sources. Covers 6 major leagues (Liga MX, Premier League, La Liga, Serie A, Bundesliga, Ligue 1) plus movies, TV series, live TV channels, drama shorts, and sport transmissions.
 
-## Stack
-- **Runtime:** Node.js 20
-- **Framework:** Express 4
-- **Scraping:** Axios + Cheerio (primary), Puppeteer-core (optional, for JS-heavy pages)
-- **Caching:** In-memory cache (`src/cache/dataCache.js`)
-- **Auth:** API key system stored in `data/apikeys.json` (local file store)
-- **Optional:** Firebase Admin (API key management via Firestore)
+- **Version:** 3.5.0
+- **Port:** 5000
+- **Auto-update interval:** Every 20 minutes
 
-## Running the app
-
+## Running the project
 ```bash
 npm start
 ```
+The workflow `Start application` is configured and runs `npm start` automatically.
 
-The server starts on port 5000. The workflow `Start application` handles this automatically.
-
-## Leagues covered
-- Liga MX
-- Premier League
-- La Liga
-- Serie A
-- Bundesliga
-- Ligue 1
-
-## Key endpoints
-- `GET /` — API docs UI
-- `GET /tabla` — Liga MX standings
-- `GET /noticias` — Liga MX news
-- `GET /goleadores` — Top scorers
-- `GET /equipos` — Teams
-- `GET /marcadores` — Live scores (all leagues)
-- `GET /peliculas/:id` — Movie scraping
-- `GET /series/:id` — Series scraping
-- `GET /canales` — Live TV channels
-
-Most endpoints require an `X-Api-Key` header (generate keys via the admin panel).
-
-## Environment variables / secrets
-- `SESSION_SECRET` — (set) Express session secret
-- `FIREBASE_SERVICE_ACCOUNT_JSON` — (optional) Firebase Admin credentials JSON; without it, API key auth falls back to local file store
-- `FIREBASE_PROJECT_ID` — (optional) Firebase project ID (default: `apik-9510b`)
-- `FIREBASE_WEB_API_KEY` — (optional) Firebase Web API key for Firestore REST access
-- `PUPPETEER_EXECUTABLE_PATH` — (optional) Path to Chromium binary for Puppeteer scraping
+## Stack
+- **Runtime:** Node.js 20
+- **Framework:** Express
+- **Scraping:** Axios + Cheerio (HTML), Puppeteer-core (JS-rendered pages)
+- **Cron:** node-cron for scheduled data refresh
+- **Cache:** In-memory via `src/cache/dataCache.js`
 
 ## Project structure
 ```
-index.js                  # Main server (6000+ lines, all routes)
+index.js                  # Main server (~6600 lines) — all routes defined here
 src/
   cache/dataCache.js      # In-memory cache layer
-  firebase/admin.js       # Firebase Admin SDK init (optional)
-  middleware/
-    apiKeyAuth.js         # API key authentication middleware
-    auth.js               # Rate limiting + security headers
-  scrapers/               # One file per league/feature
-  storage/
-    keyStore.js           # Local file-based API key store
-    firestoreKeyStore.js  # Firestore-based API key store
-data/apikeys.json         # Local API key storage (auto-created)
+  scrapers/
+    tabla.js              # Liga MX standings
+    noticias.js           # Liga MX news
+    goleadores.js         # Liga MX top scorers
+    equipos.js            # Liga MX teams
+    logos.js              # Team logos
+    videos.js             # Video clips
+    calendario.js         # Liga MX calendar/fixtures
+    marcadores.js         # Live scores (all leagues)
+    peliculas.js          # Movie scraper
+    series.js             # TV series scraper
+    transmisiones*.js     # Live stream sources (1-6)
+    canales*.js           # TV channel listings
+    dramaShorts.js        # Drama/short video content
+    premier/              # Premier League scrapers
+    laliga/               # La Liga scrapers
+    seriea/               # Serie A scrapers
+    bundesliga/           # Bundesliga scrapers
+    ligue1/               # Ligue 1 scrapers
+  utils/scraper.js        # Anti-detection utilities (UA rotation, delays)
 ```
 
+## Environment variables
+- `PORT` — server port (default: 5000)
+- `SESSION_SECRET` — secret for express-session
+- `PUPPETEER_SKIP_DOWNLOAD` / `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD` — set to `true` on Replit (no bundled Chromium)
+- `PUPPETEER_EXECUTABLE_PATH` — path to system Chromium if puppeteer features are needed
+
 ## User preferences
+- Keep existing project structure and stack.
