@@ -2,6 +2,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 
 const TARGET = 'https://unlimplay.com';
+const NSRPLAY_TARGET = 'https://nsrplay.space';
 const PROXY_PATH = '/servpeli';
 const STREAM_PATH = '/servpeli-stream';
 
@@ -1329,6 +1330,83 @@ async function _fetchUnlimplayMovieData(movieId) {
   return result;
 }
 
+// ─── NSRPlay scraper ──────────────────────────────────────────────────────────
+
+const NSRPLAY_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'application/json',
+  'Origin': NSRPLAY_TARGET,
+  'Referer': NSRPLAY_TARGET + '/',
+};
+
+async function _fetchNsrplayMovieData(tmdbId) {
+  const url = `${NSRPLAY_TARGET}/api/v1/embed/sources/movie/${tmdbId}`;
+  const res = await axios.get(url, { headers: NSRPLAY_HEADERS, timeout: 10000, maxRedirects: 5 });
+  const json = res.data;
+  if (!json.success || !Array.isArray(json.servers) || json.servers.length === 0) return null;
+
+  const idiomas = {};
+  for (const srv of json.servers) {
+    const lang = srv.language || 'Desconocido';
+    if (!idiomas[lang]) idiomas[lang] = { servidores: [] };
+    const isM3u8 = containsM3u8(srv.embedUrl || '');
+    const entry = { nombre: srv.name || srv.server, url: srv.embedUrl, tipo: isM3u8 ? 'm3u8_directo' : 'embed', fuente: 'nsrplay' };
+    if (isM3u8) entry.m3u8_proxied = `/servpeli-stream?url=${encodeURIComponent(srv.embedUrl)}`;
+    idiomas[lang].servidores.push(entry);
+  }
+
+  return { movie_id: tmdbId, fuente: 'nsrplay.space', actualizado: new Date().toISOString(), idiomas };
+}
+
+async function _fetchNsrplayTvData(tmdbId, season, episode) {
+  const url = `${NSRPLAY_TARGET}/api/v1/embed/sources/tv/${tmdbId}/${season}/${episode}`;
+  const res = await axios.get(url, { headers: NSRPLAY_HEADERS, timeout: 10000, maxRedirects: 5 });
+  const json = res.data;
+  if (!json.success || !Array.isArray(json.servers) || json.servers.length === 0) return null;
+
+  const idiomas = {};
+  for (const srv of json.servers) {
+    const lang = srv.language || 'Desconocido';
+    if (!idiomas[lang]) idiomas[lang] = { servidores: [] };
+    const isM3u8 = containsM3u8(srv.embedUrl || '');
+    const entry = { nombre: srv.name || srv.server, url: srv.embedUrl, tipo: isM3u8 ? 'm3u8_directo' : 'embed', fuente: 'nsrplay' };
+    if (isM3u8) entry.m3u8_proxied = `/servpeli-stream?url=${encodeURIComponent(srv.embedUrl)}`;
+    idiomas[lang].servidores.push(entry);
+  }
+
+  return { series_id: tmdbId, season: parseInt(season), episode: parseInt(episode), tipo: 'tv', fuente: 'nsrplay.space', actualizado: new Date().toISOString(), idiomas };
+}
+
+/**
+ * Combina los servidores de nsrplay en el resultado de unlimplay.
+ * Sólo agrega servidores cuyo embedUrl no exista ya en la lista (deduplicación por URL).
+ */
+function _mergeNsrplayIntoResult(unlimResult, nsrResult) {
+  if (!nsrResult) return unlimResult;
+
+  // Recopilar todos los URLs ya presentes en el resultado de unlimplay
+  const existingUrls = new Set();
+  for (const lang of Object.values(unlimResult.idiomas || {})) {
+    for (const srv of lang.servidores || []) {
+      if (srv.url) existingUrls.add(srv.url.trim());
+    }
+  }
+
+  // Agregar los de nsrplay que no estén repetidos
+  for (const [lang, langData] of Object.entries(nsrResult.idiomas || {})) {
+    for (const srv of langData.servidores || []) {
+      if (!srv.url || existingUrls.has(srv.url.trim())) continue;
+      existingUrls.add(srv.url.trim());
+      if (!unlimResult.idiomas[lang]) unlimResult.idiomas[lang] = { servidores: [] };
+      unlimResult.idiomas[lang].servidores.push(srv);
+    }
+  }
+
+  // Registrar que se combinaron fuentes
+  unlimResult.fuentes = ['unlimplay.com', 'nsrplay.space'];
+  return unlimResult;
+}
+
 async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
   const cacheKey = `unlimplay_${movieId}`;
   _register(cacheKey, 'movie', [movieId]);
@@ -1341,16 +1419,28 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
   if (cached && !forceRefresh) {
     if (isExpired) {
       console.log(`[unlimplay] Caché expirado para ${movieId}, refrescando en background...`);
-      _fetchUnlimplayMovieData(movieId)
-        .then(result => unlimplayCache.set(cacheKey, { data: result, ts: Date.now() }))
-        .catch(e => console.warn(`[unlimplay] Background refresh falló para ${movieId}: ${e.message}`));
+      Promise.allSettled([
+        _fetchUnlimplayMovieData(movieId),
+        _fetchNsrplayMovieData(movieId).catch(() => null),
+      ]).then(([unlimRes, nsrRes]) => {
+        if (unlimRes.status === 'fulfilled') {
+          const merged = _mergeNsrplayIntoResult(unlimRes.value, nsrRes.status === 'fulfilled' ? nsrRes.value : null);
+          unlimplayCache.set(cacheKey, { data: merged, ts: Date.now() });
+        }
+      }).catch(e => console.warn(`[unlimplay] Background refresh falló para ${movieId}: ${e.message}`));
     }
     return cached.data;
   }
 
-  // Sin caché: esperar la primera carga
+  // Sin caché: esperar la primera carga de ambas fuentes en paralelo
   console.log(`[unlimplay] Primera carga para movie ${movieId}...`);
-  const result = await _fetchUnlimplayMovieData(movieId);
+  const [unlimRes, nsrRes] = await Promise.allSettled([
+    _fetchUnlimplayMovieData(movieId),
+    _fetchNsrplayMovieData(movieId).catch(e => { console.warn(`[nsrplay] movie ${movieId}: ${e.message}`); return null; }),
+  ]);
+
+  if (unlimRes.status === 'rejected') throw unlimRes.reason;
+  const result = _mergeNsrplayIntoResult(unlimRes.value, nsrRes.status === 'fulfilled' ? nsrRes.value : null);
   unlimplayCache.set(cacheKey, { data: result, ts: Date.now() });
   return result;
 }
@@ -1463,15 +1553,27 @@ async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = fa
   if (cached && !forceRefresh) {
     if (isExpired) {
       console.log(`[unlimplay/tv] Caché expirado para ${seriesId}/${season}/${episode}, refrescando en background...`);
-      _fetchUnlimplayTvData(seriesId, season, episode)
-        .then(result => unlimplayCache.set(cacheKey, { data: result, ts: Date.now() }))
-        .catch(e => console.warn(`[unlimplay/tv] Background refresh falló: ${e.message}`));
+      Promise.allSettled([
+        _fetchUnlimplayTvData(seriesId, season, episode),
+        _fetchNsrplayTvData(seriesId, season, episode).catch(() => null),
+      ]).then(([unlimRes, nsrRes]) => {
+        if (unlimRes.status === 'fulfilled') {
+          const merged = _mergeNsrplayIntoResult(unlimRes.value, nsrRes.status === 'fulfilled' ? nsrRes.value : null);
+          unlimplayCache.set(cacheKey, { data: merged, ts: Date.now() });
+        }
+      }).catch(e => console.warn(`[unlimplay/tv] Background refresh falló: ${e.message}`));
     }
     return cached.data;
   }
 
   console.log(`[unlimplay/tv] Primera carga para ${seriesId}/${season}/${episode}...`);
-  const result = await _fetchUnlimplayTvData(seriesId, season, episode);
+  const [unlimRes, nsrRes] = await Promise.allSettled([
+    _fetchUnlimplayTvData(seriesId, season, episode),
+    _fetchNsrplayTvData(seriesId, season, episode).catch(e => { console.warn(`[nsrplay/tv] ${seriesId}/${season}/${episode}: ${e.message}`); return null; }),
+  ]);
+
+  if (unlimRes.status === 'rejected') throw unlimRes.reason;
+  const result = _mergeNsrplayIntoResult(unlimRes.value, nsrRes.status === 'fulfilled' ? nsrRes.value : null);
   unlimplayCache.set(cacheKey, { data: result, ts: Date.now() });
   return result;
 }
