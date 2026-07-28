@@ -1305,6 +1305,7 @@ async function _fetchUnlimplayMovieData(movieId) {
       if (typeof url !== 'string') continue;
       if (nombre.endsWith('__tipo')) continue;
       if (nombre === 'proxy') continue;
+      if (!url.startsWith('http')) continue;
       const isM3u8 = containsM3u8(url);
       const tipoHint = servidores[`${nombre}__tipo`] || null;
       const tipo = isM3u8 ? 'm3u8_directo' : (tipoHint || 'embed');
@@ -1520,6 +1521,7 @@ async function _fetchUnlimplayTvData(seriesId, season, episode) {
       if (typeof url !== 'string') continue;
       if (nombre.endsWith('__tipo')) continue;
       if (nombre === 'proxy') continue;
+      if (!url.startsWith('http')) continue;
       const isM3u8 = containsM3u8(url);
       const tipoHint = servidores[`${nombre}__tipo`] || null;
       const tipo = isM3u8 ? 'm3u8_directo' : (tipoHint || 'embed');
