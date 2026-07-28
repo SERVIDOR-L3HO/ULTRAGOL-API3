@@ -6367,11 +6367,8 @@ app.get('/api/unlimplay/m3u8/tv/:seriesId/:season/:episode', async (req, res) =>
 
     const data = await scrapUnlimplayM3u8Tv(seriesId, season, episode, force);
     await resolveVoeServers(data.idiomas, cookies, base);
-    prewarmAdblockerCache(data.idiomas);
 
-    const processData = JSON.parse(JSON.stringify(data));
-    processData.idiomas = formatServidores(data.idiomas, base);
-    res.json(processData);
+    res.json(data);
   } catch (err) {
     console.error('[unlimplay/m3u8/tv] Error:', err.message);
     res.status(502).json(unlimplayError(err));
@@ -6389,15 +6386,8 @@ app.get('/api/unlimplay/m3u8-all/tv/:seriesId/:season/:episode', async (req, res
 
     const data = await scrapUnlimplayM3u8Tv(seriesId, season, episode, force);
     await resolveVoeServers(data.idiomas, cookies, base);
-    prewarmAdblockerCache(data.idiomas);
 
-    res.json({
-      series_id: data.series_id,
-      season: data.season,
-      episode: data.episode,
-      tipo: data.tipo,
-      idiomas: formatServidores(data.idiomas, base),
-    });
+    res.json(data);
   } catch (err) {
     console.error('[unlimplay/m3u8-all/tv] Error:', err.message);
     res.status(502).json(unlimplayError(err));
@@ -6415,9 +6405,8 @@ app.get('/api/unlimplay/m3u8-all/:movieId', async (req, res) => {
 
     const data = await scrapUnlimplayM3u8(movieId, force);
     await resolveVoeServers(data.idiomas, cookies, base);
-    prewarmAdblockerCache(data.idiomas);
 
-    res.json({ movie_id: data.movie_id, fuente: data.fuente, idiomas: formatServidores(data.idiomas, base) });
+    res.json(data);
   } catch (err) {
     console.error('[unlimplay/m3u8-all] Error:', err.message);
     res.status(502).json(unlimplayError(err));
