@@ -1,7 +1,7 @@
 const axios = require("axios");
 
-const DIARIES_URL = "https://ftvhd.com/diaries.json?v=2.12";
-const IMG_BASE    = "https://cdn.ftvhd.com";
+const DIARIES_URL = "https://futbollibretv.org.pe/diaries.json?v=2.2";
+const IMG_BASE    = "https://img.futbollibrehd.com.pe";
 const CACHE_TTL   = 10 * 60 * 1000;
 
 let _cache   = null;
@@ -56,12 +56,12 @@ function toStatusCode(hora, fecha) {
 async function scrapTransmisiones3() {
   const now = Date.now();
   if (_cache && (now - _cacheTs) < CACHE_TTL) {
-    console.log("gol-3 (ftvhd): usando cache");
+    console.log("gol-3 (futbollibretv): usando cache");
     return _cache;
   }
 
   try {
-    console.log("📺 Obteniendo transmisiones desde ftvhd.com/diaries.json...");
+    console.log("📺 Obteniendo transmisiones desde futbollibretv.org.pe/diaries.json...");
 
     const response = await axios.get(DIARIES_URL, {
       headers: {
@@ -124,12 +124,12 @@ async function scrapTransmisiones3() {
       return diff !== 0 ? diff : a.hora.localeCompare(b.hora);
     });
 
-    console.log(`✅ gol-3 (ftvhd): ${transmisiones.length} eventos obtenidos`);
+    console.log(`✅ gol-3 (futbollibretv): ${transmisiones.length} eventos obtenidos`);
 
     const result = {
       total:       transmisiones.length,
       actualizado: new Date().toISOString(),
-      fuente:      "ftvhd.com",
+      fuente:      "futbollibretv.org.pe",
       ligas,
       ligasDisponibles: Object.keys(ligas),
       transmisiones
@@ -144,7 +144,7 @@ async function scrapTransmisiones3() {
     return {
       total: 0,
       actualizado: new Date().toISOString(),
-      fuente: "ftvhd.com",
+      fuente: "futbollibretv.org.pe",
       error: `Error obteniendo transmisiones: ${error.message}`,
       ligas: {},
       ligasDisponibles: [],
