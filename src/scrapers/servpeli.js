@@ -1431,7 +1431,7 @@ async function _fetchUnlimplayMovieData(movieId) {
       for (const item of phpData.data) {
         result.idiomas[item.language] = {
           embed_url: item.embed_url,
-          servidores: [{ nombre: 'embed', url: item.embed_url, tipo: 'embed' }]
+          servidores: [{ nombre: 'embed', url: item.embed_url, tipo: 'embed', fuente: 'unlimplay.com' }]
         };
       }
       return result;
@@ -1457,7 +1457,7 @@ async function _fetchUnlimplayMovieData(movieId) {
       const isM3u8 = containsM3u8(url);
       const tipoHint = servidores[`${nombre}__tipo`] || null;
       const tipo = isM3u8 ? 'm3u8_directo' : (tipoHint || 'embed');
-      const entry = { nombre, url, tipo };
+      const entry = { nombre, url, tipo, fuente: 'unlimplay.com' };
       if (isM3u8) entry.m3u8_proxied = `/servpeli-stream?url=${encodeURIComponent(url)}`;
       result.idiomas[idioma].servidores.push(entry);
     }
@@ -1507,6 +1507,10 @@ async function _fetchNsrplayMovieData(tmdbId) {
   return { movie_id: tmdbId, fuente: 'nsrplay.space', actualizado: new Date().toISOString(), idiomas };
 }
 
+async function scrapNsrplayM3u8(movieId) {
+  return _fetchNsrplayMovieData(movieId);
+}
+
 async function _fetchNsrplayTvData(tmdbId, season, episode) {
   const url = `${NSRPLAY_TARGET}/api/v1/embed/sources/tv/${tmdbId}/${season}/${episode}`;
   const res = await axios.get(url, { headers: NSRPLAY_HEADERS, timeout: 10000, maxRedirects: 5 });
@@ -1554,6 +1558,83 @@ function _mergeNsrplayIntoResult(unlimResult, nsrResult) {
   // Registrar que se combinaron fuentes
   unlimResult.fuentes = ['unlimplay.com', 'nsrplay.space'];
   return unlimResult;
+}
+
+function _mergeMovieSources(results) {
+  const successful = results.filter(Boolean);
+  if (!successful.length) return null;
+
+  const primary = successful[0];
+  const merged = {
+    ...primary,
+    fuente: primary.fuente,
+    fuente_principal: primary.fuente,
+    fuentes: [],
+    idiomas: {},
+  };
+  const seenUrls = new Set();
+
+  for (const result of successful) {
+    if (result.fuente && !merged.fuentes.includes(result.fuente)) {
+      merged.fuentes.push(result.fuente);
+    }
+
+    for (const [language, languageData] of Object.entries(result.idiomas || {})) {
+      if (!merged.idiomas[language]) merged.idiomas[language] = { servidores: [] };
+      const targetLanguage = merged.idiomas[language];
+
+      for (const server of languageData.servidores || []) {
+        if (!server.url || seenUrls.has(server.url.trim())) continue;
+        seenUrls.add(server.url.trim());
+        targetLanguage.servidores.push({
+          ...server,
+          fuente: server.fuente || result.fuente,
+        });
+      }
+
+      if (!targetLanguage.embed_url && languageData.embed_url) {
+        targetLanguage.embed_url = languageData.embed_url;
+      }
+      if (!targetLanguage.m3u8 && languageData.m3u8) {
+        targetLanguage.m3u8 = languageData.m3u8;
+        targetLanguage.m3u8_proxied = languageData.m3u8_proxied;
+      }
+    }
+  }
+
+  return merged;
+}
+
+async function scrapMovieSources(movieId, forceRefresh = false) {
+  const [zonaResult, unlimResult, nsrResult] = await Promise.allSettled([
+    scrapZonaapsM3u8(movieId, forceRefresh),
+    scrapUnlimplayM3u8(movieId, forceRefresh),
+    scrapNsrplayM3u8(movieId),
+  ]);
+
+  const sources = [
+    zonaResult.status === 'fulfilled' ? zonaResult.value : null,
+    unlimResult.status === 'fulfilled' ? unlimResult.value : null,
+    nsrResult.status === 'fulfilled' ? nsrResult.value : null,
+  ];
+  const merged = _mergeMovieSources(sources);
+  if (!merged) {
+    const errors = [zonaResult, unlimResult, nsrResult]
+      .filter(result => result.status === 'rejected')
+      .map(result => result.reason?.message)
+      .filter(Boolean);
+    throw new Error(`No se pudieron obtener servidores de ninguna fuente: ${errors.join(' | ')}`);
+  }
+
+  const failedSources = [
+    ['zonaaps.lat', zonaResult],
+    ['unlimplay.com', unlimResult],
+    ['nsrplay.space', nsrResult],
+  ]
+    .filter(([, result]) => result.status === 'rejected')
+    .map(([source]) => source);
+  if (failedSources.length) merged.fuentes_fallidas = failedSources;
+  return merged;
 }
 
 async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
@@ -1966,4 +2047,4 @@ async function extractM3u8FromEmbed(embedUrl, referer, cookies) {
   return result;
 }
 
-module.exports = { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapZonaapsM3u8, scrapUnlimplayM3u8Tv, scrapNsrplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache, extractVoe, isVoe };
+module.exports = { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapZonaapsM3u8, scrapMovieSources, scrapUnlimplayM3u8Tv, scrapNsrplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache, extractVoe, isVoe };
