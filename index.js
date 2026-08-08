@@ -114,7 +114,7 @@ const {
 
 const path = require("path");
 const { securityHeaders, apiLimiter } = require("./src/middleware/auth");
-const { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache, extractVoe, isVoe } = require("./src/scrapers/servpeli");
+const { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, scrapNsrplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache, extractVoe, isVoe } = require("./src/scrapers/servpeli");
 const a7xtv = require("./src/scrapers/a7xtv");
 const app = express();
 
@@ -6375,16 +6375,27 @@ app.get('/api/unlimplay/m3u8/tv/:seriesId/:season/:episode', async (req, res) =>
   }
 });
 
-// Endpoint: m3u8 de todos los servidores de un episodio en paralelo
+// Endpoint: m3u8 de los servidores de nsrplay.space para un episodio.
+// Esta ruta no consulta ni combina servidores de unlimplay.com.
 // Acepta ?cookies=ddg_cid=...;ddgu=1 para resolver servidores VOE.sx automáticamente
 app.get('/api/unlimplay/m3u8-all/tv/:seriesId/:season/:episode', async (req, res) => {
   try {
     const { seriesId, season, episode } = req.params;
-    const force = req.query.force === '1' || req.query.force === 'true';
     const cookies = req.query.cookies || null;
     const base = `${req.protocol}://${req.get('host')}`;
 
-    const data = await scrapUnlimplayM3u8Tv(seriesId, season, episode, force);
+    const data = await scrapNsrplayM3u8Tv(seriesId, season, episode);
+    if (!data) {
+      return res.status(404).json({
+        codigo: 'sin_servidores',
+        error: 'No se encontraron servidores disponibles en nsrplay.space',
+        fuente: 'nsrplay.space',
+        series_id: seriesId,
+        season: parseInt(season),
+        episode: parseInt(episode),
+        idiomas: {}
+      });
+    }
     await resolveVoeServers(data.idiomas, cookies, base);
 
     res.json(data);

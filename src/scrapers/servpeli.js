@@ -1580,6 +1580,11 @@ async function scrapUnlimplayM3u8Tv(seriesId, season, episode, forceRefresh = fa
   return result;
 }
 
+// Fuente alternativa para la ruta que debe evitar completamente Unlimplay.
+async function scrapNsrplayM3u8Tv(seriesId, season, episode) {
+  return _fetchNsrplayTvData(seriesId, season, episode);
+}
+
 const embedM3u8Cache = new Map();
 const EMBED_TTL = 8 * 60 * 1000;
 
@@ -1797,4 +1802,4 @@ async function extractM3u8FromEmbed(embedUrl, referer, cookies) {
   return result;
 }
 
-module.exports = { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache, extractVoe, isVoe };
+module.exports = { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, scrapNsrplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache, extractVoe, isVoe };
