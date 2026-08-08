@@ -3,6 +3,8 @@ const cheerio = require('cheerio');
 
 const TARGET = 'https://unlimplay.com';
 const NSRPLAY_TARGET = 'https://nsrplay.space';
+const ZONAAPS_TARGET = 'https://zonaaps.lat';
+const ZONAAPS_PLAYER_API = `${ZONAAPS_TARGET}/wp-json/dooplayer/v2`;
 const PROXY_PATH = '/servpeli';
 const STREAM_PATH = '/servpeli-stream';
 
@@ -633,6 +635,13 @@ const UNLIMPLAY_HEADERS = {
   'Referer': `${TARGET}/`,
 };
 
+const ZONAAPS_HEADERS = {
+  'User-Agent': UNLIMPLAY_HEADERS['User-Agent'],
+  'Accept-Language': 'es-MX,es;q=0.9,en;q=0.8',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Referer': `${ZONAAPS_TARGET}/`,
+};
+
 // Extrae un objeto JSON balanceado en llaves a partir de la posición del primer '{'
 function _extractBalancedJson(html, jsonStart) {
   let depth = 0;
@@ -699,6 +708,145 @@ function extractEmbedsFromHtml(html) {
   }
   if (!Object.keys(normalized).length) return null;
   return normalized;
+}
+
+function _normalizeSearchText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function _extractZonaapsMovieCandidates(html) {
+  const $ = cheerio.load(html);
+  const candidates = [];
+
+  $('article.item.movies').each((_, article) => {
+    const link = $(article).find('a[href*="/movies/"]').first().attr('href');
+    if (!link) return;
+    const title = $(article).find('.data h3, h3').first().text().trim();
+    const year = $(article).find('.data span').first().text().trim();
+    candidates.push({ url: resolveAbsoluteUrl(link, ZONAAPS_TARGET), title, year });
+  });
+
+  // The search template can vary, so also accept movie links outside articles.
+  if (!candidates.length) {
+    const seen = new Set();
+    $('a[href*="/movies/"]').each((_, anchor) => {
+      const url = resolveAbsoluteUrl($(anchor).attr('href'), ZONAAPS_TARGET);
+      if (!url || seen.has(url) || /\/movies\/?$/i.test(url)) return;
+      seen.add(url);
+      candidates.push({ url, title: $(anchor).text().trim(), year: '' });
+    });
+  }
+
+  return candidates;
+}
+
+function _selectZonaapsMovie(candidates, title, year) {
+  const wantedTitle = _normalizeSearchText(title);
+  const wantedYear = String(year || '');
+  return candidates
+    .map(candidate => {
+      const candidateTitle = _normalizeSearchText(candidate.title);
+      let score = 0;
+      if (candidateTitle === wantedTitle) score += 100;
+      else if (candidateTitle.includes(wantedTitle) || wantedTitle.includes(candidateTitle)) score += 50;
+      if (wantedYear && candidate.year === wantedYear) score += 25;
+      return { candidate, score };
+    })
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)[0]?.candidate || null;
+}
+
+async function _fetchZonaapsMovieData(movieId) {
+  // The endpoint receives a TMDB ID, so use the existing TMDB metadata helper
+  // to find the corresponding movie title on ZonaAPS' WordPress search page.
+  const { tmdbToImdb } = require('./peliculas');
+  const meta = await tmdbToImdb(Number(movieId));
+  const searchUrl = `${ZONAAPS_TARGET}/?s=${encodeURIComponent(meta.titulo)}`;
+  const searchResponse = await axios.get(searchUrl, {
+    headers: ZONAAPS_HEADERS,
+    timeout: 12000,
+    maxRedirects: 5,
+  });
+  const selected = _selectZonaapsMovie(
+    _extractZonaapsMovieCandidates(searchResponse.data),
+    meta.titulo,
+    meta.anio
+  );
+
+  if (!selected) {
+    throw new Error(`ZonaAPS no encontró la película "${meta.titulo}"`);
+  }
+
+  const pageResponse = await axios.get(selected.url, {
+    headers: ZONAAPS_HEADERS,
+    timeout: 12000,
+    maxRedirects: 5,
+  });
+  const $ = cheerio.load(pageResponse.data);
+  const postId = $('#dooplay-ajax-counter').attr('data-postid')
+    || $('li.dooplay_player_option[data-post]').first().attr('data-post');
+  if (!postId) throw new Error('ZonaAPS no devolvió el ID interno de la película');
+
+  const options = [];
+  $('li.dooplay_player_option[data-nume]').each((_, item) => {
+    const nume = $(item).attr('data-nume');
+    if (!nume || nume === 'trailer') return;
+    options.push({
+      nume,
+      nombre: $(item).find('.title').text().trim() || `Opción ${nume}`,
+    });
+  });
+
+  const seen = new Set();
+  const servers = [];
+  await Promise.all(options.map(async option => {
+    let embedUrl = null;
+    try {
+      const response = await axios.get(
+        `${ZONAAPS_PLAYER_API}/${postId}/movie/${encodeURIComponent(option.nume)}`,
+        { headers: { ...ZONAAPS_HEADERS, Accept: 'application/json' }, timeout: 10000 }
+      );
+      embedUrl = response.data?.embed_url;
+    } catch (error) {
+      console.warn(`[zonaaps] No se pudo consultar la opción ${option.nume}: ${error.message}`);
+    }
+
+    if (!embedUrl) {
+      embedUrl = $(`#source-player-${option.nume} iframe`).first().attr('src');
+    }
+    if (!embedUrl || !/^https?:\/\//i.test(embedUrl) || seen.has(embedUrl)) return;
+    seen.add(embedUrl);
+    servers.push({
+      nombre: option.nombre,
+      url: embedUrl,
+      tipo: containsM3u8(embedUrl) ? 'm3u8_directo' : 'embed',
+      fuente: 'zonaaps.lat',
+      orden: Number(option.nume) || 0,
+    });
+  }));
+
+  servers.sort((a, b) => a.orden - b.orden);
+  servers.forEach(server => delete server.orden);
+  if (!servers.length) throw new Error('ZonaAPS no devolvió embeds para la película');
+
+  return {
+    movie_id: String(movieId),
+    fuente: 'zonaaps.lat',
+    fuente_principal: 'zonaaps.lat',
+    actualizado: new Date().toISOString(),
+    pagina: selected.url,
+    idiomas: {
+      latino: {
+        embed_url: servers[0].url,
+        servidores: servers,
+      },
+    },
+  };
 }
 
 // ─── Extractores específicos por servidor ─────────────────────────────────────
@@ -1446,6 +1594,22 @@ async function scrapUnlimplayM3u8(movieId, forceRefresh = false) {
   return result;
 }
 
+const zonaapsCache = new Map();
+const ZONAAPS_TTL = 2 * 60 * 60 * 1000;
+
+async function scrapZonaapsM3u8(movieId, forceRefresh = false) {
+  const cacheKey = `zonaaps_${movieId}`;
+  const cached = zonaapsCache.get(cacheKey);
+  if (cached && !forceRefresh && Date.now() - cached.ts < ZONAAPS_TTL) {
+    return cached.data;
+  }
+
+  console.log(`[zonaaps] Obteniendo embeds para movie ${movieId}...`);
+  const data = await _fetchZonaapsMovieData(movieId);
+  zonaapsCache.set(cacheKey, { data, ts: Date.now() });
+  return data;
+}
+
 async function _fetchUnlimplayTvData(seriesId, season, episode) {
   const phpUrl = `${TARGET}/play.php/embed/tv/${seriesId}/${season}/${episode}?api=1&t=${Date.now()}`;
   const fEmbedUrl = `${TARGET}/f/embed/tv/${seriesId}/${season}/${episode}`;
@@ -1802,4 +1966,4 @@ async function extractM3u8FromEmbed(embedUrl, referer, cookies) {
   return result;
 }
 
-module.exports = { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, scrapNsrplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache, extractVoe, isVoe };
+module.exports = { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapZonaapsM3u8, scrapUnlimplayM3u8Tv, scrapNsrplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache, extractVoe, isVoe };

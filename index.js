@@ -114,7 +114,7 @@ const {
 
 const path = require("path");
 const { securityHeaders, apiLimiter } = require("./src/middleware/auth");
-const { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapUnlimplayM3u8Tv, scrapNsrplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache, extractVoe, isVoe } = require("./src/scrapers/servpeli");
+const { proxyServpeli, proxyServpeliStream, scrapUnlimplayM3u8, scrapZonaapsM3u8, scrapUnlimplayM3u8Tv, scrapNsrplayM3u8Tv, extractM3u8FromEmbed, refreshUnlimplayCache, extractVoe, isVoe } = require("./src/scrapers/servpeli");
 const a7xtv = require("./src/scrapers/a7xtv");
 const app = express();
 
@@ -5393,7 +5393,14 @@ app.get('/api/unlimplay/m3u8/:movieId', async (req, res) => {
     const cookies = req.query.cookies || null;
     const base = `${req.protocol}://${req.get('host')}`;
 
-    const data = await scrapUnlimplayM3u8(movieId, force);
+    let data;
+    try {
+      data = await scrapZonaapsM3u8(movieId, force);
+    } catch (zonaapsError) {
+      console.warn(`[unlimplay/m3u8] ZonaAPS falló, usando respaldo Unlimplay: ${zonaapsError.message}`);
+      data = await scrapUnlimplayM3u8(movieId, force);
+      data.fuente_respaldo = 'unlimplay.com';
+    }
     await resolveVoeServers(data.idiomas, cookies, base);
 
     res.json(data);
