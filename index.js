@@ -6375,21 +6375,22 @@ app.get('/api/unlimplay/m3u8/tv/:seriesId/:season/:episode', async (req, res) =>
   }
 });
 
-// Endpoint: m3u8 de los servidores de nsrplay.space para un episodio.
-// Esta ruta no consulta ni combina servidores de unlimplay.com.
+// Endpoint: extraer m3u8 de todos los servidores de Unlimplay para un episodio.
+// El scraper conserva la combinación con NSRPlay como fuente complementaria.
 // Acepta ?cookies=ddg_cid=...;ddgu=1 para resolver servidores VOE.sx automáticamente
 app.get('/api/unlimplay/m3u8-all/tv/:seriesId/:season/:episode', async (req, res) => {
   try {
     const { seriesId, season, episode } = req.params;
+    const force = req.query.force === '1' || req.query.force === 'true';
     const cookies = req.query.cookies || null;
     const base = `${req.protocol}://${req.get('host')}`;
 
-    const data = await scrapNsrplayM3u8Tv(seriesId, season, episode);
+    const data = await scrapUnlimplayM3u8Tv(seriesId, season, episode, force);
     if (!data) {
       return res.status(404).json({
         codigo: 'sin_servidores',
-        error: 'No se encontraron servidores disponibles en nsrplay.space',
-        fuente: 'nsrplay.space',
+        error: 'No se encontraron servidores disponibles en unlimplay.com',
+        fuente: 'unlimplay.com',
         series_id: seriesId,
         season: parseInt(season),
         episode: parseInt(episode),
