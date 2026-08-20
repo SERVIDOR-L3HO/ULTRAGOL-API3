@@ -50,6 +50,7 @@ const { scrapMejoresMomentosLigue1 } = require("./src/scrapers/ligue1/mejoresMom
 
 const { scrapPelicula, scrapPeliculaPorTmdb, tmdbToImdb, clearPeliculaCache, buscarPelicula } = require("./src/scrapers/peliculas");
 const { getSeriePorTmdb, getEpisodiosPorTemporada, clearSerieCache, buscarSerie } = require("./src/scrapers/series");
+const { buscarAnime, obtenerAnime, obtenerEpisodio, clearAnimeCache } = require("./src/scrapers/animejara");
 const { scrapTransmisiones } = require("./src/scrapers/transmisiones");
 const { scrapTransmisiones2 } = require("./src/scrapers/transmisiones2");
 const { scrapTransmisiones3 } = require("./src/scrapers/transmisiones3");
@@ -383,6 +384,47 @@ app.get("/api/buscar/serie", async (req, res) => {
     console.error('Error buscando serie:', err.message);
     res.status(500).json({ error: 'Error en búsqueda', detalle: err.message });
   }
+});
+
+// AnimeJara: búsqueda por nombre, detalle por slug y servidores por episodio.
+app.get("/api/anime/buscar", async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || !q.trim()) return res.status(400).json({ error: "Parámetro ?q= requerido" });
+    res.json(await buscarAnime(q));
+  } catch (err) {
+    console.error("Error buscando anime:", err.message);
+    res.status(502).json({ error: "Error buscando anime", detalle: err.message });
+  }
+});
+
+app.get("/api/anime/:slug/temporada/:temporada/episodio/:episodio", async (req, res) => {
+  try {
+    res.json(await obtenerEpisodio(
+      req.params.slug,
+      req.params.temporada,
+      req.params.episodio
+    ));
+  } catch (err) {
+    console.error("Error obteniendo servidores del anime:", err.message);
+    const status = /no existe|inválido/i.test(err.message) ? 404 : 502;
+    res.status(status).json({ error: "Error obteniendo servidores del episodio", detalle: err.message });
+  }
+});
+
+app.get("/api/anime/:slug", async (req, res) => {
+  try {
+    res.json(await obtenerAnime(req.params.slug));
+  } catch (err) {
+    console.error("Error obteniendo anime:", err.message);
+    const status = /no encontrado|inválido/i.test(err.message) ? 404 : 502;
+    res.status(status).json({ error: "Error obteniendo anime", detalle: err.message });
+  }
+});
+
+app.delete("/api/anime/cache", (req, res) => {
+  clearAnimeCache();
+  res.json({ success: true, message: "Cache de anime limpiado" });
 });
 
 app.get("/api/buscar/todo", async (req, res) => {
