@@ -61,7 +61,6 @@ async function buscarAnime(query) {
     resultados: animes.map((anime) => ({
       titulo: anime.titulo || null,
       slug: anime.slug || null,
-      url: anime.slug ? `${BASE_URL}/anime/${anime.slug}` : null,
       poster: absoluteUrl(anime.poster),
       rating: anime.rating ? Number(anime.rating) : null,
       anio: anime.anio ? Number(anime.anio) : null,
