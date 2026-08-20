@@ -20,6 +20,22 @@ The workflow `Start application` is configured and runs `npm start` automaticall
 - **Cron:** node-cron for scheduled data refresh
 - **Cache:** In-memory via `src/cache/dataCache.js`
 
+## AnimeJara API
+The project also exposes anime search and episode servers from AnimeJara without
+using TMDB IDs:
+
+```text
+GET /api/anime/buscar?q=naruto
+GET /api/anime/:slug
+GET /api/anime/:slug/temporada/:temporada/episodio/:episodio
+DELETE /api/anime/cache
+```
+
+The episode endpoint returns the embed URLs published by AnimeJara, including
+the internal `idanime` and `idcapitulo` query parameters. AnimeJara may return
+HTTP 404 for an episode while still serving valid player HTML; the scraper
+validates the extracted content rather than relying only on the status code.
+
 ## Project structure
 ```
 index.js                  # Main server (~6600 lines) — all routes defined here
