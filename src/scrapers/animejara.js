@@ -144,6 +144,51 @@ function parseEpisodeLinks(html) {
   }
 }
 
+function parseInnerServerLinks(html) {
+  const $ = cheerio.load(html);
+  const servers = [];
+
+  $('#logo-list li').each((_, element) => {
+    const item = $(element);
+    const onclick = item.attr('onclick') || '';
+    const match = onclick.match(/playVideo\(\s*["']([^"']+)["']\s*\)/i);
+    const url = match?.[1] || item.attr('data-url') || item.find('a').attr('href');
+    if (!url || !/^https?:\/\//i.test(url)) return;
+
+    const nombre = item.find('.nombre-server').first().text().trim()
+      || item.find('img').attr('alt')
+      || serverName(url);
+    servers.push({ nombre: nombre.toLowerCase(), url, tipo: 'servidor' });
+  });
+
+  // Fallback para cambios menores de HTML donde solo quede playVideo(...)
+  if (!servers.length) {
+    const matches = [...html.matchAll(/playVideo\(\s*["']([^"']+)["']\s*\)/gi)];
+    for (const match of matches) {
+      if (/^https?:\/\//i.test(match[1])) {
+        servers.push({ nombre: serverName(match[1]), url: match[1], tipo: 'servidor' });
+      }
+    }
+  }
+
+  const unique = new Map();
+  for (const server of servers) unique.set(server.url, server);
+  return [...unique.values()];
+}
+
+async function resolveEmbed(embedUrl) {
+  try {
+    const response = await axios.get(embedUrl, {
+      headers: { ...HEADERS, Referer: `${BASE_URL}/` },
+      timeout: 15000,
+      validateStatus: (status) => status < 500
+    });
+    return parseInnerServerLinks(response.data);
+  } catch (error) {
+    return [];
+  }
+}
+
 async function obtenerEpisodio(slug, temporada, episodio) {
   const season = Number(temporada);
   const episode = Number(episodio);
@@ -165,10 +210,16 @@ async function obtenerEpisodio(slug, temporada, episodio) {
     timeout: 20000,
     validateStatus: (status) => status < 500
   });
-  const servidores = parseEpisodeLinks(response.data);
-  if (!servidores.length) {
+  const embeds = parseEpisodeLinks(response.data);
+  if (!embeds.length) {
     throw new Error(`No se encontraron servidores en el episodio ${season}x${episode}`);
   }
+  const resolved = await Promise.all(embeds.map((embed) => resolveEmbed(embed.url)));
+  const serversByUrl = new Map();
+  for (const servers of resolved) {
+    for (const server of servers) serversByUrl.set(server.url, server);
+  }
+  const servidores = [...serversByUrl.values()];
 
   return {
     anime: { titulo: anime.titulo, slug: anime.slug, poster: anime.poster },
@@ -179,6 +230,7 @@ async function obtenerEpisodio(slug, temporada, episodio) {
     url_animejara: url,
     servidores,
     total_servidores: servidores.length,
+    total_embeds_procesados: embeds.length,
     fuente: BASE_URL
   };
 }

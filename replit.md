@@ -31,8 +31,9 @@ GET /api/anime/:slug/temporada/:temporada/episodio/:episodio
 DELETE /api/anime/cache
 ```
 
-The episode endpoint returns the embed URLs published by AnimeJara, including
-the internal `idanime` and `idcapitulo` query parameters. AnimeJara may return
+The episode endpoint visits the embeds published by AnimeJara and returns the
+server links found inside them (`nyuu`, `filemoon`, `streamhg`, `voe`, etc.),
+without exposing the outer `multiplayer.streamhj.top` URLs. AnimeJara may return
 HTTP 404 for an episode while still serving valid player HTML; the scraper
 validates the extracted content rather than relying only on the status code.
 
