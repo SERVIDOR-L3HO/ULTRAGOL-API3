@@ -37,6 +37,21 @@ without exposing the outer `multiplayer.streamhj.top` URLs. AnimeJara may return
 HTTP 404 for an episode while still serving valid player HTML; the scraper
 validates the extracted content rather than relying only on the status code.
 
+## Nova TV API
+The `/nova` endpoint scrapes the channel catalog from
+`https://www.televisiongratishd.org/`. Use `/nova?canal=espn` to resolve the
+channel's current HLS playlist URLs. Add `force=true` to bypass the short-lived
+cache when a stream token has expired:
+
+```text
+GET /nova
+GET /nova?canal=espn
+GET /nova?canal=espn&force=true
+```
+
+The `m3u8` array contains the currently available HLS playlist URLs. Individual
+options also include their player URL and an error when the source is offline.
+
 ## Project structure
 ```
 index.js                  # Main server (~6600 lines) — all routes defined here

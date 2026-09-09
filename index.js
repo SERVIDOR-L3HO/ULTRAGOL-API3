@@ -57,6 +57,7 @@ const { scrapTransmisiones3 } = require("./src/scrapers/transmisiones3");
 const { scrapTransmisiones4 } = require("./src/scrapers/transmisiones4");
 const { scrapTransmisiones5 } = require("./src/scrapers/transmisiones5");
 const { scrapTransmisiones6 } = require("./src/scrapers/transmisiones6");
+const { scrapNova } = require("./src/scrapers/nova");
 const { 
   scrapCanales, 
   scrapCanalesPorPais, 
@@ -6562,6 +6563,24 @@ app.get('/api/a7xtv/streams', async (req, res) => {
   } catch (err) {
     console.error('[a7xtv/streams] Error:', err.message);
     res.status(502).json({ error: err.message });
+  }
+});
+
+// === NOVA: catálogo y enlaces HLS de televisiongratishd.org ===
+// GET /nova
+// GET /nova?canal=espn
+app.get("/nova", async (req, res) => {
+  try {
+    const canal = typeof req.query.canal === "string" ? req.query.canal : null;
+    const force = req.query.force === "1" || req.query.force === "true";
+    const data = await scrapNova({ canal, force });
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /nova:", error.message);
+    res.status(error.statusCode || 502).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
