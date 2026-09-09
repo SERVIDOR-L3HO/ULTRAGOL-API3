@@ -6572,8 +6572,14 @@ app.get('/api/a7xtv/streams', async (req, res) => {
 app.get("/nova", async (req, res) => {
   try {
     const canal = typeof req.query.canal === "string" ? req.query.canal : null;
+    const url = typeof req.query.url === "string"
+      ? req.query.url
+      : (typeof req.query.pagina === "string" ? req.query.pagina : null);
     const force = req.query.force === "1" || req.query.force === "true";
-    const data = await scrapNova({ canal, force });
+    const data = await scrapNova({ canal, url, force });
+
+    // Cuando se proporciona la página del canal, devolver únicamente los HLS.
+    if (url) return res.json(data.m3u8);
     res.json(data);
   } catch (error) {
     console.error("Error en /nova:", error.message);

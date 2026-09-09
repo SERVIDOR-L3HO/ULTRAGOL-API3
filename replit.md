@@ -47,10 +47,13 @@ cache when a stream token has expired:
 GET /nova
 GET /nova?canal=espn
 GET /nova?canal=espn&force=true
+GET /nova?url=https%3A%2F%2Fwww.televisiongratishd.org%2Ffox-sports-premium-en-vivo.php
 ```
 
 The `m3u8` array contains the currently available HLS playlist URLs. Individual
 options also include their player URL and an error when the source is offline.
+When `url` or `pagina` is provided, the response is only the JSON array of
+currently available HLS playlist URLs.
 
 ## Project structure
 ```

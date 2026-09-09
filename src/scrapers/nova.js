@@ -203,7 +203,21 @@ async function scrapNovaChannel(channel, force = false) {
   return data;
 }
 
-async function scrapNova({ canal, force = false } = {}) {
+async function scrapNova({ canal, url, force = false } = {}) {
+  if (url) {
+    if (!isSiteUrl(url)) {
+      const error = new Error("La URL debe pertenecer a televisiongratishd.org");
+      error.statusCode = 400;
+      throw error;
+    }
+    canal = channelSlugFromUrl(url);
+    if (!canal) {
+      const error = new Error("La URL debe ser una página de canal terminada en -en-vivo.php");
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
   if (canal) return scrapNovaChannel(canal, force);
   return scrapNovaCatalog(force);
 }
