@@ -6575,11 +6575,24 @@ app.get("/nova", async (req, res) => {
     const url = typeof req.query.url === "string"
       ? req.query.url
       : (typeof req.query.pagina === "string" ? req.query.pagina : null);
+    const catalogo = req.query.catalogo === "1" || req.query.catalogo === "true";
     const force = req.query.force === "1" || req.query.force === "true";
+
+    if (!canal && !url && !catalogo) {
+      return res.status(400).json({
+        success: false,
+        error: "Indica url o canal para obtener solamente las transmisiones",
+        ejemplos: [
+          "/nova?url=https%3A%2F%2Fwww.televisiongratishd.org%2Fmovistar-la-liga-en-vivo.php",
+          "/nova?canal=movistar-la-liga"
+        ]
+      });
+    }
+
     const data = await scrapNova({ canal, url, force });
 
-    // Cuando se proporciona la página del canal, devolver únicamente los HLS.
-    if (url) return res.json(data.m3u8);
+    // Para un canal concreto, devolver únicamente los HLS, nunca la página.
+    if (url || canal) return res.json(data.m3u8);
     res.json(data);
   } catch (error) {
     console.error("Error en /nova:", error.message);

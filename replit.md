@@ -48,12 +48,14 @@ GET /nova
 GET /nova?canal=espn
 GET /nova?canal=espn&force=true
 GET /nova?url=https%3A%2F%2Fwww.televisiongratishd.org%2Ffox-sports-premium-en-vivo.php
+GET /nova?catalogo=true
 ```
 
 The `m3u8` array contains the currently available HLS playlist URLs. Individual
 options also include their player URL and an error when the source is offline.
-When `url` or `pagina` is provided, the response is only the JSON array of
-currently available HLS playlist URLs.
+When `url`, `pagina`, or `canal` is provided, the response is only the JSON
+array of currently available HLS playlist URLs. The channel catalog is only
+returned when `catalogo=true` is explicitly requested.
 
 ## Project structure
 ```
