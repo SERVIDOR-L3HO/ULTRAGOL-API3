@@ -57,6 +57,7 @@ const { scrapTransmisiones3 } = require("./src/scrapers/transmisiones3");
 const { scrapTransmisiones4 } = require("./src/scrapers/transmisiones4");
 const { scrapTransmisiones5 } = require("./src/scrapers/transmisiones5");
 const { scrapTransmisiones6 } = require("./src/scrapers/transmisiones6");
+const { scrapTransmisionesCA } = require("./src/scrapers/transmisionesCA");
 const { scrapNova } = require("./src/scrapers/nova");
 const { 
   scrapCanales, 
@@ -663,6 +664,10 @@ app.get("/api", (req, res) => {
       transmisiones6: {
         endpoint: "/transmisiones6",
         descripcion: "API Oficial UltraGol (dp.mycraft.click) - Transmisiones deportivas profesionales de múltiples deportes (fútbol, hockey, baloncesto, etc.) con protección Cloudflare, horarios, ligas y enlaces listos para reproducir"
+      },
+      transmisionesCA: {
+        endpoint: "/gol-ca",
+        descripcion: "Canales de TVEnVivo2 con enlaces de transmisión y logos"
       },
       "ultragol-l3ho": {
         endpoint: "/ultragol-l3ho",
@@ -1901,6 +1906,37 @@ app.get("/gol-6", async (req, res) => {
       error: "No se pudieron obtener las transmisiones deportivas desde UltraGol API",
       detalles: error.message,
       sugerencia: "El sitio web podría estar bloqueando las peticiones o Cloudflare está activo. Intenta de nuevo más tarde."
+    });
+  }
+});
+
+app.get("/gol-ca", async (req, res) => {
+  try {
+    let data = cache.get("transmisionesCA");
+
+    if (!data) {
+      console.log("📺 Obteniendo canales desde tvenvivo2.com (caché vacío)...");
+      try {
+        data = await scrapTransmisionesCA();
+        if (data && data.total > 0) {
+          cache.set("transmisionesCA", data, 10 * 60);
+        }
+      } catch (scrapeError) {
+        const staleData = cache.getStale("transmisionesCA");
+        if (staleData && staleData.total > 0) {
+          console.warn("⚠️ Usando caché stale para gol-ca:", scrapeError.message);
+          return res.json({ ...staleData, _stale: true });
+        }
+        throw scrapeError;
+      }
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error("Error en /gol-ca:", error.message);
+    res.status(500).json({
+      error: "No se pudieron obtener los canales de tvenvivo2.com",
+      detalles: error.message
     });
   }
 });
