@@ -3,6 +3,7 @@ const cheerio = require("cheerio");
 
 const SOURCE_URL = "https://www.tvenvivo2.com/";
 const CACHE_TTL = 10 * 60 * 1000;
+const DETAIL_CONCURRENCY = 8;
 
 let cachedData = null;
 let cachedAt = 0;
@@ -13,6 +14,47 @@ function absoluteUrl(value) {
   try {
     return new URL(value, SOURCE_URL).toString();
   } catch {
+    return null;
+  }
+}
+
+async function scrapeChannelDetails(channel) {
+  try {
+    const response = await axios.get(channel.pagina, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+        "Referer": SOURCE_URL
+      },
+      timeout: 12000
+    });
+
+    const $ = cheerio.load(response.data);
+    const enlaces = [];
+    const seen = new Set();
+
+    $(".option[data-src]").each((index, element) => {
+      const url = absoluteUrl($(element).attr("data-src"));
+      if (!url || seen.has(url)) return;
+
+      seen.add(url);
+      enlaces.push({
+        nombre: $(element).text().replace(/\s+/g, " ").trim() || `Opción ${index + 1}`,
+        url
+      });
+    });
+
+    if (enlaces.length === 0) return null;
+
+    return {
+      nombre: channel.nombre,
+      logo: channel.logo,
+      url: enlaces[0].url,
+      enlaces,
+      pagina: channel.pagina
+    };
+  } catch (error) {
+    console.warn(`⚠️ No se pudieron obtener los enlaces de ${channel.nombre}: ${error.message}`);
     return null;
   }
 }
@@ -34,7 +76,7 @@ async function scrapTransmisionesCA() {
 
     const $ = cheerio.load(response.data);
     const seen = new Set();
-    const transmisiones = [];
+    const canales = [];
 
     $(".channel").each((index, element) => {
       const href = absoluteUrl($(element).attr("href"));
@@ -51,17 +93,25 @@ async function scrapTransmisionesCA() {
         `Canal ${index + 1}`;
 
       seen.add(href);
-      transmisiones.push({
+      canales.push({
         nombre,
-        url: href,
-        logo
+        logo,
+        pagina: href
       });
     });
+
+    const transmisiones = [];
+    for (let index = 0; index < canales.length; index += DETAIL_CONCURRENCY) {
+      const batch = canales.slice(index, index + DETAIL_CONCURRENCY);
+      const results = await Promise.all(batch.map(scrapeChannelDetails));
+      transmisiones.push(...results.filter(Boolean));
+    }
 
     const result = {
       total: transmisiones.length,
       actualizado: new Date().toISOString(),
       fuente: "tvenvivo2.com",
+      canalesEncontrados: canales.length,
       transmisiones
     };
 
