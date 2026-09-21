@@ -1715,7 +1715,7 @@ app.get("/gol-3", async (req, res) => {
     let data = cache.get("transmisiones3");
 
     if (!data) {
-      console.log("📺 Obteniendo transmisiones desde tvtvhd.com (caché vacío)...");
+      console.log("📺 Obteniendo transmisiones desde futbollibretvs.co (caché vacío)...");
       try {
         data = await scrapTransmisiones3();
         if (data && data.total > 0) {
@@ -1735,7 +1735,7 @@ app.get("/gol-3", async (req, res) => {
   } catch (error) {
     console.error("Error en /gol-3:", error.message);
     res.status(500).json({
-      error: "No se pudieron obtener las transmisiones desde tvtvhd.com",
+      error: "No se pudieron obtener las transmisiones desde futbollibretvs.co",
       detalles: error.message
     });
   }

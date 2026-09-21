@@ -1,151 +1,150 @@
 const axios = require("axios");
+const cheerio = require("cheerio");
 
-const DIARIES_URL = "https://futbollibretv.org.pe/diaries.json?v=2.2";
-const IMG_BASE    = "https://img.futbollibrehd.com.pe";
-const CACHE_TTL   = 10 * 60 * 1000;
+const SOURCE_BASE = "https://futbollibretvs.co";
+const AGENDA_URL = `${SOURCE_BASE}/agenda`;
+const CACHE_TTL = 10 * 60 * 1000;
 
-let _cache   = null;
+let _cache = null;
 let _cacheTs = 0;
 
-function tryBase64Decode(str) {
+function absoluteUrl(value) {
+  if (!value) return null;
+
   try {
-    const decoded = Buffer.from(str, "base64").toString("utf8");
-    if (decoded.startsWith("http") || decoded.startsWith("/")) return decoded;
-  } catch {}
-  return null;
+    return new URL(value, SOURCE_BASE).toString();
+  } catch {
+    return null;
+  }
 }
 
-// Decodifica el embed_iframe y devuelve la URL real
-// Formato: /embed/eventos.html?r=<BASE64>  →  https://fltvhd.com/...
-function decodeEmbedUrl(iframePath) {
-  if (!iframePath) return null;
+function toStatusCode(instant, hora, fecha) {
   try {
-    // Capa 1: el iframe completo podría ser base64
-    const layer1 = tryBase64Decode(iframePath);
-    let url = layer1 || iframePath;
+    const eventDate = instant
+      ? new Date(instant)
+      : new Date(`${fecha}T${String(hora || "00:00").padStart(5, "0")}:00`);
 
-    // Capa 2: buscar parámetro r=
-    const rMatch = url.match(/[?&]r=([^&]+)/);
-    if (rMatch) {
-      const layer2 = tryBase64Decode(rMatch[1]);
-      if (layer2) return layer2;
-      const plain = decodeURIComponent(rMatch[1]);
-      if (plain.startsWith("http")) return plain;
-    }
+    if (Number.isNaN(eventDate.getTime())) return "PROXIMO";
 
-    // Si ya era una URL directa
-    if (url.startsWith("http")) return url;
-  } catch {}
-  return null;
-}
-
-function toStatusCode(hora, fecha) {
-  try {
-    const now = new Date();
-    const [h, m] = (hora || "00:00").split(":").map(Number);
-    const eventDate = new Date(`${fecha}T${String(h).padStart(2,"0")}:${String(m||0).padStart(2,"0")}:00`);
-    const diffMin = (now - eventDate) / 60000;
-    if (diffMin > 150)  return "FINALIZADO";
-    if (diffMin >= -5)  return "EN VIVO";
+    const diffMin = (Date.now() - eventDate.getTime()) / 60000;
+    if (diffMin > 150) return "FINALIZADO";
+    if (diffMin >= -5) return "EN VIVO";
     return "PROXIMO";
   } catch {
     return "PROXIMO";
   }
 }
 
+function splitTeams(title) {
+  const teams = title.split(/\s+vs\.?\s+/i);
+  return {
+    equipo1: teams[0]?.trim() || title,
+    equipo2: teams[1]?.trim() || ""
+  };
+}
+
+function parseEvent($, element) {
+  const event = $(element);
+  const instant = event.attr("data-source-instant") || null;
+  const rawTitle = event.find(".source-agenda-eventtext strong").first().text().trim();
+  const competition = event.find(".source-agenda-competition").first().text().trim().replace(/:\s*$/, "");
+  const title = rawTitle || "Evento desconocido";
+  const partido = competition
+    ? title.replace(new RegExp(`^${competition.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:?\\s*`, "i"), "")
+    : title;
+
+  const sourceLinks = event.find(".agenda-source-button").map((_, sourceElement) => {
+    const source = $(sourceElement);
+    const href = source.attr("href");
+    const link = absoluteUrl(href);
+    if (!link) return null;
+
+    const sourceId = href?.match(/[#&?]source=(\d+)/i)?.[1] || null;
+    const provider = source.find("small").first().text().trim();
+    const label = source.find("span").first().text().trim();
+
+    return {
+      nombre: provider || label || "Fuente",
+      fuente: label || null,
+      sourceId,
+      link
+    };
+  }).get().filter(Boolean);
+
+  const matchLink = absoluteUrl(event.find(".agenda-open-match").first().attr("href"));
+  const logoUrl = absoluteUrl(event.find(".source-agenda-flag").first().attr("src"));
+  const [fecha = new Date().toISOString().split("T")[0]] = (instant || "").split("T");
+  const hora = event.find("[data-agenda-time]").first().text().trim() || "00:00";
+
+  return {
+    titulo: title,
+    liga: competition || "Deportes",
+    hora,
+    fecha,
+    estado: toStatusCode(instant, hora, fecha),
+    ...splitTeams(partido),
+    logoUrl,
+    matchLink,
+    canales: sourceLinks
+  };
+}
+
 async function scrapTransmisiones3() {
   const now = Date.now();
   if (_cache && (now - _cacheTs) < CACHE_TTL) {
-    console.log("gol-3 (futbollibretv): usando cache");
+    console.log("gol-3 (futbollibretvs): usando cache");
     return _cache;
   }
 
   try {
-    console.log("📺 Obteniendo transmisiones desde futbollibretv.org.pe/diaries.json...");
+    console.log(`📺 Obteniendo agenda desde ${AGENDA_URL}...`);
 
-    const response = await axios.get(DIARIES_URL, {
+    const response = await axios.get(AGENDA_URL, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Referer": "https://futbollibres.com.pe/",
-        "Accept": "application/json, */*"
+        "Accept": "text/html,application/xhtml+xml"
       },
       timeout: 15000
     });
 
-    const items = response.data?.data || [];
+    const $ = cheerio.load(response.data);
+    const transmisiones = $("[data-agenda-event]")
+      .map((_, element) => parseEvent($, element))
+      .get()
+      .filter(event => event.canales.length > 0);
+
     const ligas = {};
-    const transmisiones = [];
-
-    for (const item of items) {
-      const attr     = item.attributes || {};
-      const titulo   = (attr.diary_description || "Evento desconocido").replace(/\n/g, " ").trim();
-      const hora     = attr.diary_hour ? attr.diary_hour.substring(0, 5) : "00:00";
-      const fecha    = attr.date_diary || new Date().toISOString().split("T")[0];
-      const liga     = attr.country?.data?.attributes?.name || "Deportes";
-      const flagPath = attr.country?.data?.attributes?.image?.data?.attributes?.url;
-      const logoUrl  = flagPath ? `${IMG_BASE}${flagPath}` : null;
-      const embeds   = attr.embeds?.data || [];
-
-      const canales = embeds
-        .map(e => {
-          const ea         = e?.attributes || {};
-          const nombre     = (ea.embed_name || "").trim();
-          const iframePath = ea.embed_iframe || "";
-          const link       = decodeEmbedUrl(iframePath);
-          if (!link) return null;
-          return { nombre: nombre || "Canal", link };
-        })
-        .filter(Boolean);
-
-      if (canales.length === 0) continue;
-
-      ligas[liga] = (ligas[liga] || 0) + 1;
-
-      const partes  = titulo.split(/:\s*/);
-      const partido = partes.length > 1 ? partes.slice(1).join(": ") : titulo;
-      const equipos = partido.split(/\s+vs\.?\s+/i);
-
-      transmisiones.push({
-        titulo,
-        liga:    partes.length > 1 ? partes[0] : liga,
-        hora,
-        fecha,
-        estado:  toStatusCode(hora, fecha),
-        equipo1: equipos[0]?.trim() || partido,
-        equipo2: equipos[1]?.trim() || "",
-        logoUrl,
-        canales
-      });
+    for (const transmision of transmisiones) {
+      ligas[transmision.liga] = (ligas[transmision.liga] || 0) + 1;
     }
 
     transmisiones.sort((a, b) => {
-      const order = { "EN VIVO": 0, "PROXIMO": 1, "FINALIZADO": 2 };
-      const diff  = (order[a.estado] ?? 1) - (order[b.estado] ?? 1);
+      const order = { "EN VIVO": 0, PROXIMO: 1, FINALIZADO: 2 };
+      const diff = (order[a.estado] ?? 1) - (order[b.estado] ?? 1);
       return diff !== 0 ? diff : a.hora.localeCompare(b.hora);
     });
 
-    console.log(`✅ gol-3 (futbollibretv): ${transmisiones.length} eventos obtenidos`);
+    console.log(`✅ gol-3 (futbollibretvs): ${transmisiones.length} eventos obtenidos`);
 
     const result = {
-      total:       transmisiones.length,
+      total: transmisiones.length,
       actualizado: new Date().toISOString(),
-      fuente:      "futbollibretv.org.pe",
+      fuente: "futbollibretvs.co",
       ligas,
       ligasDisponibles: Object.keys(ligas),
       transmisiones
     };
 
-    _cache   = result;
+    _cache = result;
     _cacheTs = now;
     return result;
-
   } catch (error) {
-    console.error("❌ Error en scrapTransmisiones3 (ftvhd):", error.message);
+    console.error("❌ Error en scrapTransmisiones3 (futbollibretvs):", error.message);
     return {
       total: 0,
       actualizado: new Date().toISOString(),
-      fuente: "futbollibretv.org.pe",
-      error: `Error obteniendo transmisiones: ${error.message}`,
+      fuente: "futbollibretvs.co",
+      error: `Error obteniendo eventos: ${error.message}`,
       ligas: {},
       ligasDisponibles: [],
       transmisiones: []
