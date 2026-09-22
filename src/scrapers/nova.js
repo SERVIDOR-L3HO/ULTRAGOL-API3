@@ -86,6 +86,60 @@ async function fetchJson(url, referer = HOME_URL) {
   };
 }
 
+function extractM3u8Url(html, baseUrl) {
+  const normalized = String(html || "")
+    .replace(/\\u0026/gi, "&")
+    .replace(/\\\//g, "/");
+  const matches = normalized.match(
+    /(?:https?:)?\/\/[^"'\\\s<>]+?\.m3u8(?:\?[^"'\\\s<>]*)?/gi
+  ) || [];
+
+  for (const candidate of matches) {
+    const resolved = absoluteUrl(candidate, baseUrl);
+    if (resolved) return resolved;
+  }
+
+  return null;
+}
+
+async function discoverNovaPlayback(url, referer = HOME_URL, visited = new Set()) {
+  const absolute = absoluteUrl(url, referer);
+  if (!absolute || visited.has(absolute) || visited.size >= 5) {
+    return null;
+  }
+  visited.add(absolute);
+
+  const page = await fetchHtml(absolute, referer);
+  const directM3u8 = extractM3u8Url(page.html, page.finalUrl || absolute);
+  if (directM3u8) {
+    return {
+      kind: "hls",
+      url: directM3u8,
+      referer: page.finalUrl || absolute
+    };
+  }
+
+  const $ = cheerio.load(page.html);
+  const iframeUrls = [];
+  $("iframe[src]").each((_, element) => {
+    const iframeUrl = absoluteUrl($(element).attr("src"), page.finalUrl || absolute);
+    if (iframeUrl && !iframeUrls.includes(iframeUrl)) iframeUrls.push(iframeUrl);
+  });
+
+  for (const iframeUrl of iframeUrls) {
+    const discovered = await discoverNovaPlayback(
+      iframeUrl,
+      page.finalUrl || absolute,
+      visited
+    );
+    if (discovered) return discovered;
+  }
+
+  return iframeUrls[0]
+    ? { kind: "iframe", url: iframeUrls[0], referer: page.finalUrl || absolute }
+    : { kind: "iframe", url: absolute, referer: page.finalUrl || absolute };
+}
+
 function playbackCookie(headers) {
   const cookies = headers?.["set-cookie"];
   if (!Array.isArray(cookies)) return "";
@@ -315,14 +369,25 @@ async function getPlaybackSession(channel, force = false) {
     channel.url
   );
   const playback = playbackResponse.data;
-  if (!playback?.success || !playback.url || playback.kind !== "hls") {
+  if (!playback?.success || !playback.url) {
     throw new Error(playback?.error || "La fuente no publicó una transmisión HLS");
   }
 
+  let targetUrl = playback.url;
+  let referer = channel.url;
+  if (playback.kind !== "hls") {
+    const discovered = await discoverNovaPlayback(playback.url, channel.url);
+    if (!discovered || discovered.kind !== "hls" || !discovered.url) {
+      throw new Error("La fuente no publicó una transmisión HLS");
+    }
+    targetUrl = discovered.url;
+    referer = discovered.referer || playback.url;
+  }
+
   const session = {
-    targetUrl: playback.url,
+    targetUrl,
     cookie: playbackCookie(playbackResponse.headers),
-    referer: channel.url,
+    referer,
     createdAt: Date.now()
   };
   playbackSessions.set(channel.id, session);
@@ -341,6 +406,8 @@ async function loadStableChannelStream(channel, variantIndex, segmentSequence) {
         session.referer
       );
       const masterBody = Buffer.from(masterResponse.data);
+      const masterText = masterBody.toString("utf8");
+      const hasVariants = /#EXT-X-STREAM-INF/i.test(masterText);
 
       if (masterResponse.status >= 400) {
         throw new Error(`Fuente HLS respondió HTTP ${masterResponse.status}`);
@@ -348,28 +415,37 @@ async function loadStableChannelStream(channel, variantIndex, segmentSequence) {
 
       if (!Number.isInteger(variantIndex)) {
         return {
-          body: rewriteStableManifest(masterBody.toString("utf8"), channel.id),
+          body: rewriteStableManifest(
+            masterText,
+            channel.id,
+            hasVariants ? null : 0,
+            hasVariants
+              ? null
+              : {
+                  baseUrl: session.targetUrl,
+                  cookie: session.cookie,
+                  referer: session.referer
+                }
+          ),
           contentType: "application/vnd.apple.mpegurl",
           isManifest: true
         };
       }
 
-      const variantUrl = manifestVariantUrl(
-        masterBody.toString("utf8"),
-        session.targetUrl,
-        variantIndex
-      );
+      const variantUrl = hasVariants
+        ? manifestVariantUrl(masterText, session.targetUrl, variantIndex)
+        : session.targetUrl;
       if (!variantUrl) {
         throw new Error("La variante HLS solicitada ya no está disponible");
       }
 
-      const variantResponse = await fetchSource(
-        variantUrl,
-        session.cookie,
-        session.referer
-      );
-      const variantBody = Buffer.from(variantResponse.data);
-      if (variantResponse.status >= 400) {
+      const variantResponse = hasVariants
+        ? await fetchSource(variantUrl, session.cookie, session.referer)
+        : masterResponse;
+      const variantBody = hasVariants
+        ? Buffer.from(variantResponse.data)
+        : masterBody;
+      if (hasVariants && variantResponse.status >= 400) {
         throw new Error(`Variante HLS respondió HTTP ${variantResponse.status}`);
       }
 
@@ -607,9 +683,19 @@ async function resolveNovaChannel(channel, index) {
       throw new Error(playback?.error || "La fuente no publicó una transmisión");
     }
 
-    const streamUrl = playback.kind === "hls"
-      ? stableStreamUrl(channel.id)
-      : playback.url;
+    let streamType = playback.kind || "unknown";
+    let streamUrl = playback.url;
+    if (playback.kind === "hls") {
+      streamUrl = stableStreamUrl(channel.id);
+    } else {
+      const discovered = await discoverNovaPlayback(playback.url, channel.url);
+      if (discovered?.kind === "hls" && discovered.url) {
+        streamType = "hls";
+        streamUrl = stableStreamUrl(channel.id);
+      } else if (discovered?.url) {
+        streamUrl = discovered.url;
+      }
+    }
 
     return {
       opcion: index + 1,
@@ -618,7 +704,7 @@ async function resolveNovaChannel(channel, index) {
       logo: channel.imagen || null,
       pagina: channel.url,
       url: streamUrl,
-      tipo: playback.kind || "unknown",
+      tipo: streamType,
       servidor: playback.server_name || null,
       servidorId: playback.server_id ?? null,
       disponible: true,
