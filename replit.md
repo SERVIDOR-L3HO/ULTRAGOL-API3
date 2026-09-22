@@ -39,23 +39,23 @@ validates the extracted content rather than relying only on the status code.
 
 ## Nova TV API
 The `/nova` endpoint scrapes the channel catalog from
-`https://www.televisiongratishd.org/`. Use `/nova?canal=espn` to resolve the
-channel's current HLS playlist URLs. Add `force=true` to bypass the short-lived
-cache when a stream token has expired:
+`https://futbollibretvs.co/channels` and resolves each channel through the
+source's playback API. The catalog response includes a list of direct
+transmission links. Use `/nova?canal=espn` to resolve one channel. Add
+`force=true` to bypass the short-lived cache when a stream token has expired:
 
 ```text
 GET /nova
 GET /nova?canal=espn
 GET /nova?canal=espn&force=true
-GET /nova?url=https%3A%2F%2Fwww.televisiongratishd.org%2Ffox-sports-premium-en-vivo.php
+GET /nova?url=https%3A%2F%2Ffutbollibretvs.co%2Fchannel%2Ffox-sports
 GET /nova?catalogo=true
 ```
 
-The `m3u8` array contains the currently available HLS playlist URLs. Individual
-options also include their player URL and an error when the source is offline.
-When `url`, `pagina`, or `canal` is provided, the response is only the JSON
-array of currently available HLS playlist URLs. The channel catalog is only
-returned when `catalogo=true` is explicitly requested.
+The `enlaces` array contains direct HLS or iframe transmission URLs, depending
+on what the source currently provides. Individual channel responses also include
+`opciones`, `enlaces` and `m3u8` for compatibility. When `url`, `pagina`, or
+`canal` is provided, the response is only the JSON array of direct URLs.
 
 ## Project structure
 ```

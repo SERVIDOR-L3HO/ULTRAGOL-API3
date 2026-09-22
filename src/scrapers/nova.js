@@ -1,8 +1,9 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 
-const SITE_ORIGIN = "https://www.televisiongratishd.org";
-const HOME_URL = `${SITE_ORIGIN}/`;
+const SITE_ORIGIN = "https://futbollibretvs.co";
+const HOME_URL = `${SITE_ORIGIN}/channels`;
+const PLAYBACK_API = `${SITE_ORIGIN}/api/channel-playback.php`;
 const REQUEST_TIMEOUT = 15000;
 const CATALOG_TTL = 10 * 60 * 1000;
 const STREAM_TTL = 2 * 60 * 1000;
@@ -41,8 +42,12 @@ function cleanText(value) {
 function channelSlugFromUrl(value) {
   try {
     const pathname = new URL(value).pathname;
-    const match = pathname.match(/^\/([^/]+)-en-vivo\.php$/i);
-    return match ? match[1].toLowerCase() : null;
+    const channelMatch = pathname.match(/^\/channel\/([^/]+)\/?$/i);
+    if (channelMatch) return channelMatch[1].toLowerCase();
+
+    // Mantener compatibilidad con las URLs del scraper anterior.
+    const legacyMatch = pathname.match(/^\/([^/]+)-en-vivo\.php$/i);
+    return legacyMatch ? legacyMatch[1].toLowerCase() : null;
   } catch {
     return null;
   }
@@ -62,6 +67,17 @@ async function fetchHtml(url, referer = HOME_URL) {
   };
 }
 
+async function fetchJson(url, referer = HOME_URL) {
+  const response = await axios.get(url, {
+    headers: { ...HEADERS, Referer: referer, Accept: "application/json" },
+    timeout: REQUEST_TIMEOUT,
+    maxContentLength: 2 * 1024 * 1024,
+    maxBodyLength: 2 * 1024 * 1024,
+    validateStatus: status => status >= 200 && status < 400
+  });
+  return response.data;
+}
+
 async function scrapNovaCatalog(force = false) {
   if (!force && cache.catalog && Date.now() - cache.catalog.timestamp < CATALOG_TTL) {
     return cache.catalog.data;
@@ -72,7 +88,7 @@ async function scrapNovaCatalog(force = false) {
   const seen = new Set();
   const canales = [];
 
-  $("a.channel[href]").each((_, element) => {
+  $("a.channel-card[href], a[href*='/channel/']").each((_, element) => {
     const url = absoluteUrl($(element).attr("href"), HOME_URL);
     const slug = channelSlugFromUrl(url);
     if (!url || !slug || !isSiteUrl(url) || seen.has(slug)) return;
@@ -80,7 +96,9 @@ async function scrapNovaCatalog(force = false) {
     seen.add(slug);
     canales.push({
       id: slug,
-      nombre: cleanText($(element).text()) || slug.replace(/-/g, " ").toUpperCase(),
+      nombre: cleanText($(element).find("h3").first().text())
+        || cleanText($(element).text())
+        || slug.replace(/-/g, " ").toUpperCase(),
       url,
       imagen: absoluteUrl($(element).find("img").attr("src"), HOME_URL)
     });
@@ -88,6 +106,7 @@ async function scrapNovaCatalog(force = false) {
 
   const data = {
     fuente: SITE_ORIGIN,
+    pagina: HOME_URL,
     total: canales.length,
     canales,
     actualizado: new Date().toISOString()
@@ -96,59 +115,34 @@ async function scrapNovaCatalog(force = false) {
   return data;
 }
 
-function decodeJsString(value) {
-  return value
-    .replace(/\\\//g, "/")
-    .replace(/\\"/g, '"')
-    .replace(/\\\\/g, "\\");
-}
-
-function extractHlsUrl(html, baseUrl) {
-  const candidates = [];
-  const sourcePattern = /(?:var|let|const)\s+(?:src|source|streamUrl|stream_url)\s*=\s*["']([^"']+)["']/gi;
-  let match;
-  while ((match = sourcePattern.exec(html))) {
-    candidates.push(decodeJsString(match[1]));
-  }
-
-  const directPattern = /https?:\/\/[^"'\\\s]+(?:\.m3u8|playlist\.php)[^"'\\\s]*/gi;
-  candidates.push(...(html.match(directPattern) || []).map(decodeJsString));
-
-  for (const candidate of candidates) {
-    const url = absoluteUrl(candidate, baseUrl);
-    if (url && /^https?:\/\//i.test(url)) return url;
-  }
-  return null;
-}
-
-async function resolveNovaOption(optionUrl, channelUrl, index) {
+async function resolveNovaChannel(channel, index) {
   try {
-    const core = await fetchHtml(optionUrl, channelUrl);
-    const $core = cheerio.load(core.html);
-    const iframeUrl = absoluteUrl($core("#player-frame").attr("src"), optionUrl);
-    if (!iframeUrl) {
-      return {
-        opcion: index + 1,
-        url: optionUrl,
-        disponible: false,
-        error: "La opción no publicó un reproductor"
-      };
+    const playback = await fetchJson(
+      `${PLAYBACK_API}?slug=${encodeURIComponent(channel.id)}&server=0`,
+      channel.url
+    );
+    if (!playback?.success || !playback.url) {
+      throw new Error(playback?.error || "La fuente no publicó una transmisión");
     }
 
-    const player = await fetchHtml(iframeUrl, optionUrl);
-    const m3u8 = extractHlsUrl(player.html, iframeUrl);
     return {
       opcion: index + 1,
-      url: optionUrl,
-      iframe: iframeUrl,
-      m3u8,
-      disponible: Boolean(m3u8),
-      ...(m3u8 ? {} : { error: "No se encontró una URL HLS en el reproductor" })
+      id: channel.id,
+      nombre: channel.nombre,
+      pagina: channel.url,
+      url: playback.url,
+      tipo: playback.kind || "unknown",
+      servidor: playback.server_name || null,
+      servidorId: playback.server_id ?? null,
+      disponible: true,
+      expira: playback.expires_at || null
     };
   } catch (error) {
     return {
       opcion: index + 1,
-      url: optionUrl,
+      id: channel.id,
+      nombre: channel.nombre,
+      pagina: channel.url,
       disponible: false,
       error: error.response?.status
         ? `HTTP ${error.response.status}`
@@ -174,28 +168,21 @@ async function scrapNovaChannel(channel, force = false) {
     throw error;
   }
 
-  const { html } = await fetchHtml(catalogChannel.url);
-  const $ = cheerio.load(html);
-  const optionUrls = $(".option[data-src]")
-    .map((_, element) => absoluteUrl($(element).attr("data-src"), catalogChannel.url))
-    .get()
-    .filter(url => isSiteUrl(url));
-
-  const streams = await Promise.all(
-    optionUrls.map((url, index) => resolveNovaOption(url, catalogChannel.url, index))
-  );
+  const stream = await resolveNovaChannel(catalogChannel, 0);
+  const directLinks = stream.disponible ? [stream.url] : [];
 
   const data = {
     fuente: SITE_ORIGIN,
     canal: {
       id: slug,
-      nombre: cleanText($("h1").first().text()) || catalogChannel.nombre,
+      nombre: catalogChannel.nombre,
       pagina: catalogChannel.url,
-      imagen: absoluteUrl($('meta[property="og:image"]').attr("content"), catalogChannel.url)
+      imagen: catalogChannel.imagen
     },
-    totalOpciones: streams.length,
-    opciones: streams,
-    m3u8: streams.filter(stream => stream.m3u8).map(stream => stream.m3u8),
+    totalOpciones: stream.disponible ? 1 : 0,
+    opciones: [stream],
+    enlaces: directLinks,
+    m3u8: stream.tipo === "hls" ? directLinks : [],
     actualizado: new Date().toISOString()
   };
 
@@ -203,23 +190,67 @@ async function scrapNovaChannel(channel, force = false) {
   return data;
 }
 
+async function scrapNovaCatalogLinks(force = false) {
+  const cacheKey = "catalog-links";
+  const cached = cache.streams.get(cacheKey);
+  if (!force && cached && Date.now() - cached.timestamp < STREAM_TTL) {
+    return cached.data;
+  }
+
+  const catalog = await scrapNovaCatalog(force);
+  const resolved = [];
+  const BATCH_SIZE = 8;
+
+  for (let index = 0; index < catalog.canales.length; index += BATCH_SIZE) {
+    const batch = catalog.canales.slice(index, index + BATCH_SIZE);
+    const results = await Promise.all(
+      batch.map((channel, batchIndex) => resolveNovaChannel(channel, index + batchIndex))
+    );
+    resolved.push(...results);
+  }
+
+  const enlaces = resolved
+    .filter(item => item.disponible)
+    .map(item => ({
+      id: item.id,
+      nombre: item.nombre,
+      url: item.url,
+      tipo: item.tipo,
+      pagina: item.pagina,
+      servidor: item.servidor,
+      expira: item.expira
+    }));
+
+  const data = {
+    fuente: SITE_ORIGIN,
+    pagina: HOME_URL,
+    total: resolved.length,
+    disponibles: enlaces.length,
+    enlaces,
+    canales: resolved,
+    actualizado: new Date().toISOString()
+  };
+  cache.streams.set(cacheKey, { data, timestamp: Date.now() });
+  return data;
+}
+
 async function scrapNova({ canal, url, force = false } = {}) {
   if (url) {
     if (!isSiteUrl(url)) {
-      const error = new Error("La URL debe pertenecer a televisiongratishd.org");
+      const error = new Error("La URL debe pertenecer a futbollibretvs.co");
       error.statusCode = 400;
       throw error;
     }
     canal = channelSlugFromUrl(url);
     if (!canal) {
-      const error = new Error("La URL debe ser una página de canal terminada en -en-vivo.php");
+      const error = new Error("La URL debe ser una página con formato /channel/<slug>");
       error.statusCode = 400;
       throw error;
     }
   }
 
   if (canal) return scrapNovaChannel(canal, force);
-  return scrapNovaCatalog(force);
+  return scrapNovaCatalogLinks(force);
 }
 
 module.exports = {

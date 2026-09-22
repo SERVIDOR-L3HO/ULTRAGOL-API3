@@ -6602,7 +6602,7 @@ app.get('/api/a7xtv/streams', async (req, res) => {
   }
 });
 
-// === NOVA: catálogo y enlaces HLS de televisiongratishd.org ===
+// === NOVA: catálogo y enlaces directos de futbollibretvs.co ===
 // GET /nova
 // GET /nova?canal=espn
 app.get("/nova", async (req, res) => {
@@ -6614,21 +6614,10 @@ app.get("/nova", async (req, res) => {
     const catalogo = req.query.catalogo === "1" || req.query.catalogo === "true";
     const force = req.query.force === "1" || req.query.force === "true";
 
-    if (!canal && !url && !catalogo) {
-      return res.status(400).json({
-        success: false,
-        error: "Indica url o canal para obtener solamente las transmisiones",
-        ejemplos: [
-          "/nova?url=https%3A%2F%2Fwww.televisiongratishd.org%2Fmovistar-la-liga-en-vivo.php",
-          "/nova?canal=movistar-la-liga"
-        ]
-      });
-    }
-
     const data = await scrapNova({ canal, url, force });
 
-    // Para un canal concreto, devolver únicamente los HLS, nunca la página.
-    if (url || canal) return res.json(data.m3u8);
+    // Para un canal concreto, devolver únicamente los enlaces directos.
+    if (url || canal) return res.json(data.enlaces);
     res.json(data);
   } catch (error) {
     console.error("Error en /nova:", error.message);
