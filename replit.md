@@ -55,7 +55,9 @@ GET /nova?catalogo=true
 Each item in the JSON array contains an HLS proxy URL or an iframe URL, depending
 on what the source currently provides. HLS links use the same `/nova` endpoint
 with `stream=true` because the source requires a playback session cookie; the
-proxy also rewrites the variant and segment URLs. The same three-field shape is
+proxy also rewrites the variant and segment URLs. HLS links are stable by channel
+and refresh the source session automatically; signed segment URLs include a
+channel fallback if the source token expires. The same three-field shape is
 returned for the complete catalog and for `url`, `pagina`, or `canal`.
 
 ## Project structure

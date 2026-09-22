@@ -1,2 +1,3 @@
 - [Unlimplay embed scraping](unlimplay-embed-scraping.md) — real server links come from an inline `finalizePlayer({...})` script call, not the `const EMBEDS` variable near the top of the page.
 - [ZonaAPS embed scraping](zonaaps-embed-scraping.md) — resolve TMDB titles to WordPress post IDs before querying Dooplay's player API for embeds.
+- [Nova stream proxy](nova-stream-proxy.md) — keep HLS URLs stable by channel and refresh source sessions; in-memory relay keys alone expire on restarts and token rollover.
