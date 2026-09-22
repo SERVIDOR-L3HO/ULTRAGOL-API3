@@ -40,9 +40,9 @@ validates the extracted content rather than relying only on the status code.
 ## Nova TV API
 The `/nova` endpoint scrapes the channel catalog from
 `https://futbollibretvs.co/channels` and resolves each channel through the
-source's playback API. The catalog response includes a list of direct
-transmission links. Use `/nova?canal=espn` to resolve one channel. Add
-`force=true` to bypass the short-lived cache when a stream token has expired:
+source's playback API. The response is a list containing only `logo`, `nombre`
+and `url`. Use `/nova?canal=espn` to resolve one channel. Add `force=true` to
+bypass the short-lived cache when a stream token has expired:
 
 ```text
 GET /nova
@@ -52,10 +52,9 @@ GET /nova?url=https%3A%2F%2Ffutbollibretvs.co%2Fchannel%2Ffox-sports
 GET /nova?catalogo=true
 ```
 
-The `enlaces` array contains direct HLS or iframe transmission URLs, depending
-on what the source currently provides. Individual channel responses also include
-`opciones`, `enlaces` and `m3u8` for compatibility. When `url`, `pagina`, or
-`canal` is provided, the response is only the JSON array of direct URLs.
+Each item in the JSON array contains a direct HLS or iframe transmission URL,
+depending on what the source currently provides. The same three-field shape is
+returned for the complete catalog and for `url`, `pagina`, or `canal`.
 
 ## Project structure
 ```

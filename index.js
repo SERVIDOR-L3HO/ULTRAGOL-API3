@@ -6611,14 +6611,12 @@ app.get("/nova", async (req, res) => {
     const url = typeof req.query.url === "string"
       ? req.query.url
       : (typeof req.query.pagina === "string" ? req.query.pagina : null);
-    const catalogo = req.query.catalogo === "1" || req.query.catalogo === "true";
     const force = req.query.force === "1" || req.query.force === "true";
 
     const data = await scrapNova({ canal, url, force });
 
-    // Para un canal concreto, devolver únicamente los enlaces directos.
-    if (url || canal) return res.json(data.enlaces);
-    res.json(data);
+    // El contrato público solo expone logo, nombre y URL directa.
+    res.json(data.enlaces);
   } catch (error) {
     console.error("Error en /nova:", error.message);
     res.status(error.statusCode || 502).json({

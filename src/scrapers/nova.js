@@ -129,6 +129,7 @@ async function resolveNovaChannel(channel, index) {
       opcion: index + 1,
       id: channel.id,
       nombre: channel.nombre,
+      logo: channel.imagen || null,
       pagina: channel.url,
       url: playback.url,
       tipo: playback.kind || "unknown",
@@ -142,6 +143,7 @@ async function resolveNovaChannel(channel, index) {
       opcion: index + 1,
       id: channel.id,
       nombre: channel.nombre,
+      logo: channel.imagen || null,
       pagina: channel.url,
       disponible: false,
       error: error.response?.status
@@ -169,7 +171,13 @@ async function scrapNovaChannel(channel, force = false) {
   }
 
   const stream = await resolveNovaChannel(catalogChannel, 0);
-  const directLinks = stream.disponible ? [stream.url] : [];
+  const directLinks = stream.disponible
+    ? [{
+        logo: catalogChannel.imagen || null,
+        nombre: catalogChannel.nombre,
+        url: stream.url
+      }]
+    : [];
 
   const data = {
     fuente: SITE_ORIGIN,
@@ -182,7 +190,7 @@ async function scrapNovaChannel(channel, force = false) {
     totalOpciones: stream.disponible ? 1 : 0,
     opciones: [stream],
     enlaces: directLinks,
-    m3u8: stream.tipo === "hls" ? directLinks : [],
+    m3u8: stream.tipo === "hls" ? directLinks.map(item => item.url) : [],
     actualizado: new Date().toISOString()
   };
 
@@ -212,13 +220,9 @@ async function scrapNovaCatalogLinks(force = false) {
   const enlaces = resolved
     .filter(item => item.disponible)
     .map(item => ({
-      id: item.id,
+      logo: item.logo,
       nombre: item.nombre,
-      url: item.url,
-      tipo: item.tipo,
-      pagina: item.pagina,
-      servidor: item.servidor,
-      expira: item.expira
+      url: item.url
     }));
 
   const data = {
