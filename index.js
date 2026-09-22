@@ -58,7 +58,7 @@ const { scrapTransmisiones4 } = require("./src/scrapers/transmisiones4");
 const { scrapTransmisiones5 } = require("./src/scrapers/transmisiones5");
 const { scrapTransmisiones6 } = require("./src/scrapers/transmisiones6");
 const { scrapTransmisionesCA } = require("./src/scrapers/transmisionesCA");
-const { scrapNova } = require("./src/scrapers/nova");
+const { scrapNova, proxyNovaStream } = require("./src/scrapers/nova");
 const { 
   scrapCanales, 
   scrapCanalesPorPais, 
@@ -6603,6 +6603,8 @@ app.get('/api/a7xtv/streams', async (req, res) => {
 });
 
 // === NOVA: catálogo y enlaces directos de futbollibretvs.co ===
+app.get("/api/nova-stream", proxyNovaStream);
+
 // GET /nova
 // GET /nova?canal=espn
 app.get("/nova", async (req, res) => {
@@ -6616,7 +6618,15 @@ app.get("/nova", async (req, res) => {
     const data = await scrapNova({ canal, url, force });
 
     // El contrato público solo expone logo, nombre y URL directa.
-    res.json(data.enlaces);
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const enlaces = data.enlaces.map(item => ({
+      logo: item.logo,
+      nombre: item.nombre,
+      url: item.url.startsWith("/")
+        ? `${baseUrl}${item.url}`
+        : item.url
+    }));
+    res.json(enlaces);
   } catch (error) {
     console.error("Error en /nova:", error.message);
     res.status(error.statusCode || 502).json({

@@ -52,9 +52,11 @@ GET /nova?url=https%3A%2F%2Ffutbollibretvs.co%2Fchannel%2Ffox-sports
 GET /nova?catalogo=true
 ```
 
-Each item in the JSON array contains a direct HLS or iframe transmission URL,
-depending on what the source currently provides. The same three-field shape is
-returned for the complete catalog and for `url`, `pagina`, or `canal`.
+Each item in the JSON array contains an HLS proxy URL or an iframe URL, depending
+on what the source currently provides. HLS links use `/api/nova-stream` because
+the source requires a playback session cookie; the proxy also rewrites the
+variant and segment URLs. The same three-field shape is returned for the
+complete catalog and for `url`, `pagina`, or `canal`.
 
 ## Project structure
 ```
