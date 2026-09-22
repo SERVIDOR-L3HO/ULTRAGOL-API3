@@ -50,6 +50,7 @@ GET /nova?canal=espn
 GET /nova?canal=espn&force=true
 GET /nova?url=https%3A%2F%2Ffutbollibretvs.co%2Fchannel%2Ffox-sports
 GET /nova?catalogo=true
+GET /nova?player=true&canal=fox-sports
 ```
 
 Each item in the JSON array contains an HLS proxy URL or an iframe URL, depending
@@ -59,6 +60,10 @@ proxy also rewrites the variant and segment URLs. HLS links are stable by channe
 and refresh the source session automatically; signed segment URLs include a
 channel fallback if the source token expires. The same three-field shape is
 returned for the complete catalog and for `url`, `pagina`, or `canal`.
+
+For opening a channel directly in a browser, add `player=true` to the HLS stream
+URL. That mode serves an HLS.js player page while leaving the default stream
+response as an m3u8 manifest for API clients and native players.
 
 ## Project structure
 ```

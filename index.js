@@ -6616,9 +6616,36 @@ app.get("/nova", async (req, res) => {
     }
 
     if (
-      (req.query.stream === "true" || req.query.stream === "1")
+      (
+        req.query.stream === "true"
+        || req.query.stream === "1"
+        || req.query.player === "true"
+        || req.query.player === "1"
+      )
       && typeof req.query.canal === "string"
     ) {
+      if (req.query.player === "true" || req.query.player === "1") {
+        const baseUrl = `${req.protocol}://${req.get("host")}`;
+        const canal = req.query.canal.trim().toLowerCase();
+        const streamData = await scrapNova({
+          canal,
+          force: req.query.force === "1" || req.query.force === "true"
+        });
+        const stream = streamData.opciones?.find(item => item.disponible);
+
+        if (!stream) {
+          return res.status(404).send("El canal no está disponible en este momento.");
+        }
+
+        if (stream.tipo !== "hls") {
+          return res.redirect(stream.url);
+        }
+
+        const streamUrl = `${baseUrl}/nova?stream=true&canal=${encodeURIComponent(canal)}`;
+        res.type("html");
+        return res.send(buildDirectHlsPlayer(streamUrl, baseUrl));
+      }
+
       return proxyStableNovaStream(req, res);
     }
 
