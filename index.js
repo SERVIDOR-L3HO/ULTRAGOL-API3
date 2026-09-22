@@ -58,7 +58,11 @@ const { scrapTransmisiones4 } = require("./src/scrapers/transmisiones4");
 const { scrapTransmisiones5 } = require("./src/scrapers/transmisiones5");
 const { scrapTransmisiones6 } = require("./src/scrapers/transmisiones6");
 const { scrapTransmisionesCA } = require("./src/scrapers/transmisionesCA");
-const { scrapNova, proxyNovaStream } = require("./src/scrapers/nova");
+const {
+  scrapNova,
+  proxyNovaStream,
+  proxyStableNovaStream
+} = require("./src/scrapers/nova");
 const { 
   scrapCanales, 
   scrapCanalesPorPais, 
@@ -6609,6 +6613,13 @@ app.get("/nova", async (req, res) => {
   try {
     if (typeof req.query.k === "string" && req.query.k) {
       return proxyNovaStream(req, res);
+    }
+
+    if (
+      (req.query.stream === "true" || req.query.stream === "1")
+      && typeof req.query.canal === "string"
+    ) {
+      return proxyStableNovaStream(req, res);
     }
 
     const canal = typeof req.query.canal === "string" ? req.query.canal : null;
