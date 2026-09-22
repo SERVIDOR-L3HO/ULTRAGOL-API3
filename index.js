@@ -6603,12 +6603,14 @@ app.get('/api/a7xtv/streams', async (req, res) => {
 });
 
 // === NOVA: catálogo y enlaces directos de futbollibretvs.co ===
-app.get("/api/nova-stream", proxyNovaStream);
-
 // GET /nova
 // GET /nova?canal=espn
 app.get("/nova", async (req, res) => {
   try {
+    if (typeof req.query.k === "string" && req.query.k) {
+      return proxyNovaStream(req, res);
+    }
+
     const canal = typeof req.query.canal === "string" ? req.query.canal : null;
     const url = typeof req.query.url === "string"
       ? req.query.url

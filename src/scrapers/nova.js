@@ -116,7 +116,7 @@ function registerRelayKey(targetUrl, cookie, referer) {
 
 function relayUrlFor(targetUrl, cookie, referer) {
   const key = registerRelayKey(targetUrl, cookie, referer);
-  return `/api/nova-stream?k=${encodeURIComponent(key)}`;
+  return `/nova?stream=true&k=${encodeURIComponent(key)}`;
 }
 
 function cleanupRelayKeys() {
