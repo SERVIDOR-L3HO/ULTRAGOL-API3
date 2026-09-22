@@ -61,9 +61,10 @@ and refresh the source session automatically; signed segment URLs include a
 channel fallback if the source token expires. The same three-field shape is
 returned for the complete catalog and for `url`, `pagina`, or `canal`.
 
-For opening a channel directly in a browser, add `player=true` to the HLS stream
-URL. That mode serves an HLS.js player page while leaving the default stream
-response as an m3u8 manifest for API clients and native players.
+For opening a channel directly in a browser, navigate to the HLS stream URL as
+usual; browser document requests are automatically served an HLS.js player page.
+You can also force that mode with `player=true`. Requests from API clients and
+native players continue to receive the m3u8 manifest.
 
 ## Project structure
 ```

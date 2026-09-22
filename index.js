@@ -6624,7 +6624,16 @@ app.get("/nova", async (req, res) => {
       )
       && typeof req.query.canal === "string"
     ) {
-      if (req.query.player === "true" || req.query.player === "1") {
+      const acceptsHtml = /\btext\/html\b/i.test(String(req.headers.accept || ""));
+      const isBrowserNavigation = (
+        req.headers["sec-fetch-dest"] === "document"
+        || req.headers["sec-fetch-mode"] === "navigate"
+      ) && acceptsHtml;
+      const shouldServePlayer = req.query.player === "true"
+        || req.query.player === "1"
+        || isBrowserNavigation;
+
+      if (shouldServePlayer) {
         const baseUrl = `${req.protocol}://${req.get("host")}`;
         const canal = req.query.canal.trim().toLowerCase();
         const streamData = await scrapNova({
