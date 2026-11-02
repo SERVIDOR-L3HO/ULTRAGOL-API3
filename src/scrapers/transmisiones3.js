@@ -132,6 +132,7 @@ async function scrapTransmisiones3() {
       fuente: "futbollibretvs.co",
       ligas,
       ligasDisponibles: Object.keys(ligas),
+      elapsedTime: `${Date.now() - now}ms`,
       transmisiones
     };
 

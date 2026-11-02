@@ -1717,11 +1717,63 @@ app.get("/gol-2", async (req, res) => {
 app.get("/gol-3", async (req, res) => {
   try {
     let data = cache.get("transmisiones3");
-    const getTransmissionLinks = (payload) => Array.from(new Set(
-      (payload?.transmisiones || [])
-        .flatMap(event => (event.canales || []).map(channel => channel.link))
-        .filter(link => typeof link === "string" && link.length > 0)
-    ));
+    const formatResponse = (payload) => {
+      const getSport = (event) => {
+        const searchText = `${event.liga || ""} ${event.titulo || ""}`.toLowerCase();
+        if (/\bnba\b|basketball|baloncesto/.test(searchText)) return "Baloncesto";
+        if (/\bnhl\b|hockey/.test(searchText)) return "Hockey";
+        if (/\bnfl\b|american football/.test(searchText)) return "Fútbol americano";
+        if (/formula 1|\bf1\b|nascar|motor/.test(searchText)) return "Automovilismo";
+        if (/tennis|tenis|\batp\b|\bwta\b/.test(searchText)) return "Tenis";
+        if (/boxing|boxeo/.test(searchText)) return "Boxeo";
+        if (/\bmma\b|\bufc\b/.test(searchText)) return "MMA";
+        return "Fútbol";
+      };
+
+      const transmisiones = (payload?.transmisiones || []).map(event => {
+        const liga = event.liga || "Deportes";
+        const title = String(event.titulo || event.evento || "Evento deportivo").trim();
+        const prefix = `${liga}:`;
+        const evento = title.toLowerCase().startsWith(prefix.toLowerCase())
+          ? title.slice(prefix.length).trim()
+          : title;
+        const canales = (event.canales || [])
+          .map((channel, index) => ({
+            nombre: channel.nombre || `Canal ${index + 1}`,
+            idioma: /english|ingl[eé]s/i.test(channel.nombre || "") ? "en" : "es",
+            calidad: "720p",
+            url: channel.link || channel.url || null
+          }))
+          .filter(channel => channel.url);
+
+        return {
+          evento,
+          liga,
+          deporte: getSport(event),
+          equipo1: event.equipo1 || evento,
+          equipo2: event.equipo2 || "",
+          estado: event.estado || "PROXIMO",
+          embedId: event.canales?.[0]?.sourceId || null,
+          canales
+        };
+      }).filter(event => event.canales.length > 0);
+
+      const deportes = {};
+      transmisiones.forEach(event => {
+        deportes[event.deporte] = (deportes[event.deporte] || 0) + 1;
+      });
+
+      return {
+        total: transmisiones.length,
+        enVivo: transmisiones.filter(event => event.estado === "EN VIVO").length,
+        actualizado: payload?.actualizado || new Date().toISOString(),
+        fuente: payload?.fuente || "futbollibretvs.co",
+        deportes,
+        deportesDisponibles: Object.keys(deportes),
+        elapsedTime: payload?.elapsedTime || "0ms",
+        transmisiones
+      };
+    };
 
     if (!data) {
       console.log("📺 Obteniendo transmisiones desde futbollibretvs.co (caché vacío)...");
@@ -1734,13 +1786,13 @@ app.get("/gol-3", async (req, res) => {
         const staleData = cache.getStale("transmisiones3");
         if (staleData && staleData.total > 0) {
           console.warn("⚠️ Usando caché stale para gol-3:", scrapeError.message);
-          return res.json(getTransmissionLinks(staleData));
+          return res.json({ ...formatResponse(staleData), _stale: true });
         }
         throw scrapeError;
       }
     }
 
-    res.json(getTransmissionLinks(data));
+    res.json(formatResponse(data));
   } catch (error) {
     console.error("Error en /gol-3:", error.message);
     res.status(500).json({
