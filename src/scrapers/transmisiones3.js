@@ -18,6 +18,22 @@ function absoluteUrl(value) {
   }
 }
 
+function playerPageUrl(matchLink, sourceId) {
+  const link = absoluteUrl(matchLink);
+  if (!link) return null;
+
+  try {
+    const url = new URL(link);
+    if (!url.pathname.startsWith("/match/")) return null;
+
+    url.pathname = url.pathname.replace(/^\/match\//, "/player/");
+    url.hash = sourceId ? `source=${encodeURIComponent(sourceId)}` : "";
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 function toStatusCode(instant, hora, fecha) {
   try {
     const eventDate = instant
@@ -52,14 +68,15 @@ function parseEvent($, element) {
   const partido = competition
     ? title.replace(new RegExp(`^${competition.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:?\\s*`, "i"), "")
     : title;
+  const matchLink = absoluteUrl(event.find(".agenda-open-match").first().attr("href"));
 
   const sourceLinks = event.find(".agenda-source-button").map((_, sourceElement) => {
     const source = $(sourceElement);
     const href = source.attr("href");
-    const link = absoluteUrl(href);
+    const sourceId = href?.match(/[#&?]source=(\d+)/i)?.[1] || null;
+    const link = playerPageUrl(matchLink, sourceId) || absoluteUrl(href);
     if (!link) return null;
 
-    const sourceId = href?.match(/[#&?]source=(\d+)/i)?.[1] || null;
     const provider = source.find("small").first().text().trim();
     const label = source.find("span").first().text().trim();
 
@@ -71,7 +88,6 @@ function parseEvent($, element) {
     };
   }).get().filter(Boolean);
 
-  const matchLink = absoluteUrl(event.find(".agenda-open-match").first().attr("href"));
   const logoUrl = absoluteUrl(event.find(".source-agenda-flag").first().attr("src"));
   const [fecha = new Date().toISOString().split("T")[0]] = (instant || "").split("T");
   const hora = event.find("[data-agenda-time]").first().text().trim() || "00:00";
