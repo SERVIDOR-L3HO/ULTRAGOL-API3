@@ -1717,6 +1717,11 @@ app.get("/gol-2", async (req, res) => {
 app.get("/gol-3", async (req, res) => {
   try {
     let data = cache.get("transmisiones3");
+    const getTransmissionLinks = (payload) => Array.from(new Set(
+      (payload?.transmisiones || [])
+        .flatMap(event => (event.canales || []).map(channel => channel.link))
+        .filter(link => typeof link === "string" && link.length > 0)
+    ));
 
     if (!data) {
       console.log("📺 Obteniendo transmisiones desde futbollibretvs.co (caché vacío)...");
@@ -1729,13 +1734,13 @@ app.get("/gol-3", async (req, res) => {
         const staleData = cache.getStale("transmisiones3");
         if (staleData && staleData.total > 0) {
           console.warn("⚠️ Usando caché stale para gol-3:", scrapeError.message);
-          return res.json({ ...staleData, _stale: true });
+          return res.json(getTransmissionLinks(staleData));
         }
         throw scrapeError;
       }
     }
 
-    res.json(data);
+    res.json(getTransmissionLinks(data));
   } catch (error) {
     console.error("Error en /gol-3:", error.message);
     res.status(500).json({
