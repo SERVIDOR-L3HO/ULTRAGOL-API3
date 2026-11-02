@@ -1675,7 +1675,7 @@ app.get("/gol-1", async (req, res) => {
 
     res.json(data);
   } catch (error) {
-    console.error("Error en /transmisiones:", error.message);
+    console.error("Error en /gol-1:", error.message);
     res.status(500).json({ 
       error: "No se pudieron obtener las transmisiones deportivas",
       detalles: error.message 

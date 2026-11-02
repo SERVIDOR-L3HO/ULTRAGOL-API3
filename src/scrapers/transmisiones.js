@@ -1,7 +1,6 @@
 const axios = require("axios");
 
-const EMBED_BASE = "https://gooz.aapmains.net/new-stream-embed";
-const STREAM_BASE = "https://chatgpt.hereisman.net/playlist";
+const AGENDA_URL = "https://streamxhd.sbs/eventos.json";
 
 const SPORT_KEYWORDS = {
   "Béisbol":         ["Red Sox", "Yankees", "Dodgers", "Cubs", "Mets", "Braves", "Cardinals", "Phillies", "Astros", "Brewers", "Mariners", "Twins", "Reds", "Nationals", "Rays", "Angels", "Royals", "Rangers", "Tigers", "Marlins", "Orioles", "Guardians", "Giants", "Padres", "Diamondbacks", "Pirates", "Blue Jays", "White Sox", "Athletics", "Rockies"],
@@ -33,8 +32,6 @@ const COUNTRIES = new Set(["Spain","Italy","France","Germany","Brazil","Brasil",
   "Montenegro","Kosovo","North Macedonia","Slovenia","Bulgaria","Congo","Sudan","Mali","Ivory Coast",
   "Burkina Faso","Benin","Togo","Zimbabwe","Zambia","Tanzania","Uganda","Rwanda","Libya","Tunisia","Egypt"]);
 
-let cachedAnchorId = null;
-
 function detectSport(eventName) {
   const name = eventName.toLowerCase();
 
@@ -61,118 +58,182 @@ function extractTeams(eventName) {
   return { equipo1: eventName, equipo2: "" };
 }
 
-async function checkId(id) {
+function normalizeSport(sportName, eventName) {
+  const sport = String(sportName || "").trim().toLowerCase();
+  const translations = {
+    "football": "Fútbol",
+    "soccer": "Fútbol",
+    "basketball": "Baloncesto",
+    "motor": "Automovilismo",
+    "tennis": "Tenis",
+    "american football": "Fútbol americano",
+    "hockey": "Hockey",
+    "baseball": "Béisbol",
+    "boxing": "Boxeo",
+    "mma": "MMA"
+  };
+
+  return translations[sport] || detectSport(eventName || sportName || "");
+}
+
+function parseEventDate(event) {
+  const value = event.time || event.datetime || event.date;
+  if (!value) return null;
+
+  const text = String(value).trim();
+  if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(text)) {
+    const direct = new Date(text);
+    return Number.isNaN(direct.getTime()) ? null : direct;
+  }
+
+  const match = text.replace("T", " ").match(
+    /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?/
+  );
+  if (!match) {
+    const fallback = new Date(text);
+    return Number.isNaN(fallback.getTime()) ? null : fallback;
+  }
+
+  const [, year, month, day, hour, minute, second = "0"] = match;
+  const localTimestamp = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second)
+  );
+  const timeZone = event.timezone || event.tz || "America/Lima";
+  let timestamp = localTimestamp;
+
   try {
-    const r = await axios.get(`${EMBED_BASE}/${id}`, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://gooz.aapmains.net/"
-      },
-      timeout: 8000
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23"
     });
 
-    const html = r.data;
-    const hasStream = html.includes("load-playlist") || html.includes("m3u8");
-    if (!hasStream) return null;
-
-    const titleMatch = html.match(/title:\s*['"]([^'"]+)['"]/);
-    if (!titleMatch) return null;
-
-    const eventName = titleMatch[1].trim();
-    if (!eventName || eventName.length < 3) return null;
-
-    return {
-      id,
-      evento: eventName,
-      streamUrl: `${STREAM_BASE}/${id}/load-playlist`,
-      embedUrl: `${EMBED_BASE}/${id}`
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function findAnchorId() {
-  if (cachedAnchorId) {
-    const result = await checkId(cachedAnchorId);
-    if (result) return cachedAnchorId;
-    const nearby = await checkId(cachedAnchorId + 100);
-    if (nearby) { cachedAnchorId = cachedAnchorId + 100; return cachedAnchorId; }
-  }
-
-  const probes = [80000, 70000, 60000, 55000, 52000, 51000, 50000, 45000, 40000, 30000];
-  for (const probe of probes) {
-    const batch = await Promise.all([
-      checkId(probe), checkId(probe - 500), checkId(probe + 500)
-    ]);
-    const found = batch.find(b => b !== null);
-    if (found) {
-      cachedAnchorId = found.id;
-      return found.id;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const parts = Object.fromEntries(
+        formatter.formatToParts(new Date(timestamp))
+          .filter(part => part.type !== "literal")
+          .map(part => [part.type, Number(part.value)])
+      );
+      const representedTimestamp = Date.UTC(
+        parts.year,
+        parts.month - 1,
+        parts.day,
+        parts.hour,
+        parts.minute,
+        parts.second
+      );
+      const nextTimestamp = localTimestamp - (representedTimestamp - timestamp);
+      if (nextTimestamp === timestamp) break;
+      timestamp = nextTimestamp;
     }
+  } catch {
+    const fallback = new Date(text);
+    return Number.isNaN(fallback.getTime()) ? null : fallback;
   }
-  return 51576;
+
+  const result = new Date(timestamp);
+  return Number.isNaN(result.getTime()) ? null : result;
 }
 
-async function scanRange(anchorId, rangeSize = 300) {
-  const start = Math.max(1, anchorId - rangeSize);
-  const end = anchorId + 400;
-  const ids = [];
-  for (let i = start; i <= end; i++) ids.push(i);
-
-  const BATCH = 20;
-  const results = [];
-  for (let i = 0; i < ids.length; i += BATCH) {
-    const batch = ids.slice(i, i + BATCH);
-    const batchResults = await Promise.all(batch.map(id => checkId(id)));
-    batchResults.forEach(r => { if (r) results.push(r); });
+function getEventStatus(event) {
+  const suppliedStatus = String(event.status || "").trim().toLowerCase();
+  if (["live", "en vivo", "in_progress", "in progress"].includes(suppliedStatus)) {
+    return "EN VIVO";
   }
-  return results;
+  if (["finished", "finalizado", "complete", "completed"].includes(suppliedStatus)) {
+    return "FINALIZADO";
+  }
+  if (["upcoming", "pronto", "scheduled"].includes(suppliedStatus)) {
+    return "PROXIMO";
+  }
+
+  const start = parseEventDate(event);
+  if (!start) return "PROXIMO";
+
+  const duration = Number(event.duration || 150) + Number(event.extraTime || 0);
+  const end = new Date(start.getTime() + duration * 60_000);
+  const now = Date.now();
+
+  if (now < start.getTime()) return "PROXIMO";
+  if (now <= end.getTime()) return "EN VIVO";
+  return "FINALIZADO";
+}
+
+function getChannelLanguage(server) {
+  const languages = Array.isArray(server.languages)
+    ? server.languages
+        .map(language => typeof language === "string" ? language : language?.name || language?.code)
+        .filter(Boolean)
+    : [];
+
+  return languages[0] || server.customLanguages || "es";
 }
 
 async function scrapTransmisiones() {
-  console.log("📺 Obteniendo transmisiones desde gooz.aapmains.net...");
+  console.log(`📺 Obteniendo transmisiones desde ${AGENDA_URL}...`);
   const startTime = Date.now();
 
   try {
-    const anchorId = await findAnchorId();
-    console.log(`🎯 Anchor ID encontrado: ${anchorId}`);
+    const response = await axios.get(AGENDA_URL, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://streamxhd.sbs/",
+        "Accept": "application/json, */*"
+      },
+      timeout: 15_000
+    });
 
-    const rawEvents = await scanRange(anchorId, 300);
-
-    if (rawEvents.length > 0) {
-      cachedAnchorId = Math.max(...rawEvents.map(e => e.id));
+    if (!Array.isArray(response.data?.sports)) {
+      throw new Error("La fuente no devolvió una agenda válida");
     }
 
-    const eventMap = new Map();
+    const transmisiones = [];
+    for (const sport of response.data.sports) {
+      for (const league of Array.isArray(sport.leagues) ? sport.leagues : []) {
+        for (const event of Array.isArray(league.events) ? league.events : []) {
+          const servidores = Array.isArray(event.servers)
+            ? event.servers.filter(server => server && server.active !== false && server.url)
+            : [];
+          if (servidores.length === 0) continue;
 
-    for (const ev of rawEvents) {
-      if (!eventMap.has(ev.evento)) {
-        const deporte = detectSport(ev.evento);
-        const { equipo1, equipo2 } = extractTeams(ev.evento);
-        eventMap.set(ev.evento, {
-          evento: ev.evento,
-          liga: deporte,
-          deporte,
-          equipo1,
-          equipo2,
-          estado: "EN VIVO",
-          embedId: ev.id,
-          canales: []
-        });
+          const eventName = String(
+            event.title ||
+            event.name ||
+            [event.homeTeam, event.awayTeam].filter(Boolean).join(" vs ") ||
+            "Evento deportivo"
+          ).trim();
+          const teams = extractTeams(eventName);
+          const deporte = normalizeSport(sport.name, eventName);
+          const eventLeague = event.league || event.competition || event.tournament || league.name || deporte;
+
+          transmisiones.push({
+            evento: eventName,
+            liga: eventLeague,
+            deporte,
+            equipo1: event.homeTeam || teams.equipo1,
+            equipo2: event.awayTeam || teams.equipo2,
+            estado: getEventStatus(event),
+            embedId: event.id ?? event.eventId ?? event.event_id ?? null,
+            canales: servidores.map((server, index) => ({
+              nombre: server.name || (index === 0 ? "Stream Principal" : `Canal ${index + 1}`),
+              idioma: getChannelLanguage(server),
+              calidad: server.quality || "720p",
+              url: new URL(server.url, "https://streamxhd.sbs/").toString()
+            }))
+          });
+        }
       }
-
-      const entry = eventMap.get(ev.evento);
-      const canalNum = entry.canales.length + 1;
-      entry.canales.push({
-        nombre: canalNum === 1 ? "Stream Principal" : `Canal ${canalNum}`,
-        idioma: "es",
-        calidad: "720p",
-        url: ev.embedUrl
-      });
     }
-
-    const transmisiones = Array.from(eventMap.values());
 
     const deportes = {};
     transmisiones.forEach(t => {
@@ -180,13 +241,14 @@ async function scrapTransmisiones() {
     });
 
     const elapsedTime = Date.now() - startTime;
-    console.log(`✅ gooz.aapmains.net: ${transmisiones.length} eventos en vivo en ${elapsedTime}ms`);
+    const enVivo = transmisiones.filter(transmision => transmision.estado === "EN VIVO").length;
+    console.log(`✅ streamxhd.sbs: ${transmisiones.length} eventos en ${elapsedTime}ms`);
 
     return {
       total: transmisiones.length,
-      enVivo: transmisiones.length,
+      enVivo,
       actualizado: new Date().toISOString(),
-      fuente: "gooz.aapmains.net",
+      fuente: "streamxhd.sbs",
       deportes,
       deportesDisponibles: Object.keys(deportes),
       elapsedTime: `${elapsedTime}ms`,
