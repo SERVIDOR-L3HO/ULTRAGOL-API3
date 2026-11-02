@@ -1719,6 +1719,28 @@ app.get("/gol-3", async (req, res) => {
     let data = cache.get("transmisiones3");
     const formatResponse = (payload) => {
       const getSport = (event) => {
+        const category = String(event.deporte || "").trim().toLowerCase();
+        const categoryMap = {
+          "fútbol": "Fútbol",
+          "football": "Fútbol",
+          "soccer": "Fútbol",
+          "basketball": "Baloncesto",
+          "baloncesto": "Baloncesto",
+          "american football": "Fútbol americano",
+          "fútbol americano": "Fútbol americano",
+          "hockey": "Hockey",
+          "motor": "Automovilismo",
+          "motorsport": "Automovilismo",
+          "tennis": "Tenis",
+          "tenis": "Tenis",
+          "baseball": "Béisbol",
+          "béisbol": "Béisbol",
+          "boxing": "Boxeo",
+          "boxeo": "Boxeo",
+          "mma": "MMA"
+        };
+        if (categoryMap[category]) return categoryMap[category];
+
         const searchText = `${event.liga || ""} ${event.titulo || ""}`.toLowerCase();
         if (/\bnba\b|basketball|baloncesto/.test(searchText)) return "Baloncesto";
         if (/\bnhl\b|hockey/.test(searchText)) return "Hockey";
@@ -1767,7 +1789,7 @@ app.get("/gol-3", async (req, res) => {
         total: transmisiones.length,
         enVivo: transmisiones.filter(event => event.estado === "EN VIVO").length,
         actualizado: payload?.actualizado || new Date().toISOString(),
-        fuente: payload?.fuente || "futbollibretvs.co",
+        fuente: payload?.fuente || "streamtp.site",
         deportes,
         deportesDisponibles: Object.keys(deportes),
         elapsedTime: payload?.elapsedTime || "0ms",
@@ -1776,7 +1798,7 @@ app.get("/gol-3", async (req, res) => {
     };
 
     if (!data) {
-      console.log("📺 Obteniendo transmisiones desde futbollibretvs.co (caché vacío)...");
+      console.log("📺 Obteniendo transmisiones desde streamtp.site (caché vacío)...");
       try {
         data = await scrapTransmisiones3();
         if (data && data.total > 0) {
@@ -1796,7 +1818,7 @@ app.get("/gol-3", async (req, res) => {
   } catch (error) {
     console.error("Error en /gol-3:", error.message);
     res.status(500).json({
-      error: "No se pudieron obtener las transmisiones desde futbollibretvs.co",
+      error: "No se pudieron obtener las transmisiones desde streamtp.site",
       detalles: error.message
     });
   }
