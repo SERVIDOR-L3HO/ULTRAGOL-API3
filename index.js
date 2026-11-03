@@ -6111,6 +6111,14 @@ app.get('/api/embed/adblocker-play', async (req, res) => {
   const ref = referer || 'https://unlimplay.com/';
   const title = titulo ? titulo.replace(/</g,'&lt;').replace(/>/g,'&gt;') : 'Video';
   const dlName = (titulo || 'video').replace(/[^a-zA-Z0-9 ._-]/g,'_') + '_UltraGol.m3u8';
+  const isLiveStream = (() => {
+    try {
+      const source = new URL(ref);
+      return source.hostname === 'streamxhd.sbs' && /^\/live[12]\.php$/.test(source.pathname);
+    } catch {
+      return false;
+    }
+  })();
   const proxiedM3u8 = `${base}/servpeli-stream?url=${encodeURIComponent(m3u8)}&referer=${encodeURIComponent(ref)}`;
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -6250,10 +6258,29 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:-ap
   .quality-btn{min-width:41px;padding:0 4px}
   #connectionStatus{display:none}
 }
+#wrap.live-mode .channel-kicker{display:none}
+#wrap.live-mode #pw,
+#wrap.live-mode #vs,
+#wrap.live-mode #bpp,
+#wrap.live-mode #td,
+#wrap.live-mode #bdl,
+#wrap.live-mode #bpip{display:none!important}
+#wrap.live-mode #ctrl{padding:0 18px calc(14px + env(safe-area-inset-bottom))}
+#wrap.live-mode #bottomRight{flex:1;justify-content:flex-end;gap:12px}
+#wrap.live-mode #connectionStatus{display:flex;margin-right:6px;font-size:10px}
+#wrap.live-mode #connectionText{font-size:10px}
+#wrap.live-mode #qb:disabled{opacity:.88;cursor:default}
+@media(max-width:600px){
+  #wrap.live-mode #ctrl{padding:0 12px calc(10px + env(safe-area-inset-bottom))}
+}
+@media(max-width:380px){
+  #wrap.live-mode #connectionStatus{display:flex;font-size:8px;letter-spacing:.3px}
+  #wrap.live-mode #titletxt{max-width:29vw}
+}
 </style>
 </head>
 <body>
-<div id="wrap" data-src="${encodeURIComponent(proxiedM3u8)}" data-raw="${encodeURIComponent(m3u8)}" data-dl="${encodeURIComponent(dlName)}">
+<div id="wrap" class="${isLiveStream ? 'live-mode' : ''}" data-src="${encodeURIComponent(proxiedM3u8)}" data-raw="${encodeURIComponent(m3u8)}" data-dl="${encodeURIComponent(dlName)}">
   <video id="v" playsinline webkit-playsinline autoplay muted></video>
   <div class="ov-top"></div>
   <div class="ov-bot"></div>
@@ -6352,13 +6379,29 @@ var bpp=document.getElementById('bpp'),ip=document.getElementById('ip'),ipa=docu
 var td=document.getElementById('td'),bm=document.getElementById('bm'),iv=document.getElementById('iv'),im=document.getElementById('im');
 var vs=document.getElementById('vs'),bfs=document.getElementById('bfs'),ifs=document.getElementById('ifs'),iex=document.getElementById('iex');
 var qb=document.getElementById('qb'),bdl=document.getElementById('bdl'),bpip=document.getElementById('bpip');
+var connectionDot=document.getElementById('connectionDot'),connectionText=document.getElementById('connectionText');
 var pw=document.getElementById('pw'),pf=document.getElementById('pf'),pbf=document.getElementById('pbf'),pt=document.getElementById('pt');
 var swLbl=document.getElementById('swipe-lbl');
 var hideTimer,scrubbing=false,wasPlay=false,hls;
 var swipeStartX=null,swipeStartT=null,swipeDelta=0,swipeActive=false,swipeLblTimer;
 
+function setConnectionState(state){
+  if(!connectionDot||!connectionText)return;
+  connectionDot.classList.remove('connected','disconnected');
+  if(state==='connected'){
+    connectionDot.classList.add('connected');
+    connectionText.textContent='CONECTADO';
+  }else if(state==='disconnected'){
+    connectionDot.classList.add('disconnected');
+    connectionText.textContent='SIN SEÑAL';
+  }else{
+    connectionText.textContent='CONECTANDO';
+  }
+}
+
 // ── HLS ────────────────────────────────────────────────────────────────────────
 function initHls(){
+  setConnectionState('connecting');
   sp2.classList.add('on');
   if(Hls.isSupported()){
     hls=new Hls({maxBufferLength:40,maxMaxBufferLength:120,enableWorker:true,startLevel:-1});
@@ -6371,7 +6414,11 @@ function initHls(){
         video.muted=true;
         video.play().catch(function(){});
       });
-      if(d.levels&&d.levels.length>1){qb.style.display='';updateQ();}
+      if(d.levels&&d.levels.length){
+        qb.style.display='';
+        qb.disabled=d.levels.length<2;
+        updateQ();
+      }
     });
     hls.on(Hls.Events.LEVEL_SWITCHED,updateQ);
     hls.on(Hls.Events.ERROR,function(e,d){
@@ -6388,7 +6435,11 @@ function initHls(){
 function updateQ(){
   if(!hls)return;
   var l=hls.currentLevel;
-  if(l===-1){qb.textContent='AUTO';return;}
+  if(l===-1){
+    var available=hls.levels&&hls.levels.length===1?hls.levels[0]:null;
+    qb.textContent=available&&available.height?available.height+'P':'AUTO';
+    return;
+  }
   var lv=hls.levels[l];
   qb.textContent=lv&&lv.height?lv.height+'p':'AUTO';
 }
@@ -6445,8 +6496,8 @@ video.addEventListener('pause',function(){setIco(false);showCtrl();});
 bpp.addEventListener('click',function(e){e.stopPropagation();togglePlay();});
 
 // ── Buffer spinner ─────────────────────────────────────────────────────────────
-video.addEventListener('waiting',function(){sp2.classList.add('on');});
-video.addEventListener('playing',function(){sp2.classList.remove('on');});
+video.addEventListener('waiting',function(){sp2.classList.add('on');setConnectionState('connecting');});
+video.addEventListener('playing',function(){sp2.classList.remove('on');setConnectionState('connected');});
 video.addEventListener('canplay',function(){sp2.classList.remove('on');});
 
 // ── Swipe to seek ──────────────────────────────────────────────────────────────
@@ -6546,7 +6597,7 @@ document.addEventListener('mousemove',showCtrl);
 document.addEventListener('touchstart',showCtrl,{passive:true});
 
 // ── Error ──────────────────────────────────────────────────────────────────────
-function showErr(msg){sp2.classList.remove('on');erMsg.textContent=msg||'Error al reproducir';erEl.classList.add('on');}
+function showErr(msg){sp2.classList.remove('on');setConnectionState('disconnected');erMsg.textContent=msg||'Error al reproducir';erEl.classList.add('on');}
 video.addEventListener('error',function(){var e=video.error;showErr(e?'Error '+e.code+': '+(e.message||''):'Error desconocido');});
 
 initHls();showCtrl();
