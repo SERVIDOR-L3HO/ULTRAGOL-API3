@@ -1664,7 +1664,12 @@ function addGol1PlayerLinks(data, req) {
       ...evento,
       canales: Array.isArray(evento.canales)
         ? evento.canales.map(canal => {
-            if (!canal || typeof canal.url !== "string" || !canal.url) return canal;
+            if (!canal || typeof canal !== "object") return canal;
+
+            const canalActualizado = { ...canal };
+            delete canalActualizado.player_url;
+
+            if (typeof canal.url !== "string" || !canal.url) return canalActualizado;
 
             const params = new URLSearchParams({
               url: canal.url,
@@ -1672,8 +1677,8 @@ function addGol1PlayerLinks(data, req) {
               referer: "https://streamxhd.sbs/"
             });
             return {
-              ...canal,
-              player_url: `${baseUrl}/embed/player?${params.toString()}`
+              ...canalActualizado,
+              url: `${baseUrl}/embed/player?${params.toString()}`
             };
           })
         : evento.canales
