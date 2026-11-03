@@ -60,8 +60,10 @@ function isAdScript(content) {
   return AD_SCRIPT_PATTERNS.some(p => p.test(content));
 }
 
-function rewriteStreamUrl(url) {
-  return `${STREAM_PATH}?url=${encodeURIComponent(url)}`;
+function rewriteStreamUrl(url, referer) {
+  const params = new URLSearchParams({ url });
+  if (referer) params.set('referer', referer);
+  return `${STREAM_PATH}?${params.toString()}`;
 }
 
 function resolveAbsoluteUrl(url, baseUrl) {
@@ -153,7 +155,7 @@ function rewriteCss(css, pageUrl) {
   });
 }
 
-function processM3u8Manifest(content, manifestUrl) {
+function processM3u8Manifest(content, manifestUrl, referer) {
   const lines = content.split('\n');
   const result = lines.map(line => {
     const trimmed = line.trim();
@@ -162,12 +164,12 @@ function processM3u8Manifest(content, manifestUrl) {
     if (trimmed.startsWith('#')) {
       return trimmed.replace(/URI="([^"]+)"/g, (match, uri) => {
         const abs = resolveAbsoluteUrl(uri, manifestUrl);
-        return `URI="${rewriteStreamUrl(abs)}"`;
+        return `URI="${rewriteStreamUrl(abs, referer)}"`;
       });
     }
 
     const abs = resolveAbsoluteUrl(trimmed, manifestUrl);
-    return rewriteStreamUrl(abs);
+    return rewriteStreamUrl(abs, referer);
   });
   return result.join('\n');
 }
@@ -500,6 +502,9 @@ async function proxyServpeliStream(req, res) {
       if (req.headers['range']) requestHeaders['Range'] = req.headers['range'];
     } else {
       requestHeaders = buildRequestHeaders(req, referer);
+      if (isStreamXhdLiveUrl(referer)) {
+        requestHeaders.Origin = new URL(referer).origin;
+      }
     }
 
     const response = await axios.get(targetUrl, {
@@ -519,7 +524,7 @@ async function proxyServpeliStream(req, res) {
 
     if (isM3u8) {
       const manifest = response.data.toString('utf-8');
-      const processed = processM3u8Manifest(manifest, targetUrl);
+      const processed = processM3u8Manifest(manifest, targetUrl, referer);
       res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
       res.setHeader('Cache-Control', 'no-cache');
       console.log(`[servpeli-stream] M3U8 proxied: ${targetUrl}`);
@@ -1920,6 +1925,19 @@ function findM3u8InText(text) {
   return matches ? matches[0] : null;
 }
 
+function isStreamXhdLiveUrl(value) {
+  try {
+    const parsed = new URL(value);
+    const channel = parsed.searchParams.get("stream") || "";
+    return parsed.protocol === "https:"
+      && parsed.hostname === "streamxhd.sbs"
+      && parsed.pathname === "/live1.php"
+      && /^[a-z0-9-]{1,64}$/i.test(channel);
+  } catch {
+    return false;
+  }
+}
+
 const EMBED_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -1938,6 +1956,13 @@ async function extractM3u8FromEmbed(embedUrl, referer, cookies) {
     console.log(`[embed/m3u8] VOE.sx: ${embedUrl}${cookies ? ' (con cookies)' : ' (sin cookies)'}`);
     result = await extractVoe(embedUrl, referer, cookies || null);
     // Solo cachear si tuvo éxito; sin cookies el resultado es siempre falla y no vale cachearlo
+    if (result.ok) embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
+    return result;
+  }
+
+  if (isStreamXhdLiveUrl(embedUrl)) {
+    console.log(`[embed/m3u8] StreamXHD browser capture: ${embedUrl}`);
+    result = await extractM3u8WithBrowser(embedUrl, referer);
     if (result.ok) embedM3u8Cache.set(cacheKey, { data: result, ts: Date.now() });
     return result;
   }

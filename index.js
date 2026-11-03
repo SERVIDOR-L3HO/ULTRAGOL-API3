@@ -5907,6 +5907,25 @@ function cleanEmbedHtml(html, embedUrl) {
   return $.html();
 }
 
+// Alias compatible con los enlaces antiguos /embed/player?url=...&title=...
+app.get('/embed/player', (req, res) => {
+  const url = typeof req.query.url === 'string' ? req.query.url : '';
+  if (!url) return res.status(400).send('Parámetro ?url= requerido');
+
+  const params = new URLSearchParams({ url });
+  const title = typeof req.query.title === 'string'
+    ? req.query.title
+    : (typeof req.query.titulo === 'string' ? req.query.titulo : '');
+  const referer = typeof req.query.referer === 'string' ? req.query.referer : '';
+  const cookies = typeof req.query.cookies === 'string' ? req.query.cookies : '';
+
+  if (title) params.set('titulo', title);
+  if (referer) params.set('referer', referer);
+  if (cookies) params.set('cookies', cookies);
+
+  return res.redirect(302, `/api/embed/adblocker?${params.toString()}`);
+});
+
 // GET /api/embed/adblocker?url=https://bysedikamoum.com/e/xxx[&referer=&titulo=]
 // Extrae el m3u8 server-side y sirve nuestro propio player HLS limpio.
 // Si el m3u8 ya está en caché (pre-calentado por la API), redirige al player instantáneamente.
