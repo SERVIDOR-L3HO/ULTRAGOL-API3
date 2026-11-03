@@ -1654,6 +1654,33 @@ function applyBolalocoProxy(obj, baseUrl) {
   return obj;
 }
 
+function addGol1PlayerLinks(data, req) {
+  if (!data || !Array.isArray(data.transmisiones)) return data;
+
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  return {
+    ...data,
+    transmisiones: data.transmisiones.map(evento => ({
+      ...evento,
+      canales: Array.isArray(evento.canales)
+        ? evento.canales.map(canal => {
+            if (!canal || typeof canal.url !== "string" || !canal.url) return canal;
+
+            const params = new URLSearchParams({
+              url: canal.url,
+              title: [evento.evento, canal.nombre].filter(Boolean).join(" - ") || "Transmisión",
+              referer: "https://streamxhd.sbs/"
+            });
+            return {
+              ...canal,
+              player_url: `${baseUrl}/embed/player?${params.toString()}`
+            };
+          })
+        : evento.canales
+    }))
+  };
+}
+
 app.get("/gol-1", async (req, res) => {
   try {
     let data = cache.get("transmisiones");
@@ -1667,13 +1694,13 @@ app.get("/gol-1", async (req, res) => {
         const staleData = cache.getStale("transmisiones");
         if (staleData) {
           console.warn("⚠️ Usando caché stale para transmisiones:", fetchError.message);
-          return res.json({ ...staleData, _stale: true });
+          return res.json(addGol1PlayerLinks({ ...staleData, _stale: true }, req));
         }
         throw fetchError;
       }
     }
 
-    res.json(data);
+    res.json(addGol1PlayerLinks(data, req));
   } catch (error) {
     console.error("Error en /gol-1:", error.message);
     res.status(500).json({ 

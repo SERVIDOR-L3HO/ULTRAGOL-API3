@@ -2,3 +2,4 @@
 - [ZonaAPS embed scraping](zonaaps-embed-scraping.md) — resolve TMDB titles to WordPress post IDs before querying Dooplay's player API for embeds.
 - [Nova stream proxy](nova-stream-proxy.md) — keep HLS URLs stable by channel and refresh source sessions; in-memory relay keys alone expire on restarts and token rollover.
 - [HLS proxy referers](hls-proxy-referer.md) — preserve the source-page referrer through nested manifests and segments; a successful master playlist does not prove playback.
+- [Live-player scope](live-player-scope.md) — keep the compact UI for live streams; VOD keeps full controls.
