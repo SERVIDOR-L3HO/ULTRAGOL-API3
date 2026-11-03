@@ -1931,7 +1931,7 @@ function isStreamXhdLiveUrl(value) {
     const channel = parsed.searchParams.get("stream") || "";
     return parsed.protocol === "https:"
       && parsed.hostname === "streamxhd.sbs"
-      && parsed.pathname === "/live1.php"
+      && /^\/live[12]\.php$/.test(parsed.pathname)
       && /^[a-z0-9-]{1,64}$/i.test(channel);
   } catch {
     return false;
