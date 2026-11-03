@@ -6177,6 +6177,79 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:-ap
 #er p{color:#fff;font-size:14px;text-align:center;max-width:280px;line-height:1.6;opacity:.85}
 #er button{background:var(--accent);color:#fff;border:none;padding:10px 26px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
 :fullscreen #wrap,:-webkit-full-screen #wrap{width:100vw;height:100vh}
+:root{--accent:#3278f6;--accent2:#79a8ff}
+#v{object-fit:contain}
+.ov-top{height:150px;background:linear-gradient(to bottom,rgba(0,0,0,.62),transparent);transition:opacity .25s}
+.ov-bot{height:150px;background:linear-gradient(to top,rgba(0,0,0,.72),transparent);transition:opacity .25s}
+#titlebar{padding:14px 18px;align-items:flex-start;justify-content:space-between;gap:18px;transition:opacity .25s}
+.channel-info{display:flex;align-items:center;gap:11px;min-width:0;padding:3px 0}
+.brand-mark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:10px;font-weight:900;letter-spacing:-.5px;flex:none;text-shadow:0 1px 4px rgba(0,0,0,.55)}
+.channel-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
+.channel-kicker{color:rgba(255,255,255,.64);font-size:9px;font-weight:800;letter-spacing:1.15px;text-shadow:0 1px 4px rgba(0,0,0,.85)}
+#titletxt{font-size:14px;font-weight:750;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(42vw,420px)}
+.player-actions{display:flex;align-items:center;gap:11px;pointer-events:none}
+#wrap.show .player-actions{pointer-events:auto}
+.action-btn{width:42px;height:42px;border:1px solid rgba(255,255,255,.34);border-radius:50%;background:rgba(7,12,20,.25);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .18s,border-color .18s,transform .15s;flex:none}
+.action-btn:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.72)}
+.action-btn:active{transform:scale(.92)}
+.action-btn svg{width:23px;height:23px;display:block;filter:drop-shadow(0 1px 3px rgba(0,0,0,.75))}
+.quality-btn{width:auto;min-width:54px;height:38px;padding:0 9px;border-radius:7px;font-size:12px;font-weight:800;letter-spacing:.25px}
+#favoriteBtn.is-favorite{color:#ff5263;border-color:rgba(255,82,99,.85);background:rgba(255,82,99,.16)}
+#ctrl{padding:0 18px 13px;transition:opacity .25s;pointer-events:none}
+#wrap.show #ctrl{pointer-events:auto}
+#pw{height:18px;margin-bottom:5px}
+#pb{height:3px;background:rgba(255,255,255,.42);border-radius:3px}
+#pbf{height:3px;background:rgba(255,255,255,.58);border-radius:3px}
+#pf{height:3px;background:linear-gradient(90deg,#fff,#dce7ff);border-radius:3px}
+#pt{width:12px;height:12px;box-shadow:0 0 7px rgba(0,0,0,.65);margin-top:-6px}
+#pw:hover #pb,#pw:hover #pbf,#pw:hover #pf{height:4px}
+#br{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:38px}
+.control-group{display:flex;align-items:center;gap:8px;min-width:0}
+.btn{width:38px;height:38px;border-radius:50%}
+.btn:hover{background:rgba(255,255,255,.16)}
+#td{font-size:11px;color:rgba(255,255,255,.9);letter-spacing:.2px;padding:0 3px}
+#vw{display:flex;align-items:center;gap:4px}
+#vs{width:58px;background:rgba(255,255,255,.42)}
+#bottomRight{gap:9px}
+#connectionStatus{display:flex;align-items:center;gap:6px;color:rgba(255,255,255,.82);font-size:9px;font-weight:800;letter-spacing:1px;text-shadow:0 1px 4px rgba(0,0,0,.8);white-space:nowrap;margin-right:3px}
+.connection-dot{width:7px;height:7px;border-radius:50%;background:#f5b942;box-shadow:0 0 8px rgba(245,185,66,.55)}
+.connection-dot.connected{background:#46df9a;box-shadow:0 0 9px rgba(70,223,154,.75)}
+.connection-dot.disconnected{background:#ff5969;box-shadow:0 0 9px rgba(255,89,105,.65)}
+#helpModal{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:30;padding:20px}
+#helpModal.open{display:flex}
+#helpBackdrop{position:absolute;inset:0;background:rgba(0,0,0,.62);backdrop-filter:blur(5px)}
+.help-card{position:relative;width:min(360px,100%);padding:24px;border:1px solid rgba(255,255,255,.18);border-radius:18px;background:rgba(17,22,31,.94);color:#fff;box-shadow:0 20px 70px rgba(0,0,0,.45)}
+.help-card h2{font-size:17px;margin:0 36px 16px 0}
+.help-card p{font-size:13px;line-height:1.55;color:rgba(255,255,255,.72);margin:10px 0}
+#helpClose{position:absolute;top:14px;right:14px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#fff;font-size:20px;cursor:pointer}
+#playerToast{position:absolute;left:50%;bottom:76px;transform:translate(-50%,8px);z-index:40;background:rgba(18,22,30,.92);border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:9px 14px;color:#fff;font-size:12px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;white-space:nowrap}
+#playerToast.on{opacity:1;transform:translate(-50%,0)}
+@media(max-width:600px){
+  #titlebar{padding:11px 10px;gap:8px}
+  .channel-info{gap:7px}
+  .brand-mark{width:26px;height:26px;border-radius:8px}
+  .channel-kicker{font-size:8px;letter-spacing:.8px}
+  #titletxt{font-size:12px;max-width:34vw}
+  .player-actions{gap:6px}
+  .action-btn{width:36px;height:36px}
+  .action-btn svg{width:20px;height:20px}
+  .quality-btn{min-width:46px;height:33px;padding:0 6px;font-size:10px}
+  #ctrl{padding:0 10px 9px}
+  #br{gap:6px}
+  .control-group{gap:3px}
+  .btn{width:34px;height:34px}
+  #vs{width:42px}
+  #connectionStatus{font-size:8px;letter-spacing:.55px;gap:4px}
+  #bottomRight{gap:2px}
+}
+@media(max-width:380px){
+  .channel-kicker{display:none}
+  #titletxt{max-width:31vw}
+  .player-actions{gap:4px}
+  .action-btn{width:32px;height:32px}
+  .quality-btn{min-width:41px;padding:0 4px}
+  #connectionStatus{display:none}
+}
 </style>
 </head>
 <body>
@@ -6185,8 +6258,25 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:-ap
   <div class="ov-top"></div>
   <div class="ov-bot"></div>
   <div id="titlebar">
-    <img id="logo-s" src="/public/ultragol-logo.png" alt="UltraGol">
-    <span id="titletxt">${title}</span>
+    <div class="channel-info">
+      <span class="brand-mark" aria-hidden="true">UG</span>
+      <div class="channel-copy">
+        <span class="channel-kicker">ENLACE DE TRANSMISIÓN</span>
+        <span id="titletxt">${title}</span>
+      </div>
+    </div>
+    <div class="player-actions" aria-label="Acciones del reproductor">
+      <button class="action-btn" id="shareBtn" type="button" title="Compartir" aria-label="Compartir transmisión">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.7 6.8-4.4M8.6 13.3l6.8 4.4"/></svg>
+      </button>
+      <button class="action-btn" id="helpBtn" type="button" title="Ayuda" aria-label="Ayuda del reproductor">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1.1 1-1.8 1.3-1.8 2.7"/><path d="M12 17h.01"/></svg>
+      </button>
+      <button class="btn action-btn quality-btn" id="qb" type="button" title="Cambiar calidad" aria-label="Cambiar calidad" style="display:none">AUTO</button>
+      <button class="action-btn" id="favoriteBtn" type="button" title="Agregar a favoritos" aria-label="Agregar a favoritos" aria-pressed="false">
+        <svg id="heartIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 8.7c0 5.1-8.8 10-8.8 10s-8.8-4.9-8.8-10A4.7 4.7 0 0 1 12 6.1a4.7 4.7 0 0 1 8.8 2.6Z"/></svg>
+      </button>
+    </div>
   </div>
   <div id="sp2">
     <svg width="54" height="54" viewBox="0 0 54 54" fill="none">
@@ -6199,33 +6289,36 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:-ap
   <div id="ctrl">
     <div id="pw"><div id="pb"></div><div id="pbf"></div><div id="pf"></div><div id="pt"></div></div>
     <div id="br">
-      <button class="btn" id="bpp" title="Play/Pausa">
-        <svg id="ip" width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-        <svg id="ipa" width="28" height="28" viewBox="0 0 24 24" fill="white" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-      </button>
-      <span id="td">0:00 / 0:00</span>
-      <div id="sp"></div>
-      <div id="vw">
-        <button class="btn" id="bm" title="Mute">
-          <svg id="iv" width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-          <svg id="im" width="22" height="22" viewBox="0 0 24 24" fill="white" style="display:none"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+      <div class="control-group" id="bottomLeft">
+        <div id="vw">
+          <button class="btn" id="bm" type="button" title="Silenciar" aria-label="Silenciar">
+            <svg id="iv" width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            <svg id="im" width="22" height="22" viewBox="0 0 24 24" fill="white" style="display:none"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+          </button>
+          <input type="range" id="vs" min="0" max="1" step="0.02" value="1" aria-label="Volumen">
+        </div>
+        <button class="btn" id="bpp" type="button" title="Reproducir o pausar" aria-label="Reproducir o pausar">
+          <svg id="ip" width="23" height="23" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="ipa" width="23" height="23" viewBox="0 0 24 24" fill="white" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
         </button>
-        <input type="range" id="vs" min="0" max="1" step="0.02" value="1">
+        <span id="td">0:00 / 0:00</span>
       </div>
-      <button class="btn" id="qb" title="Calidad" style="display:none">AUTO</button>
-      <!-- Descargar -->
-      <button class="btn" id="bdl" title="Descargar">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-      </button>
-      <!-- Picture-in-Picture -->
-      <button class="btn" id="bpip" title="Flotante">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M19 11h-8v6h8v-6zm4 10V3H1v18h22zm-2-1.98H3V4.97h18v14.05z"/></svg>
-      </button>
-      <!-- Fullscreen -->
-      <button class="btn" id="bfs" title="Pantalla completa">
-        <svg id="ifs" width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
-        <svg id="iex" width="22" height="22" viewBox="0 0 24 24" fill="white" style="display:none"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
-      </button>
+      <div class="control-group" id="bottomRight">
+        <div id="connectionStatus" aria-live="polite">
+          <span class="connection-dot" id="connectionDot"></span>
+          <span id="connectionText">CONECTANDO</span>
+        </div>
+        <button class="btn" id="bdl" type="button" title="Descargar" aria-label="Descargar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        </button>
+        <button class="btn" id="bpip" type="button" title="Reproductor flotante" aria-label="Reproductor flotante">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M19 11h-8v6h8v-6zm4 10V3H1v18h22zm-2-1.98H3V4.97h18v14.05z"/></svg>
+        </button>
+        <button class="btn" id="bfs" type="button" title="Pantalla completa" aria-label="Pantalla completa">
+          <svg id="ifs" width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+          <svg id="iex" width="22" height="22" viewBox="0 0 24 24" fill="white" style="display:none"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
+        </button>
+      </div>
     </div>
   </div>
   <div id="er">
@@ -6233,6 +6326,17 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:-ap
     <p id="em">Error al cargar el video</p>
     <button onclick="location.reload()">Reintentar</button>
   </div>
+  <div id="helpModal" aria-hidden="true">
+    <div id="helpBackdrop"></div>
+    <section class="help-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <button id="helpClose" type="button" aria-label="Cerrar ayuda">×</button>
+      <h2 id="helpTitle">Controles del reproductor</h2>
+      <p>Toca el video para mostrar u ocultar los controles.</p>
+      <p>Usa el icono de calidad para cambiar la resolución cuando haya varias disponibles.</p>
+      <p>El botón de pantalla completa expande el video; el corazón guarda este canal en favoritos.</p>
+    </section>
+  </div>
+  <div id="playerToast" role="status" aria-live="polite"></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
 <script>
